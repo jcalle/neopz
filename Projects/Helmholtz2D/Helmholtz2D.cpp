@@ -172,7 +172,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         fileName.append(std::to_string(pOrder));
         fileName.append(".csv");
         std::ofstream errorFile(fileName.c_str());
-        errorFile << errorVec[0] << "," << errorVec[1] << "," << errorVec[2]
+        errorFile << neq << "," << errorVec[0] << "," << errorVec[1] << "," << errorVec[2]
                   << std::endl;
         errorFile.close();
         std::cout<<" Done!"<<std::endl;
