@@ -47,6 +47,7 @@ struct SPZModalAnalysisData{
     REAL scaleFactor;
     bool isTargetScaled;
     std::string meshFile;
+    bool externGenMesh;
     int meshOrder;
     bool refineP;
     int pSteps;

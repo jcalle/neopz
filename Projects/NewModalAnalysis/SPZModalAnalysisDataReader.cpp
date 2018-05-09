@@ -292,10 +292,23 @@ void SPZModalAnalysisDataReader::ReadParameters(SPZModalAnalysisData &data) {
   {
     data.pzOpts.meshFile = path + prm.get("Mesh file");//anything
     std::string &str = data.pzOpts.meshFile;
-    if(str.size() == 0 || str.substr(str.size()-4,4) != ".geo" || !FileExists(str)){
+    data.pzOpts.externGenMesh = false;
+    while(str.size() == 0 || str.substr(str.size()-4,4) != ".geo" || !FileExists(str)){
+      if(str.substr(str.size()-4,4) == ".msh"){
+        if(FileExists(str)){
+          data.pzOpts.externGenMesh = true;
+          break;
+        }
+      }
       std::cout<<"Input a valid mesh file: "<<std::endl;
       std::cin >> data.pzOpts.meshFile;
         if(str.size() == 0 || str.substr(str.size()-4,4) != ".geo" || !FileExists(str)){
+        if(str.substr(str.size()-4,4) == ".msh"){
+          if(FileExists(str)){
+              data.pzOpts.externGenMesh = true;
+              break;
+          }
+        }
         std::cout<<"Not a valid name."<<std::endl;
         DebugStop();
       }
@@ -305,17 +318,19 @@ void SPZModalAnalysisDataReader::ReadParameters(SPZModalAnalysisData &data) {
     data.pzOpts.pOrder = (int) prm.get_integer("Polynomial order");//integer
     data.pzOpts.pSteps  = prm.get_integer("Number of iterations(p)");
     data.pzOpts.hSteps  = prm.get_integer("Number of iterations(h)");
-    std::string rawVec = prm.get("Factor");
-    const std::vector<std::string> split_list =
-            Utilities::split_string_list(rawVec, ",");
-    if(data.pzOpts.hSteps != split_list.size() ){
-      std::cout<<"Input data error while reading "<<"Factor"<<".\n";
-      DebugStop();
-    }
-    data.pzOpts.factorVec.Resize(data.pzOpts.hSteps);
-    for (int i = 0; i < split_list.size() ; i++){
-      const std::string & string = split_list[i];
-      data.pzOpts.factorVec[i] = (REAL)Utilities::string_to_double(string);
+    if(!data.pzOpts.externGenMesh){
+      std::string rawVec = prm.get("Factor");
+      const std::vector<std::string> split_list =
+              Utilities::split_string_list(rawVec, ",");
+      if(data.pzOpts.hSteps != split_list.size() ){
+        std::cout<<"Input data error while reading "<<"Factor"<<".\n";
+        DebugStop();
+      }
+      data.pzOpts.factorVec.Resize(data.pzOpts.hSteps);
+      for (int i = 0; i < split_list.size() ; i++){
+        const std::string & string = split_list[i];
+        data.pzOpts.factorVec[i] = (REAL)Utilities::string_to_double(string);
+      }
     }
     prm.enter_subsection("Export options");
     {

@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
     SPZModalAnalysisData simData;
     reader.ReadParameters(simData);
 
-    std::string meshOriginal = simData.pzOpts.meshFile;
+    const std::string meshOriginal = simData.pzOpts.meshFile;
     const int pOrderOrig = simData.pzOpts.pOrder;
 
     boost::posix_time::ptime t1_total =
@@ -111,19 +111,37 @@ int main(int argc, char *argv[]) {
             std::cout<<"lambda = "<<simData.physicalOpts.lambda<<std::endl;
         }
         for (int iH = 0; iH < simData.pzOpts.hSteps; ++iH) {
-            std::cout << "Beginning step " << iH + 1 << " out of " << simData.pzOpts.hSteps << "h steps."
+            std::cout << "Beginning step " << iH + 1 << " out of " << simData.pzOpts.hSteps << " h steps."
                       << std::endl;
-            const REAL factorVal = simData.pzOpts.factorVec[iH];
             simData.pzOpts.meshFile = meshOriginal.substr(0, meshOriginal.size() - 4);
-            if(simData.physicalOpts.freqVec.size() > 1 ) {
-                simData.pzOpts.meshFile += "f" + std::to_string(iFreq);
+            if(simData.pzOpts.externGenMesh){
+                if(iH>0){//refine by splitting
+                    const std::string command = "gmsh -v 3 -refine " + meshOriginal;
+                    std::cout<<"Generating mesh with: "<<std::endl<<command<<std::endl;
+                    std::array<char, 128> buffer;
+                    std::string result;
+                    std::shared_ptr<FILE> pipe(popen(command.c_str(), "r"), pclose);
+                    if (!pipe) throw std::runtime_error("popen() failed!");
+                    while (fgets(buffer.data(), 128, pipe.get()) != nullptr){
+                        result += buffer.data();
+                    }
+                    std::cout<<result<<std::endl;
+                }
+                simData.pzOpts.meshFile +=".msh";
             }
-            simData.pzOpts.meshFile += "ord" + std::to_string(simData.pzOpts.meshOrder);
-            simData.pzOpts.meshFile += "h" + std::to_string(iH);
-            simData.pzOpts.meshFile += ".msh";
-            CreateGmshMesh(meshOriginal, simData.pzOpts.meshFile,
-                           factorVal, simData.pzOpts.nThreads,
-                           simData.pzOpts.scaleFactor, simData.pzOpts.meshOrder);
+            else{
+                const REAL factorVal = simData.pzOpts.factorVec[iH];
+                if(simData.physicalOpts.freqVec.size() > 1 ) {
+                    simData.pzOpts.meshFile += "f" + std::to_string(iFreq);
+                }
+                simData.pzOpts.meshFile += "ord" + std::to_string(simData.pzOpts.meshOrder);
+                simData.pzOpts.meshFile += "h" + std::to_string(iH);
+                simData.pzOpts.meshFile += ".msh";
+                CreateGmshMesh(meshOriginal, simData.pzOpts.meshFile,
+                               factorVal, simData.pzOpts.nThreads,
+                               simData.pzOpts.scaleFactor, simData.pzOpts.meshOrder);
+            }
+
             simData.pzOpts.pOrder = pOrderOrig;
             for (int iP = 0; iP < simData.pzOpts.pSteps; ++iP) {
                 std::cout<<"freq step: "<<iFreq+1<<" out of "<<simData.physicalOpts.freqVec.size()<<std::endl;
@@ -298,6 +316,7 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo) 
                hSize = elRadius > hSize ? elRadius : hSize;
            }
         }
+        eigeninfo << std::fixed << neq << "," << gmesh->NElements() << ",";
         eigeninfo << std::fixed << hSize << "," << simData.pzOpts.pOrder<<",";
         eigeninfo << std::fixed << simData.physicalOpts.lambda<<",";
         eigeninfo << eigenValues.size()<<",";
@@ -477,7 +496,7 @@ ReadGMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdV
         TPZVTKGeoMesh::PrintGMeshVTK(gmesh, outVTK, true);
         gmesh->Print(outTXT);
         outTXT.close();
-        outVTK.close();        
+        outVTK.close();
     }
 
     return;
