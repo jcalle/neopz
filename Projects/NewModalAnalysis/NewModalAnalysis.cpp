@@ -118,7 +118,7 @@ int main(int argc, char *argv[]) {
                 if(iH>0){//refine by splitting
                     simData.pzOpts.meshFile += "h" + std::to_string(iH);
                     const std::string lastMesh = iH > 1 ?
-                                                 meshOriginal.substr(0, meshOriginal.size() - 4) + "h" + std::to_string(iH-1) :
+                                                 meshOriginal.substr(0, meshOriginal.size() - 4) + "h" + std::to_string(iH-1) + ".msh":
                                                  meshOriginal;
                     const std::string command = "gmsh -v 3 -refine " + lastMesh + " -o " + simData.pzOpts.meshFile + ".msh";
                     std::cout<<"Generating mesh with: "<<std::endl<<command<<std::endl;
