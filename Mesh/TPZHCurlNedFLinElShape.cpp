@@ -9,10 +9,13 @@
 
 using namespace pzshape;
 
-void TPZHCurlNedFLinEl::Shape(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi,
-                              TPZFMatrix<REAL> &curlPhiHat) {
-    const int nCon = NConnects();
-    const int dim = Dimension();
+void TPZHCurlNedFLinEl::CalcShape(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi,
+                              TPZFMatrix<REAL> &curlPhiHat, TPZVec<int> &order, TPZVec<int> nShapeF){
+
+    
+
+    const int nCon = order.size();
+    const int dim = TPZShapeLinear::Dimension;
     const int firstSide = TPZShapeLinear::NSides - TPZShapeLinear::NFaces - 1;
 
 #ifdef PZDEBUG
@@ -21,13 +24,12 @@ void TPZHCurlNedFLinEl::Shape(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi,
     }
 #endif
 
-    const int lastFuncPos =
-        NConnectShapeF(nCon - 1, ConnectOrder(nCon - 1)) - 1;
+    const int lastFuncPos = nShapeF[nCon - 1] - 1;
 
     phi.Resize(lastFuncPos + 1, dim);
     curlPhiHat.Resize(1, 1); // The curl wont be calculated in boundary
-    // elements for now.
-    const int pOrder = ConnectOrder(0);
+                             // elements for now.
+    const int pOrder = order[0];
     int currentFuncPos = lastFuncPos;
 
     switch (pOrder) {

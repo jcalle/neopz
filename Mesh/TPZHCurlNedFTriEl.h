@@ -8,8 +8,8 @@
 #ifndef TPZHCURLNEDFTRIEL_H
 #define TPZHCURLNEDFTRIEL_H
 
-//#define HCURL_HIERARCHICAL
-#define HCURL_HIERARCHICAL_SCALED
+#define HCURL_HIERARCHICAL
+//#define HCURL_HIERARCHICAL_SCALED
 
 #include "pzintel.h"
 #include "pzshapetriang.h"
@@ -63,14 +63,14 @@ class TPZHCurlNedFTriEl : public TPZInterpolatedElement {
     virtual TPZHCurlNedFTriEl *
     ClonePatchEl(TPZCompMesh &mesh, std::map<long, long> &gl2lcConMap,
                  std::map<long, long> &gl2lcElMap) const;
-	
+
     /**
      Dimension of geometric element
 
      @return dimension
      */
     virtual int Dimension() const;
-	
+
     /**
 	 Return the number of connects of
 	 the element associated with its vertices.
@@ -78,7 +78,7 @@ class TPZHCurlNedFTriEl : public TPZInterpolatedElement {
      @return number of corner connects
      */
     virtual int NCornerConnects() const;
-	
+
     /**
      Returns the number of connects of
 	 the element.
@@ -86,7 +86,7 @@ class TPZHCurlNedFTriEl : public TPZInterpolatedElement {
      @return number of connects
      */
     virtual int NConnects() const;
-	
+
     /**
      Returns the global index of a connect
 	 described by its id (local connectivity index)
@@ -95,7 +95,7 @@ class TPZHCurlNedFTriEl : public TPZInterpolatedElement {
      @return global connect index
      */
     virtual long ConnectIndex(int i) const;
-	
+
     /**
      Associates the ith connect of the element
 	 to a global index.
@@ -104,7 +104,7 @@ class TPZHCurlNedFTriEl : public TPZInterpolatedElement {
      @param connectindex global connect index
      */
     virtual void SetConnectIndex(int i, long connectindex);
-	
+
     /**
      Returns the number of connects of the element
 	 associated with a given side.
@@ -113,7 +113,7 @@ class TPZHCurlNedFTriEl : public TPZInterpolatedElement {
      @return number of connects associated with side.
      */
     virtual int NSideConnects(int side) const;
-	
+
     /**
      Returns the con-ith connect associated with
 	 the side is
@@ -123,8 +123,8 @@ class TPZHCurlNedFTriEl : public TPZInterpolatedElement {
      @return local connect id
      */
     virtual int SideConnectLocId(int con, int is) const;
-	
-	
+
+
     /**
      Returns the number of shape functions associated with
 	 the connect con when it has polynomial order order
@@ -134,36 +134,36 @@ class TPZHCurlNedFTriEl : public TPZInterpolatedElement {
      @return number of shape functions
      */
     virtual int NConnectShapeF(int con, int order) const;
-	
-	
+
+
     virtual void SideShapeFunction(int side, TPZVec<REAL> &point,
                                    TPZFMatrix<REAL> &phi,
                                    TPZFMatrix<REAL> &curlPhi);
-	
-	
+
+
     /**
      Sets integration rule order ord
 
      @param ord integration rule order
      */
     virtual void SetIntegrationRule(int ord);
-	
-	
+
+
     /**
      Gets current integration rule (points and weights)
 
      @return integration rule
      */
     virtual const TPZIntPoints &GetIntegrationRule() const;
-	
+
 	/**
 	 Gets current integration rule (points and weights)
-	 
+
 	 @return integration rule
 	 */
     virtual TPZIntPoints &GetIntegrationRule();
-	
-	
+
+
     /**
      Sets computational element preferred order.
 	 It acts as the maximum order of the element,
@@ -177,8 +177,8 @@ class TPZHCurlNedFTriEl : public TPZInterpolatedElement {
     virtual void GetInterpolationOrder(TPZVec<int> &ord);
 
     virtual int PreferredSideOrder(int side);
-	
-	
+
+
     /**
      Given a local connect id, returns
 	 the polynomial order of its highest order
@@ -188,8 +188,8 @@ class TPZHCurlNedFTriEl : public TPZInterpolatedElement {
      @return polynomial order
      */
     int ConnectOrder(int connect) const;
-	
-	
+
+
     /**
      Returns effective polynomial order of the
 	 functions associated with side side
@@ -209,8 +209,8 @@ class TPZHCurlNedFTriEl : public TPZInterpolatedElement {
 	virtual void SetSideOrder(int side, int order);
 
     virtual TPZTransform<> TransformSideToElement(int side);
-	
-	
+
+
     /**
 	 Calculates shape functions and their curls.
      Given an integration point, it calculates the shape functions
@@ -257,7 +257,7 @@ class TPZHCurlNedFTriEl : public TPZInterpolatedElement {
     void CurlTransform(const TPZFMatrix<REAL> &curlPhiHat,
                        const TPZFMatrix<REAL> &jacinv,
                        TPZFMatrix<REAL> &curlPhi);
-	
+
     /**
      Compute the value of the shape functions (and of their curl)
 	 evaluated at the integration point.
@@ -271,14 +271,14 @@ class TPZHCurlNedFTriEl : public TPZInterpolatedElement {
      */
     virtual void Shape(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi,
                        TPZFMatrix<REAL> &curlPhiHat);
-	
+
     void CreateGraphicalElement(TPZGraphMesh &grafgrid, int dimension);
 
     virtual void SetCreateFunctions(TPZCompMesh *mesh) {
         mesh->SetAllCreateFunctionsHCurl();
     }
-	
-	
+
+
     /**
      Compute solution value @ integration point
 
@@ -286,8 +286,8 @@ class TPZHCurlNedFTriEl : public TPZInterpolatedElement {
      @param data object to be loaded with solution
      */
     void ComputeSolution(TPZVec<REAL> &qsi, TPZMaterialData &data);
-	
-	
+
+
     /**
      Compute solution @ integration point
 
@@ -301,14 +301,14 @@ class TPZHCurlNedFTriEl : public TPZInterpolatedElement {
     void ComputeSolution(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi,
                          TPZFMatrix<REAL> &dphix, const TPZFMatrix<REAL> &axes,
                          TPZSolVec &sol, TPZGradSolVec &dsol);
-	
+
 	/**
 	 Sets computational element type as vector element in data.
 
 	 @param data TPZMaterialData to be loaded.
 	 */
 	virtual void InitMaterialData(TPZMaterialData &data);
-	
+
   protected:
 	//! Stores global indexes of the connects of the element.
     TPZManVector<long, pzshape::TPZShapeTriang::NSides> fConnectIndexes;
