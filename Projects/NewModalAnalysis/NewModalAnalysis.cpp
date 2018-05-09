@@ -117,7 +117,7 @@ int main(int argc, char *argv[]) {
             if(simData.pzOpts.externGenMesh){
                 if(iH>0){//refine by splitting
                     simData.pzOpts.meshFile += "h" + std::to_string(iH);
-                    const std::string command = "gmsh -v 3 -refine " + simData.pzOpts.meshFile + ".msh";
+                    const std::string command = "gmsh -v 3 -refine -o " + simData.pzOpts.meshFile + ".msh";
                     std::cout<<"Generating mesh with: "<<std::endl<<command<<std::endl;
                     std::array<char, 128> buffer;
                     std::string result;
