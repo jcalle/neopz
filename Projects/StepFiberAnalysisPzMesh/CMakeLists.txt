@@ -1,6 +1,6 @@
 ########## next target ##############
 
-file(GLOB headers *.h 
+file(GLOB headers *.h
   ../NewModalAnalysis/SPZModalAnalysisData.h
   ../NewModalAnalysis/SPZModalAnalysisDataReader.h)
 file(GLOB sources *.cpp ../NewModalAnalysis/SPZModalAnalysisDataReader.cpp)
@@ -8,4 +8,5 @@ file(GLOB sources *.cpp ../NewModalAnalysis/SPZModalAnalysisDataReader.cpp)
 
 set(main_SRCS ${sources} ${headers})
 add_executable(StepFiberAnalysisPzMesh ${main_SRCS})
+target_include_directories(StepFiberAnalysisPzMesh PUBLIC ../NewModalAnalysis)
 target_link_libraries(StepFiberAnalysisPzMesh pz)

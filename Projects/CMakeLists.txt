@@ -20,7 +20,7 @@ ENABLE_TESTING()
 			#add_subdirectory(2017Arequipa)
 
 			#Jorge 2017 - Implementing error analysis to MHM Method
-			add_subdirectory(2017LabJucaCosta)			
+			add_subdirectory(2017LabJucaCosta)
 
 
 			#Curso PZ:
@@ -112,6 +112,7 @@ ENABLE_TESTING()
 			if(USING_BOOST)#ParameterHandler class needs boost
 				if(USING_SLEPC)
 					add_subdirectory(NewModalAnalysis)
+					add_subdirectory(StepFiberAnalysisPzMesh)
 				endif()
 			endif()
 			add_subdirectory(MFHCurlH1Lag)
@@ -149,11 +150,11 @@ ENABLE_TESTING()
 			add_subdirectory(MultipleLoad)
 
 			# add_subdirectory(adaptivity_refactor)
-						
+
 			add_subdirectory(Cubo_do_Nathan)
 
 			#add_subdirectory(PyramidHdivTests)
-			
+
 			add_subdirectory(HyperElasticityFAD)
 
 			#Increment singular shape function: SingularShapeFunction
@@ -174,7 +175,7 @@ ENABLE_TESTING()
 			#add_subdirectory(Descontinuo2)
 
 			add_subdirectory(SteamInjection)
-			
+
 			#projeto agnaldo 09-09-2011
 			#add_subdirectory(DoubleProjection)
                         add_subdirectory(artigoPira)
@@ -194,7 +195,7 @@ ENABLE_TESTING()
 			#add_subdirectory(iRMS)
 
 			add_subdirectory(Elasticity2D)
-			add_subdirectory(MHM)			
+			add_subdirectory(MHM)
 
 			add_subdirectory(Hdiv3DCurved)
 			add_subdirectory(Hdiv3D)
@@ -239,8 +240,8 @@ ENABLE_TESTING()
 
 			#Projeto Pablo
 			add_subdirectory(CreepStokes)
-			
-			
+
+
 			add_subdirectory(Bima1)
 #			add_subdirectory(EstabSUPG)
 #			add_subdirectory(MetodosEstab)
@@ -254,5 +255,5 @@ ENABLE_TESTING()
 			endif(USING_MKL)
 
 		endif(BUILD_COMPLEX_PROJECTS)
-		
+
 	endif(BUILD_PROJECTS)

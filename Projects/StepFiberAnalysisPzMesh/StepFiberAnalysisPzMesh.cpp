@@ -23,6 +23,7 @@
 #include "pzfstrmatrix.h"
 #include "pzbuildmultiphysicsmesh.h"
 #include "boost/date_time/posix_time/posix_time.hpp"
+#include "tpzgeoblend.h"
 #ifdef USING_SLEPC
 #include <TPZSlepcEPSHandler.h>
 #include <TPZSlepcSTHandler.h>
@@ -36,7 +37,7 @@
 #include "SPZModalAnalysisDataReader.h"
 #include "SPZModalAnalysisData.h"
 
-void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &const eigeninf,& int hStepo);
+void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream & eigeninf, const int &hStep);
 
 void CreateGMesh(TPZGeoMesh *&gmesh, const int &hStep, TPZVec<int> &matIdVec,
                  const bool &print, const REAL &scale = 1.);
@@ -193,209 +194,208 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
         const int dim = 2;
         an.DefineGraphMesh(dim, scalnames, vecnames,
                            plotfile);  // define malha grafica
-        an.PostProcess(0);
+        an.PostProcess(3);
     }
-    std::cout << "Assembling..." << std::endl;
-    boost::posix_time::ptime t1 =
-        boost::posix_time::microsec_clock::local_time();
-    an.Assemble();
-    boost::posix_time::ptime t2 =
-        boost::posix_time::microsec_clock::local_time();
-    std::cout << "Finished assembly." << std::endl;
+//    std::cout << "Assembling..." << std::endl;
+//    boost::posix_time::ptime t1 =
+//        boost::posix_time::microsec_clock::local_time();
+//    an.Assemble();
+//    boost::posix_time::ptime t2 =
+//        boost::posix_time::microsec_clock::local_time();
+//    std::cout << "Finished assembly." << std::endl;
 
-    std::cout << "Solving..." << std::endl;
-    boost::posix_time::ptime t3 =
-        boost::posix_time::microsec_clock::local_time();
+//     std::cout << "Solving..." << std::endl;
+//     boost::posix_time::ptime t3 =
+//         boost::posix_time::microsec_clock::local_time();
 
-    an.Solve();
-    boost::posix_time::ptime t4 =
-        boost::posix_time::microsec_clock::local_time();
-    std::cout << "Time for assembly " << t2 - t1 << " Time for solving "
-              << t4 - t3 << std::endl;
-    const TPZManVector<SPZAlwaysComplex<STATE>::type> eigenValues = an.GetEigenvalues();
-    const TPZFMatrix<SPZAlwaysComplex<STATE>::type> eigenVectors = an.GetEigenvectors();
+//     an.Solve();
+//     boost::posix_time::ptime t4 =
+//         boost::posix_time::microsec_clock::local_time();
+//     std::cout << "Time for assembly " << t2 - t1 << " Time for solving "
+//               << t4 - t3 << std::endl;
+//     const TPZManVector<SPZAlwaysComplex<STATE>::type> eigenValues = an.GetEigenvalues();
+//     const TPZFMatrix<SPZAlwaysComplex<STATE>::type> eigenVectors = an.GetEigenvectors();
 
-    typedef std::numeric_limits< double > dbl;
-    std::cout.precision(dbl::max_digits10);
-    for(int i = 0; i < eigenValues.size() ; i++){
-        std::cout<<std::fixed<<eigenValues[i]<<std::endl;
-    }
-    if(simData.pzOpts.exportEigen){
-        eigeninfo.precision(dbl::max_digits10);
-        std::cout<<"Exporting eigen info..."<<std::endl;
-        REAL hSize = -1e12;
-        REAL elRadius = 0;
-        TPZVec<REAL> qsi(2,0.25);
-        TPZVec<REAL> x(3,0.);
-        for (int j = 0; j < gmesh->NElements(); ++j) {
-            TPZGeoEl &el = *(gmesh->ElementVec()[j]);
-            // for (int i = 0; i < el.NCornerNodes() ; ++i) {
-            //     auto node = el.Node(i);
-            //     if(node.Coord(0) < tol && node.Coord(1) < tol){
-            //         elRadius = el.ElementRadius();
-            //         hSize = elRadius < hSize ? elRadius : hSize;
-            //     }
-            // }
-           TPZBndCond *matBound = dynamic_cast<TPZBndCond *>(meshVec[0]->MaterialVec()[el.MaterialId()]);
-           TPZMatWaveguidePml *matPml = dynamic_cast<TPZMatWaveguidePml *>(meshVec[0]->MaterialVec()[el.MaterialId()]);
-           if(!matBound && !matPml){
-               elRadius = el.ElementRadius();
-               hSize = elRadius > hSize ? elRadius : hSize;
-           }
-        }
-        eigeninfo << std::fixed << neq << "," << gmesh->NElements() << ",";
-        eigeninfo << std::fixed << hSize << "," << simData.pzOpts.pOrder<<",";
-        eigeninfo << std::fixed << simData.physicalOpts.lambda<<",";
-        eigeninfo << eigenValues.size()<<",";
-        for(int i = 0; i < eigenValues.size() ; i++){
-            eigeninfo<<std::fixed<<std::real(eigenValues[i])<<",";
-            eigeninfo<<std::fixed<<std::imag(eigenValues[i]);
-            if(i != eigenValues.size() - 1 ) {
-                eigeninfo << ",";
-            }
-        }
-        eigeninfo << std::endl;
+//     typedef std::numeric_limits< double > dbl;
+//     std::cout.precision(dbl::max_digits10);
+//     for(int i = 0; i < eigenValues.size() ; i++){
+//         std::cout<<std::fixed<<eigenValues[i]<<std::endl;
+//     }
+//     if(simData.pzOpts.exportEigen){
+//         eigeninfo.precision(dbl::max_digits10);
+//         std::cout<<"Exporting eigen info..."<<std::endl;
+//         REAL hSize = -1e12;
+//         REAL elRadius = 0;
+//         TPZVec<REAL> qsi(2,0.25);
+//         TPZVec<REAL> x(3,0.);
+//         for (int j = 0; j < gmesh->NElements(); ++j) {
+//             TPZGeoEl &el = *(gmesh->ElementVec()[j]);
+//             // for (int i = 0; i < el.NCornerNodes() ; ++i) {
+//             //     auto node = el.Node(i);
+//             //     if(node.Coord(0) < tol && node.Coord(1) < tol){
+//             //         elRadius = el.ElementRadius();
+//             //         hSize = elRadius < hSize ? elRadius : hSize;
+//             //     }
+//             // }
+//            TPZBndCond *matBound = dynamic_cast<TPZBndCond *>(meshVec[0]->MaterialVec()[el.MaterialId()]);
+//            TPZMatWaveguidePml *matPml = dynamic_cast<TPZMatWaveguidePml *>(meshVec[0]->MaterialVec()[el.MaterialId()]);
+//            if(!matBound && !matPml){
+//                elRadius = el.ElementRadius();
+//                hSize = elRadius > hSize ? elRadius : hSize;
+//            }
+//         }
+//         eigeninfo << std::fixed << neq << "," << gmesh->NElements() << ",";
+//         eigeninfo << std::fixed << hSize << "," << simData.pzOpts.pOrder<<",";
+//         eigeninfo << std::fixed << simData.physicalOpts.lambda<<",";
+//         eigeninfo << eigenValues.size()<<",";
+//         for(int i = 0; i < eigenValues.size() ; i++){
+//             eigeninfo<<std::fixed<<std::real(eigenValues[i])<<",";
+//             eigeninfo<<std::fixed<<std::imag(eigenValues[i]);
+//             if(i != eigenValues.size() - 1 ) {
+//                 eigeninfo << ",";
+//             }
+//         }
+//         eigeninfo << std::endl;
 
-        std::cout<<" Done!"<<std::endl;
-    }
+//         std::cout<<" Done!"<<std::endl;
+//     }
 
-    if (simData.pzOpts.genVTK) {
-        TPZMatModalAnalysis *matPointer =
-                dynamic_cast<TPZMatModalAnalysis *>(meshVec[0]->MaterialVec()[1]);
-        TPZVec<TPZCompMesh *> temporalMeshVec(2);
-        temporalMeshVec[matPointer->H1Index()] = meshVec[1 + matPointer->H1Index()];
-        temporalMeshVec[matPointer->HCurlIndex()] =
-                meshVec[1 + matPointer->HCurlIndex()];
+//     if (simData.pzOpts.genVTK) {
+//         TPZMatModalAnalysis *matPointer =
+//                 dynamic_cast<TPZMatModalAnalysis *>(meshVec[0]->MaterialVec()[1]);
+//         TPZVec<TPZCompMesh *> temporalMeshVec(2);
+//         temporalMeshVec[matPointer->H1Index()] = meshVec[1 + matPointer->H1Index()];
+//         temporalMeshVec[matPointer->HCurlIndex()] =
+//                 meshVec[1 + matPointer->HCurlIndex()];
 
-        std::cout << "Post Processing..." << std::endl;
+//         std::cout << "Post Processing..." << std::endl;
 
-        TPZStack<std::string> scalnames, vecnames;
-        scalnames.Push("Ez");
-        vecnames.Push("Et");
-        std::string plotfile = simData.pzOpts.prefix + "fieldPlot" + ".vtk";
-                                                        // estara na pasta debug
-        const int dim = 2;
-        an.DefineGraphMesh(dim, scalnames, vecnames,
-                           plotfile);  // define malha grafica
+//         TPZStack<std::string> scalnames, vecnames;
+//         scalnames.Push("Ez");
+//         vecnames.Push("Et");
+//         std::string plotfile = simData.pzOpts.prefix + "fieldPlot" + ".vtk";
+//                                                         // estara na pasta debug
+//         const int dim = 2;
+//         an.DefineGraphMesh(dim, scalnames, vecnames,
+//                            plotfile);  // define malha grafica
 
-        TPZFMatrix<SPZAlwaysComplex<STATE>::type> currentEigenvector(neq,1);
-        TPZFMatrix<SPZAlwaysComplex<STATE>::type> scatteredEigen(neqOriginal,1);
-        for (int iSol = 0; iSol < eigenValues.size(); iSol++) {
-            for(int j = 0; j < eigenVectors.Rows(); j++){
-                currentEigenvector(j,0) = simData.pzOpts.absVal ?
-                                          std::abs(eigenVectors.GetVal(j,iSol)) :
-                                          std::real(eigenVectors.GetVal(j,iSol));
-            }
-            strmtrx->EquationFilter().Scatter(currentEigenvector, scatteredEigen);
-            an.LoadSolution(scatteredEigen);
-            TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(temporalMeshVec,
-                                                               cmesh);
-            an.PostProcess(simData.pzOpts.vtkRes);
-        }
-    }
-    gmesh->SetReference(nullptr);
-    for (int k = 0; k < meshVec.size(); ++k) {
-        meshVec[k]->SetReference(nullptr);
-        delete meshVec[k];
-        meshVec[k] = nullptr;
-    }
-    delete gmesh;
-    std::cout << "FINISHED!" << std::endl;
-    return;
-}
+//         TPZFMatrix<SPZAlwaysComplex<STATE>::type> currentEigenvector(neq,1);
+//         TPZFMatrix<SPZAlwaysComplex<STATE>::type> scatteredEigen(neqOriginal,1);
+//         for (int iSol = 0; iSol < eigenValues.size(); iSol++) {
+//             for(int j = 0; j < eigenVectors.Rows(); j++){
+//                 currentEigenvector(j,0) = simData.pzOpts.absVal ?
+//                                           std::abs(eigenVectors.GetVal(j,iSol)) :
+//                                           std::real(eigenVectors.GetVal(j,iSol));
+//             }
+//             strmtrx->EquationFilter().Scatter(currentEigenvector, scatteredEigen);
+//             an.LoadSolution(scatteredEigen);
+//             TPZBuildMultiphysicsMesh::TransferFromMultiPhysics(temporalMeshVec,
+//                                                                cmesh);
+//             an.PostProcess(simData.pzOpts.vtkRes);
+//         }
+//     }
+//     gmesh->SetReference(nullptr);
+//     for (int k = 0; k < meshVec.size(); ++k) {
+//         meshVec[k]->SetReference(nullptr);
+//         delete meshVec[k];
+//         meshVec[k] = nullptr;
+//     }
+     delete gmesh;
+     std::cout << "FINISHED!" << std::endl;
+     return;
+ }
 
-void FilterBoundaryEquations(TPZVec<TPZCompMesh *> meshVec,
-                             TPZVec<long> &activeEquations, int &neq,
-                             int &neqOriginal) {
-    TPZCompMesh *cmesh = meshVec[0];
+ void FilterBoundaryEquations(TPZVec<TPZCompMesh *> meshVec,
+                              TPZVec<long> &activeEquations, int &neq,
+                              int &neqOriginal) {
+     TPZCompMesh *cmesh = meshVec[0];
 
-    TPZManVector<long, 1000> allConnects;
-    std::set<long> boundConnects;
+     TPZManVector<long, 1000> allConnects;
+     std::set<long> boundConnects;
 
-    for (int iel = 0; iel < cmesh->NElements(); iel++) {
-        TPZCompEl *cel = cmesh->ElementVec()[iel];
-        if (cel == NULL) {
-            continue;
-        }
-        if (cel->Reference() == NULL) {
+     for (int iel = 0; iel < cmesh->NElements(); iel++) {
+         TPZCompEl *cel = cmesh->ElementVec()[iel];
+         if (cel == NULL) {
+             continue;
+         }
+         if (cel->Reference() == NULL) {
 
-            continue;
-        }
-        TPZBndCond *mat = dynamic_cast<TPZBndCond *>(meshVec[0]->MaterialVec()[cel->Reference()->MaterialId()]);
-        if (mat && mat->Type() == 0) {
-            std::set<long> boundConnectsEl;
-            std::set<long> depBoundConnectsEl;
-            std::set<long> indepBoundConnectsEl;
-            cel->BuildConnectList(indepBoundConnectsEl, depBoundConnectsEl);
-            cel->BuildConnectList(boundConnectsEl);
-            for (std::set<long>::iterator iT = boundConnectsEl.begin();
-                 iT != boundConnectsEl.end(); iT++) {
-                const long val = *iT;
-                if (boundConnects.find(val) == boundConnects.end()) {
-                    boundConnects.insert(val);
-                }
-            }
-        }
-    }
-    for (int iCon = 0; iCon < cmesh->NConnects(); iCon++) {
-        if (boundConnects.find(iCon) == boundConnects.end()) {
-            TPZConnect &con = cmesh->ConnectVec()[iCon];
-            if(con.HasDependency())continue;
-            int seqnum = con.SequenceNumber();
-            int pos = cmesh->Block().Position(seqnum);
-            int blocksize = cmesh->Block().Size(seqnum);
-            if (blocksize == 0)
-                continue;
+             continue;
+         }
+         TPZBndCond *mat = dynamic_cast<TPZBndCond *>(meshVec[0]->MaterialVec()[cel->Reference()->MaterialId()]);
+         if (mat && mat->Type() == 0) {
+             std::set<long> boundConnectsEl;
+             std::set<long> depBoundConnectsEl;
+             std::set<long> indepBoundConnectsEl;
+             cel->BuildConnectList(indepBoundConnectsEl, depBoundConnectsEl);
+             cel->BuildConnectList(boundConnectsEl);
+             for (std::set<long>::iterator iT = boundConnectsEl.begin();
+                  iT != boundConnectsEl.end(); iT++) {
+                 const long val = *iT;
+                 if (boundConnects.find(val) == boundConnects.end()) {
+                     boundConnects.insert(val);
+                 }
+             }
+         }
+     }
+     for (int iCon = 0; iCon < cmesh->NConnects(); iCon++) {
+         if (boundConnects.find(iCon) == boundConnects.end()) {
+             TPZConnect &con = cmesh->ConnectVec()[iCon];
+             if(con.HasDependency())continue;
+             int seqnum = con.SequenceNumber();
+             int pos = cmesh->Block().Position(seqnum);
+             int blocksize = cmesh->Block().Size(seqnum);
+             if (blocksize == 0)
+                 continue;
 
-            int vs = activeEquations.size();
-            activeEquations.Resize(vs + blocksize);
-            for (int ieq = 0; ieq < blocksize; ieq++) {
-                activeEquations[vs + ieq] = pos + ieq;
-            }
-        }
-    }
+             int vs = activeEquations.size();
+             activeEquations.Resize(vs + blocksize);
+             for (int ieq = 0; ieq < blocksize; ieq++) {
+                 activeEquations[vs + ieq] = pos + ieq;
+             }
+         }
+     }
 
-    neqOriginal = cmesh->NEquations();
-    neq = 0;
-    TPZCompMesh *cmeshHCurl = meshVec[1];
-    TPZCompMesh *cmeshH1 = meshVec[2];
-    int nHCurlEquations = 0, nH1Equations = 0;
-    TPZMatModalAnalysis *mat =
-        dynamic_cast<TPZMatModalAnalysis *>(cmesh->FindMaterial(1));
-    for (int iCon = 0; iCon < cmesh->NConnects(); iCon++) {
-        bool isH1;
-        if (boundConnects.find(iCon) == boundConnects.end()) {
-            if (cmesh->ConnectVec()[iCon].HasDependency())
-                continue;
-            int seqnum = cmesh->ConnectVec()[iCon].SequenceNumber();
-            int blocksize = cmesh->Block().Size(seqnum);
-            if (mat->H1Index() == 0 && iCon < cmeshH1->NConnects()) {
-                isH1 = true;
-            } else if (mat->H1Index() == 1 && iCon >= cmeshHCurl->NConnects()) {
-                isH1 = true;
-            } else {
-                isH1 = false;
-            }
-            for (int ieq = 0; ieq < blocksize; ieq++) {
-                neq++;
-                isH1 == true ? nH1Equations++ : nHCurlEquations++;
-            }
-        }
-    }
-    std::cout << "------\tactive eqs\t-------" << std::endl;
-    std::cout << "# H1 equations: " << nH1Equations << std::endl;
-    std::cout << "# HCurl equations: " << nHCurlEquations << std::endl;
-    std::cout << "# equations: " << neq << std::endl;
-    std::cout << "------\t----------\t-------" << std::endl;
+     neqOriginal = cmesh->NEquations();
+     neq = 0;
+     TPZCompMesh *cmeshHCurl = meshVec[1];
+     TPZCompMesh *cmeshH1 = meshVec[2];
+     int nHCurlEquations = 0, nH1Equations = 0;
+     TPZMatModalAnalysis *mat =
+         dynamic_cast<TPZMatModalAnalysis *>(cmesh->FindMaterial(1));
+     for (int iCon = 0; iCon < cmesh->NConnects(); iCon++) {
+         bool isH1;
+         if (boundConnects.find(iCon) == boundConnects.end()) {
+             if (cmesh->ConnectVec()[iCon].HasDependency())
+                 continue;
+             int seqnum = cmesh->ConnectVec()[iCon].SequenceNumber();
+             int blocksize = cmesh->Block().Size(seqnum);
+             if (mat->H1Index() == 0 && iCon < cmeshH1->NConnects()) {
+                 isH1 = true;
+             } else if (mat->H1Index() == 1 && iCon >= cmeshHCurl->NConnects()) {
+                 isH1 = true;
+             } else {
+                 isH1 = false;
+             }
+             for (int ieq = 0; ieq < blocksize; ieq++) {
+                 neq++;
+                 isH1 == true ? nH1Equations++ : nHCurlEquations++;
+             }
+         }
+     }
+     std::cout << "------\tactive eqs\t-------" << std::endl;
+     std::cout << "# H1 equations: " << nH1Equations << std::endl;
+     std::cout << "# HCurl equations: " << nHCurlEquations << std::endl;
+     std::cout << "# equations: " << neq << std::endl;
+     std::cout << "------\t----------\t-------" << std::endl;
     return;
 }
 
 
 
 void
-CreateGMesh(TPZGeoMesh *&gmesh, const int &hStep, TPZVec<int> &matIdVec, 
+CreateGMesh(TPZGeoMesh *&gmesh, const int &hStep, TPZVec<int> &matIdVec,
           const bool &print, const REAL &scale) {
-    
     const REAL rCore = 1.;
     const REAL bound = 2.;
     const int matIdCore = 1, matIdCladding = 2, matIdBC= -1;
@@ -408,106 +408,94 @@ CreateGMesh(TPZGeoMesh *&gmesh, const int &hStep, TPZVec<int> &matIdVec,
               matIdPMLxmym = 97,
               matIdPMLxpym = 98;
 
+    const REAL ptCircle_1_x = rCore * cos(1*M_PI/4),
+               ptCircle_1_y = rCore * sin(1*M_PI/4),
+               ptCircle_2_x = rCore * cos(3*M_PI/4),
+               ptCircle_2_y = rCore * sin(3*M_PI/4),
+               ptCircle_3_x = rCore * cos(5*M_PI/4),
+               ptCircle_3_y = rCore * sin(5*M_PI/4),
+               ptCircle_4_x = rCore * cos(7*M_PI/4),
+               ptCircle_4_y = rCore * sin(7*M_PI/4);
+
+    const REAL ptSquare_1_x = ptCircle_1_x / 2.,
+               ptSquare_1_y = ptCircle_1_y / 2.,
+               ptSquare_2_x = ptCircle_2_x / 2.,
+               ptSquare_2_y = ptCircle_2_y / 2.,
+               ptSquare_3_x = ptCircle_3_x / 2.,
+               ptSquare_3_y = ptCircle_3_y / 2.,
+               ptSquare_4_x = ptCircle_4_x / 2.,
+               ptSquare_4_y = ptCircle_4_y / 2.;
+
+    const REAL ptBound_1_x =  1 * bound,
+               ptBound_1_y =  1 * bound,
+               ptBound_2_x = -1 * bound,
+               ptBound_2_y =  1 * bound,
+               ptBound_3_x = -1 * bound,
+               ptBound_3_y = -1 * bound,
+               ptBound_4_x =  1 * bound,
+               ptBound_4_y = -1 * bound;
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // quadrilateral one - center square                                                                    //
+    // quadrilateral two to five - fiber's core, from the right, counter-clockwise                          //
+    // quadrilateral six to nine - fiber's cladding, from the right, counter-clockwise                      //
+    // quadrilateral ten to thirteen - PML regions (excluding corners), from the right, counter-clockwise   //
+    // quadrilateral fourteen to seventeen - PML corners, from the top-right, counter-clockwise             //
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+
     ///etc etc
-
-    if (meshType != meshTypeE::createTriangular) {
-        DebugStop(); // HCurl quadrilateral elements not implemented!
-    }
-
-    const int nNodes = 4 + 4 + 1;
+    matIdVec.Resize(3);
+    matIdVec[0]=1;
+    matIdVec[1]=2;
+    matIdVec[2]=-1;
+    const int nNodes = 5;
 
     gmesh = new TPZGeoMesh;
     gmesh->NodeVec().Resize(nNodes);
     //creates core
     {
-        
+
         // create 4 nodes which will be triangle vertices
         // r arg 0, r arg pi/2, r arg pi, r arg 3pi/2
         int nodeId = 0;
         for (int iNode = 0; iNode < 4; iNode++) {
             TPZManVector<REAL, 3> node(3, 0.);
-            const int c0 = (1+(iNode/2)*(-2))*((iNode+1)%2);//expected: 1 0 -1 0
-            const int c1 = (1+((iNode-1)/2)*(-2))*(iNode%2);//expected: 0 1 0 -1
+            const int c0 = -1 + (int)2*(int)(((iNode+1)%4)/2);//expected: -1 1 1 -1
+            const int c1 = -1 + 2* (iNode / 2);//expected: -1 -1 1 1
             node[0] = c0*rCore;
             node[1] = c1*rCore;
             gmesh->NodeVec()[nodeId].Initialize(node, *gmesh);
             nodeId++;
         }
-        // create 4 nodes which will be triangle midsides points @ boundary
-        // r arg pi/4, r arg 3pi/4, r arg 5pi/4, r arg 7pi/4
-        for (int iNode = 0; iNode < 4; iNode++) {
-            TPZManVector<REAL, 3> node(3, M_SQRT1_2 * rCore);
-            const int c0 = (1+(iNode/2)*(-2))*((iNode+1)%2);
-            const int c1 = (1+((iNode-1)/2)*(-2))*(iNode%2);
-            node[0] *= c0 - c1;//expected: +1 -1 -1 +1
-            node[1] *= c0 + c1;//expected: +1 +1 -1 -1
-            node[2] = 0.;
-            gmesh->NodeVec()[nodeId].Initialize(node, *gmesh);
-            nodeId++;
-        }
-        // create center node
-        {
-            TPZManVector<REAL, 3> node(3, 0.);
-            gmesh->NodeVec()[nodeId].Initialize(node, *gmesh);
-        }
+
+        TPZManVector<REAL, 3> node(3, 0.);
+        node[0] = 0.5;
+        node[1] = -0.5;
+        gmesh->NodeVec()[nodeId].Initialize(node, *gmesh);
 
         TPZManVector<long, 3> nodesIdVec(3, 0);
         // creates volumetric elements
-        for (int iTri = 0; iTri < 4; iTri++) {
-            nodesIdVec[0] = (iTri) % 4;
-            nodesIdVec[1] = (iTri + 1) % 4;
-            nodesIdVec[2] = 8;
-          TPZGeoElMapped<TPZGeoElRefPattern< pzgeom::TPZGeoTriangle> > * triangulo =
-                  new TPZGeoElMapped<TPZGeoElRefPattern< pzgeom::TPZGeoTriangle > > (nodesIdVec,matIdCore,*gmesh);
+        TPZManVector<int,2> initialNodes(2,0);
+        initialNodes[0] = 0;
+        initialNodes[1] = 2;
+
+        for (int iTri = 0; iTri < 2; iTri++) {
+            nodesIdVec[0] = initialNodes[iTri];
+            nodesIdVec[1] = (initialNodes[iTri] + 1) % 4;
+            nodesIdVec[2] = (initialNodes[iTri] + 2) % 4;
+
+            TPZGeoElRefPattern< pzgeom::TPZGeoBlend<pzgeom::TPZGeoTriangle> >  * triangulo =
+                  new TPZGeoElRefPattern< pzgeom::TPZGeoBlend<pzgeom::TPZGeoTriangle> >  (nodesIdVec,iTri+1,*gmesh);
         }
-        // creates boundary elements
-        for (int iArc = 0; iArc < 4; iArc++) {
-            nodesIdVec[0] = (iArc) % 4;
-            nodesIdVec[1] = (iArc + 1) % 4;
-            nodesIdVec[2] = iArc + 4;//midpoint
-          TPZGeoElRefPattern< pzgeom::TPZArc3D > *arc =
-                  new TPZGeoElRefPattern< pzgeom::TPZArc3D > (nodesIdVec,matIdBC,*gmesh);
-        }
+        nodesIdVec[0] = 0;
+        nodesIdVec[1] = 2;
+        nodesIdVec[2] = 4;//midpoint
+        TPZGeoElRefPattern< pzgeom::TPZArc3D > *arc =
+                new TPZGeoElRefPattern< pzgeom::TPZArc3D > (nodesIdVec,2,*gmesh);
     }
-    
+
     gmesh->BuildConnectivity();
-
-    TPZVec<REAL> qsi(2,0.), xqsi(3,0.);
-    qsi[0]=0.49;
-    qsi[1]=0.49;
-    gmesh->ElementVec()[0]->X(qsi,xqsi);
-    std::cout << "qsi = { ";
-    std::cout << qsi[0] << " , " << qsi[1];
-    std::cout << " }  ;  x(qsi) = { ";
-    std::cout << xqsi[0] << " , " << xqsi[1] << " , " << xqsi[2] << " }\n";
-
-  TPZVec<TPZGeoEl *> sons;
-
-  const int nref = nDiv;
-  for (int iref = 0; iref < nref; iref++) {
-    int nel = gmesh->NElements();
-    for (int iel = 0; iel < nel; iel++) {
-      TPZGeoEl *gel = gmesh->ElementVec()[iel];
-      if(!gel->HasSubElement()) gel->Divide(sons);
-    }
-  }
-
-#ifdef PZDEBUG
-//	TPZCheckGeom * Geometrytest = new TPZCheckGeom(gmesh);
-//	int isBadMeshQ = Geometrytest->PerformCheck();
-//
-//	if (isBadMeshQ) {
-//		DebugStop();
-//	}
-#endif
-    auto matIds = meshReader.fMaterialDataVec.fMatID;
-    matIdVec.Resize(matIds.size());
-    int i = 0;
-    for(auto id = matIds.begin(); id != matIds.end(); id++,i++ )    {
-      matIdVec[i] = *id;
-    }
     if(print){
-        std::string meshFileName = prefix + "gmesh";
+        std::string meshFileName = "gmesh";
         const size_t strlen = meshFileName.length();
         meshFileName.append(".vtk");
         std::ofstream outVTK(meshFileName.c_str());
