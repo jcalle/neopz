@@ -396,8 +396,8 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
 void
 CreateGMesh(TPZGeoMesh *&gmesh, const int &hStep, TPZVec<int> &matIdVec,
           const bool &print, const REAL &scale) {
-    const REAL rCore = 1.;
-    const REAL bound = 2.;
+    const int nDivTCore = 3, nDivRCore = 3 , nDivTCladding = 3;
+
     const int matIdCore = 1, matIdCladding = 2, matIdBC= -1;
     const int matIdPMLxp = 91,
               matIdPMLyp = 92,
@@ -408,32 +408,58 @@ CreateGMesh(TPZGeoMesh *&gmesh, const int &hStep, TPZVec<int> &matIdVec,
               matIdPMLxmym = 97,
               matIdPMLxpym = 98;
 
-    const REAL ptCircle_1_x = rCore * cos(1*M_PI/4),
-               ptCircle_1_y = rCore * sin(1*M_PI/4),
-               ptCircle_2_x = rCore * cos(3*M_PI/4),
-               ptCircle_2_y = rCore * sin(3*M_PI/4),
-               ptCircle_3_x = rCore * cos(5*M_PI/4),
-               ptCircle_3_y = rCore * sin(5*M_PI/4),
-               ptCircle_4_x = rCore * cos(7*M_PI/4),
-               ptCircle_4_y = rCore * sin(7*M_PI/4);
+    const REAL rCore = 1.;
+    std::vector<REAL> xc(2);
+    xc[0] = 0.;
+    xc[1] = 0.;
+    const REAL bound = 2.;
+    TPZVec<REAL> ptCircle_1(2,0.);
+    ptCircle_1[0] = xc[0] + rCore * cos(1*M_PI/4);
+    ptCircle_1[1] = xc[1] + rCore * sin(1*M_PI/4);
+    TPZVec<REAL> ptCircle_2(2,0.);
+    ptCircle_2[0] = xc[0] + rCore * cos(3*M_PI/4);
+    ptCircle_2[1] = xc[1] + rCore * sin(3*M_PI/4);
+    TPZVec<REAL> ptCircle_3(2,0.);
+    ptCircle_3[0] = xc[0] + rCore * cos(5*M_PI/4);
+    ptCircle_3[1] = xc[1] + rCore * sin(5*M_PI/4);
+    TPZVec<REAL> ptCircle_4(2,0.);
+    ptCircle_4[0] = xc[0] + rCore * cos(7*M_PI/4);
+    ptCircle_4[1] = xc[1] + rCore * sin(7*M_PI/4);
 
-    const REAL ptSquare_1_x = ptCircle_1_x / 2.,
-               ptSquare_1_y = ptCircle_1_y / 2.,
-               ptSquare_2_x = ptCircle_2_x / 2.,
-               ptSquare_2_y = ptCircle_2_y / 2.,
-               ptSquare_3_x = ptCircle_3_x / 2.,
-               ptSquare_3_y = ptCircle_3_y / 2.,
-               ptSquare_4_x = ptCircle_4_x / 2.,
-               ptSquare_4_y = ptCircle_4_y / 2.;
+    TPZVec<REAL> ptSquare_1(2,0.);
+    ptSquare_1[0] = ptCircle_1[0] / 2.;
+    ptSquare_1[1] = ptCircle_1[1] / 2.;
+    TPZVec<REAL> ptSquare_2(2,0.);
+    ptSquare_2[0] = ptCircle_2[0] / 2.;
+    ptSquare_2[1] = ptCircle_2[1] / 2.;
+    TPZVec<REAL> ptSquare_3(2,0.);
+    ptSquare_3[0] = ptCircle_3[0] / 2.;
+    ptSquare_3[1] = ptCircle_3[1] / 2.;
+    TPZVec<REAL> ptSquare_4(2,0.);
+    ptSquare_4[0] = ptCircle_4[0] / 2.;
+    ptSquare_4[1] = ptCircle_4[1] / 2.;
 
-    const REAL ptBound_1_x =  1 * bound,
-               ptBound_1_y =  1 * bound,
-               ptBound_2_x = -1 * bound,
-               ptBound_2_y =  1 * bound,
-               ptBound_3_x = -1 * bound,
-               ptBound_3_y = -1 * bound,
-               ptBound_4_x =  1 * bound,
-               ptBound_4_y = -1 * bound;
+    TPZVec<REAL> ptBound_1(2,0.);
+    ptBound_1[0] = 1 * bound;
+    ptBound_1[1] = 1 * bound;
+    TPZVec<REAL> ptBound_2(2,0.);
+    ptBound_2[0] = -1 * bound;
+    ptBound_2[1] = 1 * bound;
+    TPZVec<REAL> ptBound_3(2,0.);
+    ptBound_3[0] = -1 * bound;
+    ptBound_3[1] = -1 * bound;
+    TPZVec<REAL> ptBound_4(2,0.);
+    ptBound_4[0] = 1 * bound;
+    ptBound_4[1] = -1 * bound;
+
+    auto map_quad_side_arc = [](const TPZVec<REAL> &theta ,const TPZVec<REAL> &xc, const REAL &r, const REAL & s) {
+        TPZVec<REAL> point(2,0.);
+        point[0] = xc[0] + r*cos((theta[1] + s*theta[1] + theta[0] - s*theta[0])/2.);
+        point[1] = xc[1] + r*sin((theta[1] + s*theta[1] + theta[0] - s*theta[0])/2.);
+        return point;
+    };
+
+
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
     // quadrilateral one - center square                                                                    //
     // quadrilateral two to five - fiber's core, from the right, counter-clockwise                          //
@@ -441,6 +467,176 @@ CreateGMesh(TPZGeoMesh *&gmesh, const int &hStep, TPZVec<int> &matIdVec,
     // quadrilateral ten to thirteen - PML regions (excluding corners), from the right, counter-clockwise   //
     // quadrilateral fourteen to seventeen - PML corners, from the top-right, counter-clockwise             //
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    typedef struct QuadrilateralData {
+        const TPZVec<REAL> &coord1;
+        const TPZVec<REAL> &coord2;
+        const TPZVec<REAL> &coord3;
+        const TPZVec<REAL> &coord4;
+
+        std::function<TPZVec<REAL>(const REAL &)> mapSide1;
+        std::function<TPZVec<REAL>(const REAL &)> mapSide2;
+        std::function<TPZVec<REAL>(const REAL &)> mapSide3;
+        std::function<TPZVec<REAL>(const REAL &)> mapSide4;
+
+        bool isSide1nonLinear;
+        bool isSide2nonLinear;
+        bool isSide3nonLinear;
+        bool isSide4nonLinear;
+
+        TPZFMatrix<REAL> side1pts;
+        TPZFMatrix<REAL> side2pts;
+        TPZFMatrix<REAL> side3pts;
+        TPZFMatrix<REAL> side4pts;
+        TPZFMatrix<REAL> interiorPts;
+
+        QuadrilateralData(const TPZVec<REAL> &c1,const TPZVec<REAL> &c2,const TPZVec<REAL> &c3,const TPZVec<REAL> &c4) :
+                coord1(c1),coord2(c2),coord3(c3),coord4(c4){
+            auto map_quad_side_linear = [](const TPZVec<REAL> &coord1 ,const TPZVec<REAL> &coord2,const REAL & s) {
+                TPZVec<REAL> point(2,0.);
+                point[0] = (coord1[0] - s*coord1[0] + coord2[0] + s*coord2[0])/2.;
+                point[1] = (coord1[1] - s*coord1[1] + coord2[1] + s*coord2[1])/2.;
+                return point;
+            };
+            mapSide1 = std::bind(map_quad_side_linear,coord1,coord2,std::placeholders::_1);
+            mapSide2 = std::bind(map_quad_side_linear,coord2,coord3,std::placeholders::_1);
+            mapSide3 = std::bind(map_quad_side_linear,coord3,coord4,std::placeholders::_1);
+            mapSide4 = std::bind(map_quad_side_linear,coord4,coord1,std::placeholders::_1);
+
+        }
+        void SetMapsLinearity(const bool &m1, const bool &m2, const bool &m3, const bool &m4){
+            isSide1nonLinear = m1;
+            isSide2nonLinear = m2;
+            isSide3nonLinear = m3;
+            isSide4nonLinear = m4;
+        }
+
+        void CreateQuadrilateral(const int &nQsi, const int &nEta){
+
+            const int nPtsSide1 = nQsi + (nQsi - 1)*isSide1nonLinear;
+            const int nPtsSide2 = nEta + (nEta - 1)*isSide2nonLinear;
+            const int nPtsSide3 = nQsi + (nQsi - 1)*isSide3nonLinear;
+            const int nPtsSide4 = nEta + (nEta - 1)*isSide4nonLinear;
+
+            const int nPtsInterior = (nEta - 2) * (nQsi - 2);
+
+            // std::cout<<"nPtsSide1 :"<<nPtsSide1<<" ";
+            // std::cout<<"nPtsSide2 :"<<nPtsSide2<<" ";
+            // std::cout<<"nPtsSide3 :"<<nPtsSide3<<" ";
+            // std::cout<<"nPtsSide4 :"<<nPtsSide4<<" ";
+            // std::cout<<"nPtsInterior :"<<nPtsInterior<<" "<<std::endl;
+
+            auto getPoints = [this](TPZFMatrix<REAL> &sidePts,const int nPtsQsi,const int nPtsEta,
+                                    const REAL iniQsi, const REAL endQsi, const REAL iniEta, const REAL endEta){
+
+                sidePts.Resize(nPtsQsi * nPtsEta,2);
+                // std::cout<<"nPtsQsi: "<<nPtsQsi <<" nPtsEta : "<< nPtsEta<<std::endl;
+                // std::cout<<"iniQsi : "<< iniQsi  <<" endQsi : "<< endQsi<<std::endl;
+                // std::cout<<"iniEta : "<< iniEta  <<" endEta : "<< endEta<<std::endl;
+
+                auto mapFace = [this]
+                        (const REAL &qsi, const REAL &eta, REAL &x, REAL &y) {
+                    x=0;
+                    y=0;
+                    x += ((1.-qsi)/2)*((1.-eta)/2)*(coord1[0]);
+                    y += ((1.-qsi)/2)*((1.-eta)/2)*(coord1[1]);
+                    x += ((1.+qsi)/2)*((1.-eta)/2)*(coord2[0]);
+                    y += ((1.+qsi)/2)*((1.-eta)/2)*(coord2[1]);
+                    x += ((1.+qsi)/2)*((1.+eta)/2)*(coord3[0]);
+                    y += ((1.+qsi)/2)*((1.+eta)/2)*(coord3[1]);
+                    x += ((1.-qsi)/2)*((1.+eta)/2)*(coord4[0]);
+                    y += ((1.-qsi)/2)*((1.+eta)/2)*(coord4[1]);
+                };
+
+                auto s1 = [](const REAL &qsi, const REAL &eta) { return  1. * qsi;};
+                auto s2 = [](const REAL &qsi, const REAL &eta) { return  1. * eta;};
+                auto s3 = [](const REAL &qsi, const REAL &eta) { return -1. * qsi;};
+                auto s4 = [](const REAL &qsi, const REAL &eta) { return -1. * eta;};
+
+                auto mapLinear = [](const TPZVec<REAL>& coord1side, const TPZVec<REAL>& coord2side,const REAL &s, TPZVec<REAL> &x) {
+                    x[0] = coord1side[0] * (1.-s)/2 + coord2side[0] * (1+s)/2;
+                    x[0] = coord1side[1] * (1.-s)/2 + coord2side[1] * (1+s)/2;
+                };
+
+                auto correctionFactor1 = [](const REAL &qsi, const REAL &eta) { return 0.25 * (-1 + eta) * (-1 + eta);};
+                auto correctionFactor2 = [](const REAL &qsi, const REAL &eta) { return 0.25 * ( 1 + qsi) * ( 1 + qsi);};
+                auto correctionFactor3 = [](const REAL &qsi, const REAL &eta) { return 0.25 * ( 1 + eta) * ( 1 + eta);};
+                auto correctionFactor4 = [](const REAL &qsi, const REAL &eta) { return 0.25 * (-1 + qsi) * (-1 + qsi);};
+                int iPt = 0;
+                for(int i = 0; i < nPtsEta ; i++){
+                    const REAL etaPt = nPtsEta > 1 ? ((REAL)(i) / (nPtsEta - 1)) : 1;
+                    for(int j = 0; j < nPtsQsi ; j++){
+                        const REAL qsiPt = nPtsQsi > 1 ? ((REAL)(j) / (nPtsQsi - 1)) : 1;
+                        const REAL qsi = iniQsi * (1. - qsiPt) + endQsi * qsiPt;
+                        const REAL eta = iniEta * (1. - etaPt) + endEta * etaPt;
+                        REAL xFace;
+                        REAL yFace;
+                        mapFace(qsi,eta,xFace,yFace);
+
+                        TPZVec<REAL> xSide(2,0.);
+
+                        sidePts(iPt,0) = xFace;
+                        sidePts(iPt,1) = yFace;
+                        mapLinear(coord1,coord2,s1(qsi,eta),xSide);
+                        sidePts(iPt,0) -= isSide1nonLinear ? correctionFactor1(qsi,eta) * (xSide[0] - mapSide1(s1(qsi,eta))[0]) : 0;
+                        sidePts(iPt,1) -= isSide1nonLinear ? correctionFactor1(qsi,eta) * (xSide[1] - mapSide1(s1(qsi,eta))[1]) : 0;
+                        mapLinear(coord2,coord3,s2(qsi,eta),xSide);
+                        sidePts(iPt,0) -= isSide2nonLinear ? correctionFactor2(qsi,eta) * (xSide[0] - mapSide2(s2(qsi,eta))[0]) : 0;
+                        sidePts(iPt,1) -= isSide2nonLinear ? correctionFactor2(qsi,eta) * (xSide[1] - mapSide2(s2(qsi,eta))[1]) : 0;
+                        mapLinear(coord3,coord4,s3(qsi,eta),xSide);
+                        sidePts(iPt,0) -= isSide3nonLinear ? correctionFactor3(qsi,eta) * (xSide[0] - mapSide3(s3(qsi,eta))[0]) : 0;
+                        sidePts(iPt,1) -= isSide3nonLinear ? correctionFactor3(qsi,eta) * (xSide[1] - mapSide3(s3(qsi,eta))[1]) : 0;
+                        mapLinear(coord4,coord1,s4(qsi,eta),xSide);
+                        sidePts(iPt,0) -= isSide4nonLinear ? correctionFactor4(qsi,eta) * (xSide[0] - mapSide4(s4(qsi,eta))[0]) : 0;
+                        sidePts(iPt,1) -= isSide4nonLinear ? correctionFactor4(qsi,eta) * (xSide[1] - mapSide4(s4(qsi,eta))[1]) : 0;
+
+                        std::cout<<"x:   "<<sidePts(iPt,0)<<", y:   "<<sidePts(iPt,1)<<std::endl;
+                        iPt++;
+                    }
+                }
+            };
+
+            std::cout<<"---------------side 1---------------"<<std::endl;
+            getPoints(side1pts,nPtsSide1,1,-1., 1.,-1.,-1.);
+            std::cout<<"---------------side 2---------------"<<std::endl;
+            getPoints(side2pts,1,nPtsSide2, 1., 1.,-1., 1.);
+            std::cout<<"---------------side 3---------------"<<std::endl;
+            getPoints(side3pts,nPtsSide3,1, 1.,-1., 1., 1.);
+            std::cout<<"---------------side 4---------------"<<std::endl;
+            getPoints(side4pts,1,nPtsSide4,-1.,-1., 1.,-1.);
+            const REAL deltaQsiInt = 2/(nQsi - 1);
+            const REAL deltaEtaInt = 2/(nEta - 1);
+            //std::cout<<"--------------- intP ---------------"<<std::endl;
+            getPoints(interiorPts,nQsi-2,nEta-2,-1. + deltaQsiInt, 1. - deltaQsiInt,-1. + deltaEtaInt, 1. - deltaEtaInt );
+        }
+    } QuadrilateralData;
+
+    TPZVec<QuadrilateralData *> quadVec(17,nullptr);
+
+    quadVec[0] = new QuadrilateralData(ptSquare_1,ptSquare_2,ptSquare_3,ptSquare_4);
+    quadVec[0]->SetMapsLinearity(false,false,false,false);
+    quadVec[0]->CreateQuadrilateral(nDivRCore,nDivRCore);
+
+    TPZVec<REAL> theta(2,0.);
+    theta[0] =-1 * M_PI / 4;
+    theta[1] =1 * M_PI / 4;
+
+    quadVec[1] = new QuadrilateralData(ptCircle_1,ptSquare_1,ptSquare_3,ptCircle_4);
+    quadVec[1]->mapSide4 = std::bind(map_quad_side_arc,theta, xc, rCore,std::placeholders::_1);
+    quadVec[1]->SetMapsLinearity(false,false,false,true);
+    quadVec[1]->CreateQuadrilateral(nDivTCore,nDivRCore);
+    //std::function<std::vector<REAL>(const REAL &)> el_1_side_1 = std::bind(map_quad_side_linear,ptBound_3,ptCircle_3,std::placeholders::_1);
+    //std::function<std::vector<REAL>(const REAL &)> el_1_side_2 = std::bind(map_quad_side_arc,theta,xc,rCore,std::placeholders::_1);
+    //std::function<std::vector<REAL>(const REAL &)> el_1_side_3 = std::bind(map_quad_side_linear,ptCircle_4,ptBound_2,std::placeholders::_1);
+    //std::function<std::vector<REAL>(const REAL &)> el_1_side_4 = std::bind(map_quad_side_linear,ptBound_2,ptBound_3,std::placeholders::_1);
+
+
+
+
+
+    //CreateQuadrilateral(ptBound_3,ptCircle_3,ptCircle_2,ptBound_2,el_1_side_1,el_1_side_2,el_1_side_3,el_1_side_4,false,true,false,false,nx,ny);
+
+
 
     ///etc etc
     matIdVec.Resize(3);
@@ -510,6 +706,7 @@ CreateGMesh(TPZGeoMesh *&gmesh, const int &hStep, TPZVec<int> &matIdVec,
 
     return;
 }
+
 
 void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh,
                  int pOrder, TPZVec<int> &matIdVec, TPZVec<STATE> &urVec,
