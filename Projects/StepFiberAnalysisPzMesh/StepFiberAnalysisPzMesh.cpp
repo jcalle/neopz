@@ -166,27 +166,27 @@ typedef struct QuadrilateralData {
                     sidePts(iPt,0) -= isSide4nonLinear ? correctionFactor4(qsi,eta) * (xSide[0] - mapSide4(s4(qsi,eta))[0]) : 0;
                     sidePts(iPt,1) -= isSide4nonLinear ? correctionFactor4(qsi,eta) * (xSide[1] - mapSide4(s4(qsi,eta))[1]) : 0;
 
-                    std::cout<<"x:   "<<sidePts(iPt,0)<<", y:   "<<sidePts(iPt,1)<<std::endl;
+                    //std::cout<<"x:   "<<sidePts(iPt,0)<<", y:   "<<sidePts(iPt,1)<<std::endl;
                     iPt++;
                 }
             }
         };
 
 
-        std::cout<<"--------------- intP ---------------"<<std::endl;
+        //std::cout<<"--------------- intP ---------------"<<std::endl;
         getPoints(facePts,nQsi,nEta,-1., 1.,-1., 1.);
         const REAL deltaQsiInt = 1./(nQsi - 1);
         const REAL deltaEtaInt = 1./(nEta - 1);
-        std::cout<<"---------------side 1---------------"<<std::endl;
+        //std::cout<<"---------------side 1---------------"<<std::endl;
         isSide1nonLinear ?
         getPoints(side1IntPts,(nQsi-1),1,-1.+deltaQsiInt, 1.-deltaQsiInt,-1.,-1.) : (void)side1IntPts.Resize(0,0);
-        std::cout<<"---------------side 2---------------"<<std::endl;
+        //std::cout<<"---------------side 2---------------"<<std::endl;
         isSide2nonLinear ?
         getPoints(side2IntPts,1,(nEta-1), 1., 1.,-1.+deltaEtaInt, 1.-deltaEtaInt): (void)side2IntPts.Resize(0,0);
-        std::cout<<"---------------side 3---------------"<<std::endl;
+        //std::cout<<"---------------side 3---------------"<<std::endl;
         isSide3nonLinear ?
         getPoints(side3IntPts,(nQsi-1),1, 1.-deltaQsiInt,-1.+deltaQsiInt, 1., 1.): (void)side3IntPts.Resize(0,0);
-        std::cout<<"---------------side 4---------------"<<std::endl;
+        //std::cout<<"---------------side 4---------------"<<std::endl;
         isSide4nonLinear ?
         getPoints(side4IntPts,1,(nEta-1),-1.,-1., 1.-deltaEtaInt,-1.+deltaEtaInt): (void)side4IntPts.Resize(0,0);
 
@@ -554,9 +554,9 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
 void
 CreateGMesh(TPZGeoMesh *&gmesh, const int &hStep, TPZVec<int> &matIdVec,
           const bool &print, const REAL &scale) {
-    const int nDivTCore = 2, nDivRCore = 2, nDivTCladding = 2, nLayersPml = 2;
+    const int nDivTCore = 9, nDivRCore = 10, nDivTCladding = 11, nLayersPml = 2;
     #define NQUADS 9
-    #define NEDGES 12
+    #define NEDGES 20
 
     if(std::min<int>({nDivTCore,nDivRCore,nDivTCladding,nLayersPml}) < 2 ) {
         std::cout<<"Mesh has not sufficient divisions."<<std::endl;
@@ -770,18 +770,13 @@ CreateGMesh(TPZGeoMesh *&gmesh, const int &hStep, TPZVec<int> &matIdVec,
             (TPZManVector<TPZManVector<long,20>,NQUADS> &elNodeFaceVecs, const long &el1, const long &el2,const int &side1, const int &side2, long &nodeId,
              TPZVec<long> &side1pts, TPZVec<long> &side2pts, const bool &revEl2){
         const int nPts = side1 % 2 ? nDivQsi[el1] : nDivEta[el1];
-        const int totalEl2 = nDivQsi[el2] * nDivEta[el2];
-        auto sidePos = [totalEl2](const int side, const int &i, const int &nQsi, const int &nEta, bool reverse){
-            const int rev = reverse? 1:0;
+        auto sidePos = [](const int side, const int &i, const int &nQsi, const int &nEta, const bool &reverse){
+            const int iP = reverse ? (side%2 ? nQsi -1 - i : nEta -1 - i) : i;
             switch(side){
-                case 1:
-                    return (totalEl2 - 1) * rev + ((1-2*rev))*(i);
-                case 2:
-                    return (totalEl2 - 1) * rev + ((1-2*rev))*(i*nQsi + (nQsi-1));
-                case 3:
-                    return (totalEl2 - 1) * rev + ((1-2*rev))*(i + nQsi*(nEta-1));
-                case 4:
-                    return (totalEl2 - 1) * rev + ((1-2*rev))*(i*nQsi);
+                case 1 : return iP;
+                case 2 : return (iP*nQsi + (nQsi-1));
+                case 3 : return (nQsi - 1 - iP + nQsi * (nEta - 1));
+                case 4 : return (nEta - 1 - iP)*nQsi;
             }
         };
         long nNodesOld = gmesh->NodeVec().NElements();
@@ -791,6 +786,11 @@ CreateGMesh(TPZGeoMesh *&gmesh, const int &hStep, TPZVec<int> &matIdVec,
             const int posEl1 = sidePos(side1,i,nDivQsi[el1],nDivEta[el1],false);
             const int posEl2 = sidePos(side2,i,nDivQsi[el2],nDivEta[el2],revEl2);
             if(elNodeFaceVecs[el1][posEl1] != -1){
+                elNodeFaceVecs[el2][posEl2] = elNodeFaceVecs[el1][posEl1];
+                continue;
+            }
+            if(elNodeFaceVecs[el2][posEl2] != -1){
+                elNodeFaceVecs[el1][posEl1] = elNodeFaceVecs[el2][posEl2];
                 continue;
             }
             TPZManVector<REAL, 3> node(3, 0.);
@@ -852,21 +852,30 @@ CreateGMesh(TPZGeoMesh *&gmesh, const int &hStep, TPZVec<int> &matIdVec,
         el1Vec[10] = 3; el2Vec[10] = 4; side1Vec[10] = 3; side2Vec[10] = 2; revEl2[10] = true;
         el1Vec[11] = 4; el2Vec[11] = 8; side1Vec[11] = 3; side2Vec[11] = 1; revEl2[11] = true;
 
+        el1Vec[12] = 5; el2Vec[12] = 6; side1Vec[12] = 1; side2Vec[12] = 4; revEl2[12] = true;
+        el1Vec[13] = 5; el2Vec[13] = 8; side1Vec[13] = 3; side2Vec[13] = 4; revEl2[13] = true;
+        el1Vec[14] = 5; el2Vec[14] = 5; side1Vec[14] = 4; side2Vec[14] = 4; revEl2[14] = false;
+        el1Vec[15] = 6; el2Vec[15] = 6; side1Vec[15] = 1; side2Vec[15] = 1; revEl2[15] = false;
+        el1Vec[16] = 6; el2Vec[16] = 7; side1Vec[16] = 2; side2Vec[16] = 1; revEl2[16] = true;
+        el1Vec[17] = 7; el2Vec[17] = 7; side1Vec[17] = 2; side2Vec[17] = 2; revEl2[17] = false;
+        el1Vec[18] = 7; el2Vec[18] = 8; side1Vec[18] = 3; side2Vec[18] = 2; revEl2[18] = true;
+        el1Vec[19] = 8; el2Vec[19] = 8; side1Vec[19] = 3; side2Vec[19] = 3; revEl2[19] = false;
+
         for(int i = 0; i < NEDGES; i++){
             TPZVec<long> *side1pts = nullptr;
             TPZVec<long> *side2pts = nullptr;
             switch(side1Vec[i]){
-                case 1: side1pts = & elNodeSide1Vecs[el1Vec[i]];
-                case 2: side1pts = & elNodeSide2Vecs[el1Vec[i]];
-                case 3: side1pts = & elNodeSide3Vecs[el1Vec[i]];
-                case 4: side1pts = & elNodeSide4Vecs[el1Vec[i]];
+                case 1: side1pts = & elNodeSide1Vecs[el1Vec[i]]; break;
+                case 2: side1pts = & elNodeSide2Vecs[el1Vec[i]]; break;
+                case 3: side1pts = & elNodeSide3Vecs[el1Vec[i]]; break;
+                case 4: side1pts = & elNodeSide4Vecs[el1Vec[i]]; break;
             }
 
             switch(side2Vec[i]){
-                case 1: side2pts = & elNodeSide1Vecs[el2Vec[i]];
-                case 2: side2pts = & elNodeSide2Vecs[el2Vec[i]];
-                case 3: side2pts = & elNodeSide3Vecs[el2Vec[i]];
-                case 4: side2pts = & elNodeSide4Vecs[el2Vec[i]];
+                case 1: side2pts = & elNodeSide1Vecs[el2Vec[i]]; break;
+                case 2: side2pts = & elNodeSide2Vecs[el2Vec[i]]; break;
+                case 3: side2pts = & elNodeSide3Vecs[el2Vec[i]]; break;
+                case 4: side2pts = & elNodeSide4Vecs[el2Vec[i]]; break;
             }
 
             createEdgeNodes(elNodeFaceVecs,el1Vec[i], el2Vec[i],side1Vec[i],side2Vec[i],nodeId,
@@ -880,12 +889,10 @@ CreateGMesh(TPZGeoMesh *&gmesh, const int &hStep, TPZVec<int> &matIdVec,
         }
         std::cout<<std::endl;
     }
-    for(int el = 0; el < 5 ; el ++) {
+    for(int el = 0; el < NQUADS ; el ++) {
         for (int i = 0; i < nDivEta[el] - 1; i++) {
             for(int j = 0 ; j < nDivQsi[el] - 1; j++){
 
-                const int column=i-1;
-                const int row=j-1;
                 const int node0=i * nDivQsi[el] + j;//Lower left vertex
                 const int node1=i * nDivQsi[el] + j + 1;//Lower right vertex
                 const int node2=(i+1) * nDivQsi[el] + j + 1;//Upper right vertex
