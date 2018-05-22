@@ -554,10 +554,11 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
 void
 CreateGMesh(TPZGeoMesh *&gmesh, const int &hStep, TPZVec<int> &matIdVec,
           const bool &print, const REAL &scale) {
-    const int nDivTCore = 12, nDivRCore = 13 , nDivTCladding = 14, nLayersPml = 5;
+    const int nDivTCore = 2, nDivRCore = 2, nDivTCladding = 2, nLayersPml = 2;
     #define NQUADS 9
+    #define NEDGES 12
 
-    if(std::min<int>({nDivTCore,nDivRCore,nDivTCladding,nLayersPml}) < 5 ) {
+    if(std::min<int>({nDivTCore,nDivRCore,nDivTCladding,nLayersPml}) < 2 ) {
         std::cout<<"Mesh has not sufficient divisions."<<std::endl;
         std::cout<<"Minimum is 3."<<std::endl;
         DebugStop();
@@ -742,13 +743,13 @@ CreateGMesh(TPZGeoMesh *&gmesh, const int &hStep, TPZVec<int> &matIdVec,
     ///////////////////////////////////////////POINTS//////////////////////////////////////////
     long nodeId = 0;
     gmesh = new TPZGeoMesh;
-    TPZManVector<TPZManVector<TPZGeoNode*,20>,NQUADS> elNodeFaceVecs(NQUADS,TPZManVector<TPZGeoNode*,20>(0,nullptr));
+    TPZManVector<TPZManVector<long,20>,NQUADS> elNodeFaceVecs(NQUADS,TPZManVector<long,20>(0,-1));
 
     for(int el = 0; el < NQUADS ; el ++) {
         const long nNodesOld = gmesh->NodeVec().NElements();
         const long nNodesEl = (nDivQsi[el]-2)*(nDivEta[el]-2);
         gmesh->NodeVec().Resize(nNodesOld + nNodesEl);
-        elNodeFaceVecs[el].Resize(nDivEta[el] * nDivQsi[el],nullptr);
+        elNodeFaceVecs[el].Resize(nDivEta[el] * nDivQsi[el],-1);
         //interior nodes only
         for (int i = 1; i < nDivEta[el] - 1; i++) {
             for(int j = 1 ; j < nDivQsi[el] - 1; j++){
@@ -756,7 +757,7 @@ CreateGMesh(TPZGeoMesh *&gmesh, const int &hStep, TPZVec<int> &matIdVec,
                 node[0] = quadVec[el]->facePts(i * nDivQsi[el] + j,0);
                 node[1] = quadVec[el]->facePts(i * nDivQsi[el] + j,1);
                 gmesh->NodeVec()[nodeId].Initialize(node, *gmesh);
-                elNodeFaceVecs[el][i * nDivQsi[el] + j] = &(gmesh->NodeVec()[nodeId]);
+                elNodeFaceVecs[el][i * nDivQsi[el] + j] = nodeId;
                 nodeId++;
             }
         }
@@ -765,43 +766,123 @@ CreateGMesh(TPZGeoMesh *&gmesh, const int &hStep, TPZVec<int> &matIdVec,
     ////////////////////////////////////////CREATE NODES///////////////////////////////////////
     //////////////////////////////////////////FOR EDGE/////////////////////////////////////////
     ///////////////////////////////////////////POINTS//////////////////////////////////////////
-    ///edge 01
-//    long el = 0;
-//    for (int i = 1; i < nDivEta[el] - 1; i++) {
-//        for(int j = 1 ; j < nDivQsi[el] - 1; j++){
-//            TPZManVector<REAL, 3> node(3, 0.);
-//            node[0] = quadVec[el]->facePts(i * nDivQsi[el] + j,0);
-//            node[1] = quadVec[el]->facePts(i * nDivQsi[el] + j,1);
-//            gmesh->NodeVec()[nodeId].Initialize(node, *gmesh);
-//            elNodeFaceVecs[el][i * nDivQsi[el] + j] = &(gmesh->NodeVec()[nodeId]);
-//        }
-//    }
-    ///edge 02
-    ///edge 03
-    ///edge 04
-    ///edge 05
-    ///edge 06
-    ///edge 07
-    ///edge 08
-    ///edge 0NQUADS
-    ///edge 10
-    ///edge 11
-    ///edge 12
+    auto createEdgeNodes = [nDivEta,nDivQsi,quadVec,gmesh]
+            (TPZManVector<TPZManVector<long,20>,NQUADS> &elNodeFaceVecs, const long &el1, const long &el2,const int &side1, const int &side2, long &nodeId,
+             TPZVec<long> &side1pts, TPZVec<long> &side2pts, const bool &revEl2){
+        const int nPts = side1 % 2 ? nDivQsi[el1] : nDivEta[el1];
+        const int totalEl2 = nDivQsi[el2] * nDivEta[el2];
+        auto sidePos = [totalEl2](const int side, const int &i, const int &nQsi, const int &nEta, bool reverse){
+            const int rev = reverse? 1:0;
+            switch(side){
+                case 1:
+                    return (totalEl2 - 1) * rev + ((1-2*rev))*(i);
+                case 2:
+                    return (totalEl2 - 1) * rev + ((1-2*rev))*(i*nQsi + (nQsi-1));
+                case 3:
+                    return (totalEl2 - 1) * rev + ((1-2*rev))*(i + nQsi*(nEta-1));
+                case 4:
+                    return (totalEl2 - 1) * rev + ((1-2*rev))*(i*nQsi);
+            }
+        };
+        long nNodesOld = gmesh->NodeVec().NElements();
+        long nNodesEl = nPts;
+        gmesh->NodeVec().Resize(nNodesOld + nNodesEl);
+        for (int i = 0; i < nPts; i++) {
+            const int posEl1 = sidePos(side1,i,nDivQsi[el1],nDivEta[el1],false);
+            const int posEl2 = sidePos(side2,i,nDivQsi[el2],nDivEta[el2],revEl2);
+            if(elNodeFaceVecs[el1][posEl1] != -1){
+                continue;
+            }
+            TPZManVector<REAL, 3> node(3, 0.);
+            node[0] = quadVec[el1]->facePts(posEl1,0);
+            node[1] = quadVec[el1]->facePts(posEl1,1);
+            gmesh->NodeVec()[nodeId].Initialize(node, *gmesh);
+            elNodeFaceVecs[el1][posEl1] = nodeId;
+            elNodeFaceVecs[el2][posEl2] = nodeId;
+            nodeId++;
+        }
+        TPZFMatrix<REAL> *nonLinearPts = nullptr;
+        if(quadVec[el1]->isSide1nonLinear) { nonLinearPts = &quadVec[el1]->side1IntPts;}
+        else if(quadVec[el1]->isSide2nonLinear) { nonLinearPts = &quadVec[el1]->side2IntPts;}
+        else if(quadVec[el1]->isSide3nonLinear) { nonLinearPts = &quadVec[el1]->side3IntPts;}
+        else if(quadVec[el1]->isSide4nonLinear) { nonLinearPts = &quadVec[el1]->side4IntPts;}
+        const long nNonLinPts = 0;
+        if(nonLinearPts){
+            nonLinearPts->Rows();
+            side1pts.Resize(nNonLinPts);
+            side2pts.Resize(nNonLinPts);
+            nNodesOld = gmesh->NodeVec().NElements();
+            nNodesEl = nNonLinPts;
+            gmesh->NodeVec().Resize(nNodesOld + nNodesEl);
+        }
+        for (int i = 0; i < nNonLinPts; i++){
+            const int posEl1 = i;
+            const int posEl2 = revEl2? nNonLinPts - 1 - i : i;
+            TPZManVector<REAL, 3> node(3, 0.);
+            node[0] += (*nonLinearPts)(posEl1,0);
+            node[1] += (*nonLinearPts)(posEl1,1);
+            gmesh->NodeVec()[nodeId].Initialize(node, *gmesh);
+            side1pts[posEl1] = nodeId;
+            side2pts[posEl2] = nodeId;
+            nodeId++;
+        }
+    };
 
-    ////////////////////////////////////////CREATE NODES///////////////////////////////////////
-    ////////////////////////////////////FOR NON-LINEAR EDGES///////////////////////////////////
-    ///////////////////////////////////////////POINTS//////////////////////////////////////////
-    TPZManVector<TPZManVector<TPZGeoNode*,20>,NQUADS> elNodeSide1Vecs(NQUADS,TPZManVector<TPZGeoNode*,20>(0,nullptr));
-    TPZManVector<TPZManVector<TPZGeoNode*,20>,NQUADS> elNodeSide2Vecs(NQUADS,TPZManVector<TPZGeoNode*,20>(0,nullptr));
-    TPZManVector<TPZManVector<TPZGeoNode*,20>,NQUADS> elNodeSide3Vecs(NQUADS,TPZManVector<TPZGeoNode*,20>(0,nullptr));
-    TPZManVector<TPZManVector<TPZGeoNode*,20>,NQUADS> elNodeSide4Vecs(NQUADS,TPZManVector<TPZGeoNode*,20>(0,nullptr));
+    TPZManVector<TPZManVector<long,20>,NQUADS> elNodeSide1Vecs(NQUADS,TPZManVector<long,20>(0,-1));
+    TPZManVector<TPZManVector<long,20>,NQUADS> elNodeSide2Vecs(NQUADS,TPZManVector<long,20>(0,-1));
+    TPZManVector<TPZManVector<long,20>,NQUADS> elNodeSide3Vecs(NQUADS,TPZManVector<long,20>(0,-1));
+    TPZManVector<TPZManVector<long,20>,NQUADS> elNodeSide4Vecs(NQUADS,TPZManVector<long,20>(0,-1));
+    {
+        TPZManVector<long,NEDGES> el1Vec(NEDGES,-1);
+        TPZManVector<long,NEDGES> el2Vec(NEDGES,-1);
+        TPZManVector<long,NEDGES> side1Vec(NEDGES,-1);
+        TPZManVector<long,NEDGES> side2Vec(NEDGES,-1);
+        TPZManVector<long,NEDGES> revEl2(NEDGES,-1);
+        el1Vec[0] = 0; el2Vec[0] = 2; side1Vec[0] = 1; side2Vec[0] = 3; revEl2[0] = true;
+        el1Vec[1] = 0; el2Vec[1] = 3; side1Vec[1] = 2; side2Vec[1] = 4; revEl2[1] = true;
+        el1Vec[2] = 0; el2Vec[2] = 4; side1Vec[2] = 3; side2Vec[2] = 1; revEl2[2] = true;
+        el1Vec[3] = 0; el2Vec[3] = 1; side1Vec[3] = 4; side2Vec[3] = 2; revEl2[3] = true;
 
+        el1Vec[4] = 1; el2Vec[4] = 2; side1Vec[4] = 1; side2Vec[4] = 4; revEl2[4] = true;
+        el1Vec[5] = 1; el2Vec[5] = 4; side1Vec[5] = 3; side2Vec[5] = 4; revEl2[5] = true;
+        el1Vec[6] = 1; el2Vec[6] = 5; side1Vec[6] = 4; side2Vec[6] = 2; revEl2[6] = true;
+        el1Vec[7] = 2; el2Vec[7] = 6; side1Vec[7] = 1; side2Vec[7] = 3; revEl2[7] = true;
+        el1Vec[8] = 2; el2Vec[8] = 3; side1Vec[8] = 2; side2Vec[8] = 1; revEl2[8] = true;
+        el1Vec[9] = 3; el2Vec[9] = 7; side1Vec[9] = 2; side2Vec[9] = 4; revEl2[9] = true;
+        el1Vec[10] = 3; el2Vec[10] = 4; side1Vec[10] = 3; side2Vec[10] = 2; revEl2[10] = true;
+        el1Vec[11] = 4; el2Vec[11] = 8; side1Vec[11] = 3; side2Vec[11] = 1; revEl2[11] = true;
 
+        for(int i = 0; i < NEDGES; i++){
+            TPZVec<long> *side1pts = nullptr;
+            TPZVec<long> *side2pts = nullptr;
+            switch(side1Vec[i]){
+                case 1: side1pts = & elNodeSide1Vecs[el1Vec[i]];
+                case 2: side1pts = & elNodeSide2Vecs[el1Vec[i]];
+                case 3: side1pts = & elNodeSide3Vecs[el1Vec[i]];
+                case 4: side1pts = & elNodeSide4Vecs[el1Vec[i]];
+            }
 
-    for(int el = 0; el < NQUADS ; el ++) {
-        //interior nodes only
-        for (int i = 1; i < nDivEta[el] - 2; i++) {
-            for(int j = 1 ; j < nDivQsi[el] - 2; j++){
+            switch(side2Vec[i]){
+                case 1: side2pts = & elNodeSide1Vecs[el2Vec[i]];
+                case 2: side2pts = & elNodeSide2Vecs[el2Vec[i]];
+                case 3: side2pts = & elNodeSide3Vecs[el2Vec[i]];
+                case 4: side2pts = & elNodeSide4Vecs[el2Vec[i]];
+            }
+
+            createEdgeNodes(elNodeFaceVecs,el1Vec[i], el2Vec[i],side1Vec[i],side2Vec[i],nodeId,
+                     *side1pts, *side2pts, revEl2[i]);
+        }
+    }
+    for(int i = 0; i < elNodeFaceVecs.size(); i++){
+        std::cout<<"element "<<i<<std::endl;
+        for(int j = 0; j < elNodeFaceVecs[i].size(); j++){
+            std::cout<<elNodeFaceVecs[i][j]<<"\t";
+        }
+        std::cout<<std::endl;
+    }
+    for(int el = 0; el < 5 ; el ++) {
+        for (int i = 0; i < nDivEta[el] - 1; i++) {
+            for(int j = 0 ; j < nDivQsi[el] - 1; j++){
 
                 const int column=i-1;
                 const int row=j-1;
@@ -813,16 +894,21 @@ CreateGMesh(TPZGeoMesh *&gmesh, const int &hStep, TPZVec<int> &matIdVec,
                 TPZGeoElRefPattern< pzgeom::TPZGeoTriangle>  * triang = nullptr;
                 TPZManVector<long, 3> nodesIdVec(3, 0.);
                 const int matId = el/5 + 1;
-                nodesIdVec[0] = elNodeFaceVecs[el][node0]->Id();
-                nodesIdVec[1] = elNodeFaceVecs[el][node1]->Id();
-                nodesIdVec[2] = elNodeFaceVecs[el][node2]->Id();
-
+                nodesIdVec[0] = elNodeFaceVecs[el][node0];
+                nodesIdVec[1] = elNodeFaceVecs[el][node1];
+                nodesIdVec[2] = elNodeFaceVecs[el][node2];
+                if(nodesIdVec[0] == -1 || nodesIdVec[1] == -1 || nodesIdVec[2] == -1){
+                    DebugStop();
+                }
                 triang =
                   new TPZGeoElRefPattern< pzgeom::TPZGeoTriangle >  (nodesIdVec,matId,*gmesh);
 
-                nodesIdVec[0] = elNodeFaceVecs[el][node0]->Id();
-                nodesIdVec[1] = elNodeFaceVecs[el][node2]->Id();
-                nodesIdVec[2] = elNodeFaceVecs[el][node3]->Id();
+                nodesIdVec[0] = elNodeFaceVecs[el][node0];
+                nodesIdVec[1] = elNodeFaceVecs[el][node2];
+                nodesIdVec[2] = elNodeFaceVecs[el][node3];
+                if(nodesIdVec[0] == -1 || nodesIdVec[1] == -1 || nodesIdVec[2] == -1){
+                    DebugStop();
+                }
                 triang =
                         new TPZGeoElRefPattern< pzgeom::TPZGeoTriangle >  (nodesIdVec,matId,*gmesh);
             }
