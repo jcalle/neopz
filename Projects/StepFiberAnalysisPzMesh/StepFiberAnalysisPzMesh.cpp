@@ -351,7 +351,7 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
         const int dim = 2;
         an.DefineGraphMesh(dim, scalnames, vecnames,
                            plotfile);  // define malha grafica
-        an.PostProcess(2);
+        an.PostProcess(4);
     }
     //nao esquecer disso!!!!!!!!!! TPZEigenAnalysis an(cmesh, true);
 //    std::cout << "Assembling..." << std::endl;
@@ -575,6 +575,7 @@ CreateGMesh(TPZGeoMesh *&gmesh, const int &hStep, TPZVec<int> &matIdVec,
             matIdPMLxpym = 98;
 
     const REAL rCore = 1.;
+    const REAL lengthPML = 0.25;
     TPZManVector<REAL,2> xc(2, 0.);
     xc[0] = 0.;
     xc[1] = 0.;
@@ -618,6 +619,48 @@ CreateGMesh(TPZGeoMesh *&gmesh, const int &hStep, TPZVec<int> &matIdVec,
     ptBound_4[0] = 1 * bound;
     ptBound_4[1] = -1 * bound;
 
+    TPZManVector<REAL,2> ptPMLxp_u(2,0.);
+    ptPMLxp_u[0] =  1 * bound + lengthPML;
+    ptPMLxp_u[1] =  1 * bound;
+    TPZManVector<REAL,2> ptPMLxp_l(2,0.);
+    ptPMLxp_l[0] =  1 * bound + lengthPML;
+    ptPMLxp_l[1] = -1 * bound;
+
+    TPZManVector<REAL,2> ptPMLxm_u(2,0.);
+    ptPMLxm_u[0] = -1.*ptPMLxp_u[0];
+    ptPMLxm_u[1] = ptPMLxp_u[1];
+    TPZManVector<REAL,2> ptPMLxm_l(2,0.);
+    ptPMLxm_l[0] = -1.*ptPMLxp_l[0];
+    ptPMLxm_l[1] = ptPMLxp_l[1];
+
+    TPZManVector<REAL,2> ptPMLyp_r(2,0.);
+    ptPMLyp_r[0] = 1 * bound;
+    ptPMLyp_r[1] = 1 * bound;
+    TPZManVector<REAL,2> ptPMLyp_l(2,0.);
+    ptPMLyp_l[0] = -1 * bound;
+    ptPMLyp_l[1] =  1 * bound + lengthPML;
+
+    TPZManVector<REAL,2> ptPMLym_r(2,0.);
+    ptPMLym_r[0] =  1. * ptPMLyp_r[0];
+    ptPMLym_r[1] = -1. * ptPMLyp_r[1];
+    TPZManVector<REAL,2> ptPMLym_l(2,0.);
+    ptPMLym_l[0] =  1. * ptPMLyp_l[0];
+    ptPMLym_l[1] = -1. * ptPMLyp_l[1];
+
+
+    TPZManVector<REAL,2> ptPMLxpyp(2,0.);
+    ptPMLxpyp[0] = (bound + lengthPML);
+    ptPMLxpyp[1] = (bound + lengthPML);
+    TPZManVector<REAL,2> ptPMLxmyp(2,0.);
+    ptPMLxmyp[0] =-(bound + lengthPML);
+    ptPMLxmyp[1] = (bound + lengthPML);
+    TPZManVector<REAL,2> ptPMLxmym(2,0.);
+    ptPMLxmym[0] =-(bound + lengthPML);
+    ptPMLxmym[1] =-(bound + lengthPML);
+    TPZManVector<REAL,2> ptPMLxpym(2,0.);
+    ptPMLxpym[0] = (bound + lengthPML);
+    ptPMLxpym[1] =-(bound + lengthPML);
+
     auto map_quad_side_arc = [](const TPZVec<REAL> &theta ,const TPZVec<REAL> &xc, const REAL &r, const REAL & s) {
         TPZVec<REAL> point(2,0.);
         point[0] = xc[0] + r*cos((theta[1] + s*theta[1] + theta[0] - s*theta[0])/2.);
@@ -638,15 +681,17 @@ CreateGMesh(TPZGeoMesh *&gmesh, const int &hStep, TPZVec<int> &matIdVec,
     TPZVec<QuadrilateralData *> quadVec(NQUADS,nullptr);
     TPZManVector<int,NQUADS> matIdsQuads(NQUADS,-1);
     matIdsQuads[0] = matIdCore;
-    matIdsQuads[1] = matIdCore;
-    matIdsQuads[2] = matIdCore;
-    matIdsQuads[3] = matIdCore;
-    matIdsQuads[4] = matIdCore;
 
-    matIdsQuads[5] = matIdCladding;
-    matIdsQuads[6] = matIdCladding;
-    matIdsQuads[7] = matIdCladding;
-    matIdsQuads[8] = matIdCladding;
+    matIdsQuads[1] = matIdCore;    matIdsQuads[2] = matIdCore;
+    matIdsQuads[3] = matIdCore;    matIdsQuads[4] = matIdCore;
+
+    matIdsQuads[5] = matIdCladding;    matIdsQuads[6] = matIdCladding;
+    matIdsQuads[7] = matIdCladding;    matIdsQuads[8] = matIdCladding;
+
+//    matIdsQuads[9] = matIdPMLxp;    matIdsQuads[10] = matIdPMLyp;
+//    matIdsQuads[11] = matIdPMLxm;    matIdsQuads[12] = matIdPMLym;
+//    matIdsQuads[13] = matIdPMLxpyp;    matIdsQuads[14] = matIdPMLxmyp;
+//    matIdsQuads[15] = matIdPMLxmym;    matIdsQuads[16] = matIdPMLxpym;
 
     TPZManVector<int,NQUADS> nDivQsi(NQUADS,-1);
     TPZManVector<int,NQUADS> nDivEta(NQUADS,-1);
@@ -663,31 +708,31 @@ CreateGMesh(TPZGeoMesh *&gmesh, const int &hStep, TPZVec<int> &matIdVec,
     nDivQsi[7]=nDivTCladding; nDivEta[7]=nDivRCore;
     nDivQsi[8]=nDivRCore;     nDivEta[8]=nDivTCladding;
 
+    nDivQsi[9]=nLayersPml; nDivEta[9]=nDivRCore;
+    nDivQsi[10]=nDivRCore;    nDivEta[10]=nLayersPml;
+    nDivQsi[11]=nLayersPml; nDivEta[11]=nDivRCore;
+    nDivQsi[12]=nDivRCore;     nDivEta[12]=nLayersPml;
+
+    nDivQsi[13]=nLayersPml; nDivEta[13]=nLayersPml;
+    nDivQsi[14]=nLayersPml;     nDivEta[14]=nLayersPml;
+    nDivQsi[15]=nLayersPml; nDivEta[15]=nLayersPml;
+    nDivQsi[16]=nLayersPml;     nDivEta[16]=nLayersPml;
+
     TPZManVector<bool,NQUADS> side1NonLinearVec(NQUADS,false);
     TPZManVector<bool,NQUADS> side2NonLinearVec(NQUADS,false);
     TPZManVector<bool,NQUADS> side3NonLinearVec(NQUADS,false);
     TPZManVector<bool,NQUADS> side4NonLinearVec(NQUADS,false);
+    //quad 0 is all false
+    side4NonLinearVec[1] = true;
+    side1NonLinearVec[2] = true;
+    side2NonLinearVec[3] = true;
+    side3NonLinearVec[4] = true;
 
-    side1NonLinearVec[0] = false;   side2NonLinearVec[0] = false;
-    side3NonLinearVec[0] = false;   side4NonLinearVec[0] = true;
-
-    side1NonLinearVec[1] = false;   side2NonLinearVec[1] = false;
-    side3NonLinearVec[1] = false;   side4NonLinearVec[1] = true;
-    side1NonLinearVec[2] = true;    side2NonLinearVec[2] = false;
-    side3NonLinearVec[2] = false;   side4NonLinearVec[2] = false;
-    side1NonLinearVec[3] = false;   side2NonLinearVec[3] = true;
-    side3NonLinearVec[3] = false;   side4NonLinearVec[3] = false;
-    side1NonLinearVec[4] = false;   side2NonLinearVec[4] = false;
-    side3NonLinearVec[4] = true;    side4NonLinearVec[4] = false;
-
-    side1NonLinearVec[5] = false;   side2NonLinearVec[5] = true;
-    side3NonLinearVec[5] = false;   side4NonLinearVec[5] = false;
-    side1NonLinearVec[6] = false;   side2NonLinearVec[6] = false;
-    side3NonLinearVec[6] = true;    side4NonLinearVec[6] = false;
-    side1NonLinearVec[7] = false;   side2NonLinearVec[7] = false;
-    side3NonLinearVec[7] = false;   side4NonLinearVec[7] = true;
-    side1NonLinearVec[8] = true;    side2NonLinearVec[8] = false;
-    side3NonLinearVec[8] = false;   side4NonLinearVec[8] = false;
+    side2NonLinearVec[5] = true;
+    side3NonLinearVec[6] = true;
+    side4NonLinearVec[7] = true;
+    side1NonLinearVec[8] = true;
+    //PMLS are all false
 
     quadVec[0] = new QuadrilateralData(ptSquare_1,ptSquare_2,ptSquare_3,ptSquare_4);
     quadVec[0]->CreateQuadrilateral(nDivQsi[0],nDivEta[0]);
@@ -749,6 +794,19 @@ CreateGMesh(TPZGeoMesh *&gmesh, const int &hStep, TPZVec<int> &matIdVec,
     quadVec[8]->mapSide1 = std::bind(map_quad_side_arc,theta, xc, rCore,std::placeholders::_1);
     quadVec[8]->SetMapsLinearity(side1NonLinearVec[8],side2NonLinearVec[8],side3NonLinearVec[8],side4NonLinearVec[8]);
     quadVec[8]->CreateQuadrilateral(nDivQsi[8],nDivEta[8]);
+
+
+    quadVec[9] = new QuadrilateralData(ptPMLxp_u,ptBound_1,ptBound_4,ptPMLxp_l);
+    quadVec[9]->CreateQuadrilateral(nDivQsi[9],nDivEta[9]);
+
+    quadVec[10] = new QuadrilateralData(ptPMLyp_r,ptPMLyp_l,ptBound_2,ptBound_1);
+    quadVec[10]->CreateQuadrilateral(nDivQsi[10],nDivEta[10]);
+
+    quadVec[11] = new QuadrilateralData(ptBound_2,ptPMLxm_u,ptPMLxm_l,ptBound_3);
+    quadVec[11]->CreateQuadrilateral(nDivQsi[11],nDivEta[11]);
+
+    quadVec[12] = new QuadrilateralData(ptBound_4,ptBound_3,ptPMLym_l,ptPMLym_r);
+    quadVec[12]->CreateQuadrilateral(nDivQsi[12],nDivEta[12]);
     ////////////////////////////////////////CREATE NODES///////////////////////////////////////
     ////////////////////////////////////////FOR INTERIOR///////////////////////////////////////
     ///////////////////////////////////////////POINTS//////////////////////////////////////////
