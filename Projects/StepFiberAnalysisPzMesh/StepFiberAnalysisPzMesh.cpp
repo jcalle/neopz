@@ -89,19 +89,6 @@ typedef struct QuadrilateralData {
 
     void CreateQuadrilateral(const int &nQsi, const int &nEta){
 
-        const int nPtsSide1 = nQsi + (nQsi - 1)*isSide1nonLinear;
-        const int nPtsSide2 = nEta + (nEta - 1)*isSide2nonLinear;
-        const int nPtsSide3 = nQsi + (nQsi - 1)*isSide3nonLinear;
-        const int nPtsSide4 = nEta + (nEta - 1)*isSide4nonLinear;
-
-        const int nPtsInterior = (nEta - 2) * (nQsi - 2);
-
-        // std::cout<<"nPtsSide1 :"<<nPtsSide1<<" ";
-        // std::cout<<"nPtsSide2 :"<<nPtsSide2<<" ";
-        // std::cout<<"nPtsSide3 :"<<nPtsSide3<<" ";
-        // std::cout<<"nPtsSide4 :"<<nPtsSide4<<" ";
-        // std::cout<<"nPtsInterior :"<<nPtsInterior<<" "<<std::endl;
-
         auto getPoints = [this](TPZFMatrix<REAL> &sidePts,const int nPtsQsi,const int nPtsEta,
                                 const REAL iniQsi, const REAL endQsi, const REAL iniEta, const REAL endEta){
 
@@ -289,6 +276,80 @@ void RunSimulation(SPZModalAnalysisData &simData, std::ostringstream &eigeninfo,
     boost::posix_time::ptime t2_g =
             boost::posix_time::microsec_clock::local_time();
     std::cout<<"Created!  "<<t2_g-t1_g<<std::endl;
+
+    {
+        REAL circleArea = 0., circlePerimeter = 0.;
+        int nElementsInCircle = 0;
+        for(int iel = 0; iel < gmesh->NElements(); iel++){
+            TPZGeoEl * gel = gmesh->ElementVec()[iel];
+            if(gel->MaterialId() == 1 && gel->Type() == MElementType::EQuadrilateral){
+                nElementsInCircle++;
+                TPZAutoPointer<TPZIntPoints> intrule;
+
+                TPZManVector<REAL,3> intpointtemp(2,0.);
+                REAL weight = 0.;
+
+                TPZManVector<int,3> ordervec;
+
+                int order = 16;
+
+                intrule = gel->CreateSideIntegrationRule(gel->NSides()-1, order);
+
+                TPZManVector<int,3> intorder(2,order);
+                intrule->SetOrder(intorder);
+                int intrulepoints = intrule->NPoints();
+                if(intrulepoints > 1000) {
+                    DebugStop();
+                }
+
+                TPZFMatrix<REAL> jac, axe, jacInv;
+                REAL detJac;
+                for(int int_ind = 0; int_ind < intrulepoints; ++int_ind)
+                {
+                    intrule->Point(int_ind,intpointtemp,weight);
+                    gel->Jacobian(intpointtemp, jac, axe, detJac , jacInv);
+                    weight *= fabs(detJac);
+                    circleArea += weight;
+                }//loop over integratin points
+            }
+
+            if(gel->MaterialId() == -24){
+                TPZAutoPointer<TPZIntPoints> intrule;
+
+                TPZManVector<REAL,3> intpointtemp(2,0.);
+                REAL weight = 0.;
+
+                TPZManVector<int,3> ordervec;
+
+                int order = 16;
+
+                intrule = gel->CreateSideIntegrationRule(gel->NSides()-1, order);
+
+                TPZManVector<int,3> intorder(2,order);
+                intrule->SetOrder(intorder);
+                int intrulepoints = intrule->NPoints();
+                if(intrulepoints > 1000) {
+                    DebugStop();
+                }
+
+                TPZFMatrix<REAL> jac, axe, jacInv;
+                REAL detJac;
+                for(int int_ind = 0; int_ind < intrulepoints; ++int_ind)
+                {
+                    intrule->Point(int_ind,intpointtemp,weight);
+                    gel->Jacobian(intpointtemp, jac, axe, detJac , jacInv);
+                    weight *= fabs(detJac);
+                    circlePerimeter += weight;
+                }//loop over integratin points
+            }
+        }//loop over elements
+        typedef std::numeric_limits< double > dbl2;
+        std::cout.precision(dbl2::max_digits10);
+        std::cout<<"area = "<<std::fixed<<circleArea<<std::endl;
+        std::cout<<"perimeter = "<<std::fixed<<circlePerimeter<<std::endl;
+        std::cout<<"nElementsInCircle = "<<nElementsInCircle<<std::endl;
+    }
+
     TPZVec<TPZCompMesh *> meshVec(1);
     std::cout<<"Creating CMesh..."<<std::endl;
     boost::posix_time::ptime t1_c =
@@ -351,7 +412,7 @@ void RunSimulation(SPZModalAnalysisData &simData, std::ostringstream &eigeninfo,
         const int dim = 2;
         an.DefineGraphMesh(dim, scalnames, vecnames,
                            plotfile);  // define malha grafica
-        an.PostProcess(0);
+        an.PostProcess(simData.pzOpts.vtkRes);
     }
     std::cout << "Assembling..." << std::endl;
     boost::posix_time::ptime t1 =
@@ -553,6 +614,7 @@ void RunSimulation(SPZModalAnalysisData &simData, std::ostringstream &eigeninfo,
 void
 CreateGMesh(TPZGeoMesh *&gmesh, TPZVec<int> &matIdVec, const bool &print, const REAL &scale, const int &factor) {
     const int nDivTCore = factor * 4, nDivRCore = factor * 7, nDivTCladding = factor * 4, nDivPml = factor * 6;
+    //const int nDivTCore = factor * 2, nDivRCore = factor * 3, nDivTCladding = factor * 2, nDivPml = factor * (1+1);
     const int nQuads = 17;
     const int nEdges = 40;
 
@@ -572,7 +634,7 @@ CreateGMesh(TPZGeoMesh *&gmesh, TPZVec<int> &matIdVec, const bool &print, const 
             "2 3 0  2  3 ";
     std::istringstream str(buf);
     refp = new TPZRefPattern(str);
-    //refp->GenerateSideRefPatterns();
+    refp->GenerateSideRefPatterns();
     gRefDBase.InsertRefPattern(refp);
     if(!refp)
     {
@@ -595,6 +657,9 @@ CreateGMesh(TPZGeoMesh *&gmesh, TPZVec<int> &matIdVec, const bool &print, const 
             matIdPMLxmym = 17;
     
     const REAL rCore = scale * 0.000008;//8e-6;
+    typedef std::numeric_limits< double > dbl2;
+    std::cout.precision(dbl2::max_digits10);
+    std::cout<<"r = "<<std::fixed<<rCore<<std::endl;
     const REAL lengthPML = 1.2 * 3 * 2 * M_PI;
     TPZManVector<REAL,2> xc(2, 0.);
     xc[0] = 0.;
