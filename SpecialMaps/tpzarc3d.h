@@ -11,9 +11,9 @@
 #include "tpzline.h"
 #include "tpzgeoelrefpattern.h"
 #include "tpzgeomid.h"
-#include "TPZGeoLinear.h"
 
 #include <iostream>
+#include <TPZGeoLinear.h>
 
 namespace pzgeom
 {
@@ -31,31 +31,76 @@ namespace pzgeom
 		enum {NNodes = 3};
 
 		/** @brief Copy constructor with map of nodes */
-		TPZArc3D(const TPZArc3D &cp,std::map<long,long> & gl2lcNdMap) : pzgeom::TPZNodeRep<NNodes,pztopology::TPZLine>(cp,gl2lcNdMap){
+		TPZArc3D(const TPZArc3D &cp,std::map<long,long> & gl2lcNdMap) :
+            pzgeom::TPZNodeRep<NNodes,pztopology::TPZLine>(cp,gl2lcNdMap){
 			this->fICnBase = cp.fICnBase;
 			this->fIBaseCn = cp.fIBaseCn;
 			this->fCenter3D = cp.fCenter3D;
-			this->fRadius = cp.fRadius;		
+                this->finitialVector = cp.finitialVector;
+                
+			this->fRadius = cp.fRadius;
+                this->fAngle = cp.fAngle;
+                this->fXcenter = cp.fXcenter;
+                this->fYcenter = cp.fYcenter;
 		}
+        /*
+        TPZFNMatrix<9> fICnBase, fIBaseCn;
+        TPZManVector< REAL,3 > fCenter3D, finitialVector;
+#ifdef REALpzfpcounter
+        double fAngle, fRadius, fXcenter, fYcenter;
+#else
+        REAL fAngle, fRadius, fXcenter, fYcenter;
+#endif
+*/
 		/** @brief Default constructor */
-		TPZArc3D() : pzgeom::TPZNodeRep<NNodes,pztopology::TPZLine>(),fICnBase(3,3),fIBaseCn(3,3) {
+		TPZArc3D() : 
+        pzgeom::TPZNodeRep<NNodes,pztopology::TPZLine>(),fICnBase(3,3),fIBaseCn(3,3), fCenter3D(3,0.), finitialVector(3,0.),
+            fAngle(0.), fRadius(0.), fXcenter(0.), fYcenter(0.) {
 		}
 		/** @brief Copy constructor */
-		TPZArc3D(const TPZArc3D &cp) : pzgeom::TPZNodeRep<NNodes,pztopology::TPZLine>(cp){
+		TPZArc3D(const TPZArc3D &cp) : 
+        pzgeom::TPZNodeRep<NNodes,pztopology::TPZLine>(cp){
 			this->fICnBase = cp.fICnBase;
 			this->fIBaseCn = cp.fIBaseCn;
 			this->fCenter3D = cp.fCenter3D;
+            this->finitialVector = cp.finitialVector;
 			this->fRadius = cp.fRadius;
+            this->fAngle = cp.fAngle;
+            this->fXcenter = cp.fXcenter;
+            this->fYcenter = cp.fYcenter;
 		}
-		/** @brief Another copy constructor */
-		TPZArc3D(const TPZArc3D &cp, TPZGeoMesh &) : pzgeom::TPZNodeRep<NNodes, pztopology::TPZLine>(cp){
+
+        /** @brief Copy constructor */
+        TPZArc3D& operator=(const TPZArc3D &cp)
+        {
+            pzgeom::TPZNodeRep<NNodes,pztopology::TPZLine>::operator=(cp);
+            this->fICnBase = cp.fICnBase;
+            this->fIBaseCn = cp.fIBaseCn;
+            this->fCenter3D = cp.fCenter3D;
+            this->finitialVector = cp.finitialVector;
+            this->fRadius = cp.fRadius;
+            this->fAngle = cp.fAngle;
+            this->fXcenter = cp.fXcenter;
+            this->fYcenter = cp.fYcenter;
+            return *this;
+        }
+
+        /** @brief Another copy constructor */
+		TPZArc3D(const TPZArc3D &cp, TPZGeoMesh &) : 
+        pzgeom::TPZNodeRep<NNodes, pztopology::TPZLine>(cp){
 			this->fICnBase  = cp.fICnBase;
 			this->fIBaseCn  = cp.fIBaseCn;
 			this->fCenter3D = cp.fCenter3D;
+            this->finitialVector = cp.finitialVector;
 			this->fRadius   = cp.fRadius;
+            this->fAngle = cp.fAngle;
+            this->fXcenter = cp.fXcenter;
+            this->fYcenter = cp.fYcenter;
 		}
 		
-		TPZArc3D(TPZVec<long> &nodeindexes) : pzgeom::TPZNodeRep<NNodes,pztopology::TPZLine>(nodeindexes), fICnBase(3,3), fIBaseCn(3,3) {
+		TPZArc3D(TPZVec<long> &nodeindexes) :
+        pzgeom::TPZNodeRep<NNodes,pztopology::TPZLine>(nodeindexes), fICnBase(3,3), fIBaseCn(3,3), fCenter3D(3,0.), finitialVector(3,0.),
+        fAngle(0.), fRadius(0.), fXcenter(0.), fYcenter(0.) {
 			long nnod = nodeindexes.NElements();
 			if(nnod != 3)
 			{
@@ -64,7 +109,8 @@ namespace pzgeom
 			}
 		}
 		
-		TPZArc3D(TPZFMatrix<REAL> &coord){
+        TPZArc3D(TPZFMatrix<REAL> &coord) :  pzgeom::TPZNodeRep<NNodes,pztopology::TPZLine>(), fICnBase(3,3), fIBaseCn(3,3), fCenter3D(3,0.), finitialVector(3,0.),
+            fAngle(0.), fRadius(0.), fXcenter(0.), fYcenter(0.){
 			ComputeAtributes(coord);
 		}
 		
@@ -119,17 +165,15 @@ namespace pzgeom
 
         }
 		void Jacobian(TPZFMatrix<REAL> &coord, TPZVec<REAL> &par, TPZFMatrix<REAL> &jacobian, TPZFMatrix<REAL> &axes, REAL &detjac, TPZFMatrix<REAL> &jacinv) const;
-		
-        //Needs Implementation
-        template<class T>
-        void XLinearMapping(const TPZGeoEl &gel, TPZVec<T> &ksi,TPZVec<T> &result) const
-        {
-            TPZFNMatrix<3*NNodes> coord(3,NNodes);
-            CornerCoordinates(gel, coord);
-            TPZGeoLinear::X(coord,ksi,result);
-        }
-        
-        
+
+		//Needs Implementation
+		template<class T>
+		void XLinearMapping(const TPZGeoEl &gel, TPZVec<T> &ksi,TPZVec<T> &result) const
+		{
+			TPZFNMatrix<3*NNodes> coord(3,NNodes);
+			CornerCoordinates(gel, coord);
+			TPZGeoLinear::X(coord,ksi,result);
+		}
         template<class T>
         void X(const TPZGeoEl &gel,TPZVec<T> &loc,TPZVec<T> &result) const
         {
@@ -165,6 +209,18 @@ namespace pzgeom
             gradx(0) =  Vpa[1]*Vpb[0]*Vpc[1] - Vpa[0]*Vpb[1]*Vpc[1] + Vpa[2]*Vpb[0]*Vpc[2] - Vpa[0]*Vpb[2]*Vpc[2];
             gradx(1) = -Vpa[1]*Vpb[0]*Vpc[0] + Vpa[0]*Vpb[1]*Vpc[0] + Vpa[2]*Vpb[1]*Vpc[2] - Vpa[1]*Vpb[2]*Vpc[2];
             gradx(2) = -Vpa[2]*Vpb[0]*Vpc[0] + Vpa[0]*Vpb[2]*Vpc[0] - Vpa[2]*Vpb[1]*Vpc[1] + Vpa[1]*Vpb[2]*Vpc[1];
+            
+            T Vtnorm = 0.;
+            for(int i = 0; i < 3; i++)
+            {
+                if( fabs(Vt[i]) < 1.E-12 ) Vt[i] = 0.;
+                Vtnorm += gradx(i)*gradx(i);
+            }
+            if(Vtnorm < 0.) DebugStop();
+//            if(sqrt(Vtnorm) < 1e-16) DebugStop();
+            T scale = fAngle*fRadius/(2.*sqrt(Vtnorm));
+            for(int j = 0; j < 3; j++) gradx(j) = gradx(j)*scale;
+
         }
 		
 		void Jacobian(const TPZGeoEl &gel,TPZVec<REAL> &param,TPZFMatrix<REAL> &jacobian,TPZFMatrix<REAL> &axes,REAL &detjac,TPZFMatrix<REAL> &jacinv) const
@@ -201,31 +257,33 @@ namespace pzgeom
         
         void Read(TPZStream &buf,void *context)
         {
-            pzgeom::TPZNodeRep<3,pztopology::TPZLine>::Read(buf,0);
-            fICnBase.Read(buf,0);
-            fIBaseCn.Read(buf,0);
-            buf.Read<3>( fCenter3D);
-            buf.Read<3>(finitialVector);
-            buf.Read(&fAngle,1);
-            buf.Read(&fRadius,1);
-            buf.Read(&fXcenter,1);
-            buf.Read(&fYcenter,1);
+			pzgeom::TPZNodeRep<3,pztopology::TPZLine>::Read(buf,0);
+			fICnBase.Read(buf,0);
+			fIBaseCn.Read(buf,0);
+			buf.Read<3>( fCenter3D);
+			buf.Read<3>(finitialVector);
+			buf.Read(&fAngle,1);
+			buf.Read(&fRadius,1);
+			buf.Read(&fXcenter,1);
+			buf.Read(&fYcenter,1);
         }
         
-        void Write(TPZStream &buf)
+        virtual void Write(TPZStream &buf, int withclassid = 1)
         {
-            pzgeom::TPZNodeRep<3,pztopology::TPZLine>::Write(buf);
-            fICnBase.Write(buf,0);
-            fIBaseCn.Write(buf,0);
-            buf.Write( fCenter3D);
-            buf.Write(finitialVector);
-            buf.Write(&fAngle,1);
-            buf.Write(&fRadius,1);
-            buf.Write(&fXcenter,1);
-            buf.Write(&fYcenter,1);
+			pzgeom::TPZNodeRep<3,pztopology::TPZLine>::Write(buf);
+			fICnBase.Write(buf,0);
+			fIBaseCn.Write(buf,0);
+			buf.Write( fCenter3D);
+			buf.Write(finitialVector);
+			buf.Write(&fAngle,1);
+			buf.Write(&fRadius,1);
+			buf.Write(&fXcenter,1);
+			buf.Write(&fYcenter,1);
 		}
+
+	public:
+        static void InsertExampleElement(TPZGeoMesh &gmesh, int matid, TPZVec<REAL> &lowercorner, TPZVec<REAL> &size);
         
-        //virtual void ParametricDomainNodeCoord(int node, TPZVec<REAL> &nodeCoord);
 
 	protected:
 		
@@ -250,11 +308,6 @@ namespace pzgeom
 	};
 	
 };
-
-/**
- * @ingroup geometry
- * @brief Id for three dimensional arc element
- */
 
 template<>
 inline int TPZGeoElRefPattern<pzgeom::TPZArc3D>::ClassId() const {
