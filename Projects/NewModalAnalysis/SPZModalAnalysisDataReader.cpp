@@ -86,13 +86,16 @@ void SPZModalAnalysisDataReader::DeclareParameters() {
 
   prm.enter_subsection("NeoPZ options");
   {
-
+    prm.declare_entry("Using NeoPZ mesh", "false",Patterns::Bool(),
+            "Whether to use NeoPZ generated mesh instead of .geo/.msh file.");
+    prm.declare_entry("NeoPZ mesh","Step Fiber",Patterns::Selection("Step Fiber"),
+                      "If using NeoPZ generated mesh, this attribute specifies the simulation case");
     prm.declare_entry("Mesh file", "",
                       Patterns::Anything(),
-                      "Path to .geo gmsh description of the mesh");
+                      "Path to .geo gmsh description of the mesh(used only if Using NeoPZ mesh is false)");
     prm.declare_entry("Mesh order", "1",
                       Patterns::Integer(1),
-                      "Order of the geometrical mapping");
+                      "Order of the geometrical mapping(used only if Using NeoPZ mesh is false)");
     prm.declare_entry("Number of threads","4",Patterns::Integer(0),
                       "Number of threads to use in NeoPZ assembly.");
     prm.declare_entry("Polynomial order","1", Patterns::Integer(1),
@@ -101,11 +104,11 @@ void SPZModalAnalysisDataReader::DeclareParameters() {
                           " will be built accordingly)");
     prm.declare_entry("Number of iterations(p)","1",Patterns::Integer(0),
                     "Option with self-explaining name.");
-    prm.declare_entry("Number of iterations(h)","1",Patterns::Integer(0),
-                    "Option with self-explaining name.");
-    prm.declare_entry("Factor","1.",Patterns::List(Patterns::Double(0),1),
-                    "Vector with factor values related to element "
-                    "sizes(gmsh var must be named factor)");
+    prm.declare_entry("Factor","2",Patterns::List(Patterns::Integer(2),1),
+                    "Vector with factor values related to element"
+                    "sizes in mesh. In NeoPZ meshes it represents the number of nodes"
+                    " that will be used to divide a quadrilateral edge"
+                    "If not using NeoPZ mesh, gmsh variable must be named factor");
 
     prm.enter_subsection("Export options");
     {
@@ -290,46 +293,56 @@ void SPZModalAnalysisDataReader::ReadParameters(SPZModalAnalysisData &data) {
   prm.leave_subsection();
   prm.enter_subsection("NeoPZ options");
   {
-    data.pzOpts.meshFile = path + prm.get("Mesh file");//anything
-    std::string &str = data.pzOpts.meshFile;
-    data.pzOpts.externGenMesh = false;
-    while(str.size() == 0 || str.substr(str.size()-4,4) != ".geo" || !FileExists(str)){
-      if(str.substr(str.size()-4,4) == ".msh"){
-        if(FileExists(str)){
-          data.pzOpts.externGenMesh = true;
-          break;
-        }
+    data.pzOpts.usingNeoPzMesh = prm.get_bool("Using NeoPZ mesh");
+    if(data.pzOpts.usingNeoPzMesh){
+      auto val = prm.get("NeoPZ mesh");
+      if(val == "Step Fiber"){
+        data.pzOpts.pzCase = SPZModalAnalysisData::SPZPzOpts::StepFiber;
+        data.pzOpts.meshFile = path + "stepFiberPzMesh";
       }
-      std::cout<<"Input a valid mesh file: "<<std::endl;
-      std::cin >> data.pzOpts.meshFile;
-        if(str.size() == 0 || str.substr(str.size()-4,4) != ".geo" || !FileExists(str)){
-        if(str.substr(str.size()-4,4) == ".msh"){
-          if(FileExists(str)){
-              data.pzOpts.externGenMesh = true;
-              break;
-          }
-        }
-        std::cout<<"Not a valid name."<<std::endl;
+      else{
         DebugStop();
       }
     }
-    data.pzOpts.meshOrder = (int) prm.get_integer("Mesh order");
+    else{
+      data.pzOpts.meshFile = path + prm.get("Mesh file");//anything
+      std::string &str = data.pzOpts.meshFile;
+      data.pzOpts.externGenMesh = false;
+      while(str.size() == 0 || str.substr(str.size()-4,4) != ".geo" || !FileExists(str)){
+        if(str.substr(str.size()-4,4) == ".msh"){
+          if(FileExists(str)){
+            data.pzOpts.externGenMesh = true;
+            break;
+          }
+        }
+        std::cout<<"Input a valid mesh file: "<<std::endl;
+        std::cin >> data.pzOpts.meshFile;
+        if(str.size() == 0 || str.substr(str.size()-4,4) != ".geo" || !FileExists(str)){
+          if(str.substr(str.size()-4,4) == ".msh"){
+            if(FileExists(str)){
+              data.pzOpts.externGenMesh = true;
+              break;
+            }
+          }
+          std::cout<<"Not a valid name."<<std::endl;
+          DebugStop();
+        }
+      }
+      data.pzOpts.meshOrder = (int) prm.get_integer("Mesh order");
+    }
+
     data.pzOpts.nThreads = (int) prm.get_integer("Number of threads");//integer
     data.pzOpts.pOrder = (int) prm.get_integer("Polynomial order");//integer
     data.pzOpts.pSteps  = prm.get_integer("Number of iterations(p)");
-    data.pzOpts.hSteps  = prm.get_integer("Number of iterations(h)");
     if(!data.pzOpts.externGenMesh){
       std::string rawVec = prm.get("Factor");
       const std::vector<std::string> split_list =
               Utilities::split_string_list(rawVec, ",");
-      if(data.pzOpts.hSteps != split_list.size() ){
-        std::cout<<"Input data error while reading "<<"Factor"<<".\n";
-        DebugStop();
-      }
+      data.pzOpts.hSteps = split_list.size();
       data.pzOpts.factorVec.Resize(data.pzOpts.hSteps);
       for (int i = 0; i < split_list.size() ; i++){
         const std::string & string = split_list[i];
-        data.pzOpts.factorVec[i] = (REAL)Utilities::string_to_double(string);
+        data.pzOpts.factorVec[i] = (int)Utilities::string_to_int(string);
       }
     }
     prm.enter_subsection("Export options");

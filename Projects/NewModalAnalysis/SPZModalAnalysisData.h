@@ -53,8 +53,14 @@ struct SPZModalAnalysisData{
     int pSteps;
     bool refineH;
     int hSteps;
-    TPZVec<REAL> factorVec;
+    TPZVec<int> factorVec;
     bool scaleByk0;
+    bool usingNeoPzMesh;
+
+    enum PzCases{
+        StepFiber = 1
+    };
+    PzCases pzCase;
   };
   SPZPzOpts pzOpts;
   
