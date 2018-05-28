@@ -58,7 +58,7 @@ struct SPZModalAnalysisData{
     bool usingNeoPzMesh;
 
     enum PzCases{
-        StepFiber = 1
+        StepFiber = 1, RectangularWG = 2
     };
     PzCases pzCase;
   };

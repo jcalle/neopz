@@ -88,7 +88,7 @@ void SPZModalAnalysisDataReader::DeclareParameters() {
   {
     prm.declare_entry("Using NeoPZ mesh", "false",Patterns::Bool(),
             "Whether to use NeoPZ generated mesh instead of .geo/.msh file.");
-    prm.declare_entry("NeoPZ mesh","Step Fiber",Patterns::Selection("Step Fiber"),
+    prm.declare_entry("NeoPZ mesh","Step Fiber",Patterns::Selection("Step Fiber|Hollow Rectangular Waveguide"),
                       "If using NeoPZ generated mesh, this attribute specifies the simulation case");
     prm.declare_entry("Mesh file", "",
                       Patterns::Anything(),
@@ -299,6 +299,10 @@ void SPZModalAnalysisDataReader::ReadParameters(SPZModalAnalysisData &data) {
       if(val == "Step Fiber"){
         data.pzOpts.pzCase = SPZModalAnalysisData::SPZPzOpts::StepFiber;
         data.pzOpts.meshFile = path + "stepFiberPzMesh";
+      }
+      else if(val == "Hollow Rectangular Waveguide"){
+        data.pzOpts.pzCase = SPZModalAnalysisData::SPZPzOpts::RectangularWG;
+        data.pzOpts.meshFile = path + "rectangularWGPzMesh";
       }
       else{
         DebugStop();

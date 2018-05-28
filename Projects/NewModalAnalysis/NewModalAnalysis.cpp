@@ -52,6 +52,9 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
 typedef struct QuadrilateralData QuadrilateralData;
 
 void
+CreateGMeshRectangularWaveguide(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec, const std::string &prefix,
+                                     const bool &print, const REAL &scale, const int &factor,const REAL wDomain, const REAL hDomain);
+void
 CreateStepFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec, const std::string &prefix,
                     const bool &print, const REAL &scale, const int &factor);
 
@@ -219,6 +222,12 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
                 CreateStepFiberMesh(gmesh, simData.pzOpts.meshFile, matIdVec, simData.pzOpts.prefix,
                                     simData.pzOpts.exportGMesh, simData.pzOpts.scaleFactor,factor);
                 break;
+            }
+            case SPZModalAnalysisData::SPZPzOpts::RectangularWG:{
+                const REAL wDomain = 0.000001;
+                const REAL hDomain = 0.0000005;
+                CreateGMeshRectangularWaveguide(gmesh, simData.pzOpts.meshFile, matIdVec, simData.pzOpts.prefix,
+                                                simData.pzOpts.exportGMesh, simData.pzOpts.scaleFactor,factor,wDomain, hDomain);
             }
             default:
                 DebugStop();
@@ -634,107 +643,66 @@ struct QuadrilateralData {
 
 //CreateStepFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec, const std::string &prefix,
 //            const bool &print, const REAL &scale, const int &factor)
-//void CreateGMeshRectangularWaveguide(TPZGeoMesh *&gmesh,
-//                                     const meshTypeE meshType,
-//                                     const REAL wDomain, const REAL hDomain,
-//                                     const int nDiv, const REAL scale) {
-//
-//    TPZManVector<int, 3> nx(3, 0);
-//    TPZManVector<REAL, 3> llCoord(3, 0.), ulCoord(3, 0.), urCoord(3, 0.),
-//            lrCoord(3, 0.);
-//    llCoord[0] = 0.;
-//    llCoord[1] = 0.;
-//
-//    ulCoord[0] = 0.;
-//    ulCoord[1] = hDomain/scale;
-//
-//    urCoord[0] = wDomain/scale;
-//    urCoord[1] = hDomain/scale;
-//
-//    lrCoord[0] = wDomain/scale;
-//    lrCoord[1] = 0.;
-//
-//    nx[0] = nDiv;
-//    nx[1] = nDiv;
-////    nx[0] = 4;//REFINEMENT TEST
-////    nx[1] = 4;//REFINEMENT TEST
-//    int numl = 1;
-//    TPZGenGrid *gengrid = NULL;
-//    switch (meshType) {
-//        case createRectangular: {
-//            DebugStop(); // No quadrilateral Hcurl elements yet!
-//            REAL rot = 0.0;
-//            gengrid = new TPZGenGrid(nx, llCoord, urCoord, numl, rot);
-//            gengrid->SetElementType(EQuadrilateral);
-//        } break;
-//        case createTriangular: {
-//            REAL rot = 0.0;
-//            gengrid = new TPZGenGrid(nx, llCoord, urCoord, numl, rot);
-//            gengrid->SetElementType(ETriangle);
-//        } break;
-//        case createZigZag: {
-//            DebugStop(); // No quadrilateral Hcurl elements yet!
-//            REAL rot = 0.0;
-//            gengrid = new TPZGenGrid(nx, llCoord, urCoord, numl, rot);
-//            gengrid->SetElementType(EQuadrilateral);
-//            gengrid->SetZigZagPattern();
-//        } break;
-//        default:
-//            DebugStop();
-//            break;
-//    }
-//    gmesh = new TPZGeoMesh();
-//    const int matId = 1; // define id para um material(formulacao fraca)
-//    const int bc0 = -1;  // define id para um material(cond contorno dirichlet)
-//    gengrid->Read(gmesh, matId);
-//
-//    gengrid->SetBC(gmesh, ulCoord, llCoord, bc0);
-//    gengrid->SetBC(gmesh, urCoord, ulCoord, bc0);
-//    gengrid->SetBC(gmesh, lrCoord, urCoord, bc0);
-//    gengrid->SetBC(gmesh, llCoord, lrCoord, bc0);
-//
-//    gmesh->BuildConnectivity();
-//
-//#ifdef PZDEBUG
-//    std::ofstream outTxt, outVtk;
-//    std::string meshFileName("gmesh");
-//    switch (meshType) {
-//        case createRectangular: {
-//            meshFileName.append("Rectangular");
-//        } break;
-//        case createTriangular: {
-//            meshFileName.append("Triangular");
-//        } break;
-//        case createZigZag: {
-//            meshFileName.append("ZigZag");
-//        } break;
-//        default:
-//            DebugStop();
-//            break;
-//    }
-//    meshFileName.append(std::to_string(nDiv));
-//    const size_t strlen = meshFileName.length();
-//    meshFileName.append(".vtk");
-//    outVtk.open(meshFileName.c_str());
-//    meshFileName.replace(strlen, 4, ".txt");
-//    outTxt.open(meshFileName.c_str());
-//
-//    gmesh->Print(outTxt);
-//    outTxt.close();
-//#ifdef PZDEBUG
-//    TPZCheckGeom * Geometrytest = new TPZCheckGeom(gmesh);
-//    int isBadMeshQ = Geometrytest->PerformCheck();
-//
-//    if (isBadMeshQ) {
-//        DebugStop();
-//    }
-//#endif
-//    TPZVTKGeoMesh::PrintGMeshVTK(gmesh, outVtk,
-//                                 true); //prints vtk with geomesh
-//    outVtk.close();
-//#endif
-//    delete gengrid;
-//}
+void CreateGMeshRectangularWaveguide(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec, const std::string &prefix,
+            const bool &print, const REAL &scale, const int &factor,const REAL wDomain, const REAL hDomain){
+
+    TPZManVector<int, 3> nx(3, 0);
+    TPZManVector<REAL, 3> llCoord(3, 0.), ulCoord(3, 0.), urCoord(3, 0.),
+            lrCoord(3, 0.);
+    llCoord[0] = 0.;
+    llCoord[1] = 0.;
+
+    ulCoord[0] = 0.;
+    ulCoord[1] = hDomain/scale;
+
+    urCoord[0] = wDomain/scale;
+    urCoord[1] = hDomain/scale;
+
+    lrCoord[0] = wDomain/scale;
+    lrCoord[1] = 0.;
+
+    nx[0] = factor;
+    nx[1] = factor;
+    int numl = 1;
+    TPZGenGrid *gengrid = new TPZGenGrid(nx, llCoord, urCoord, numl, 0);
+    gengrid->SetElementType(ETriangle);
+
+    gmesh = new TPZGeoMesh();
+    const int matId = 1; // define id para um material(formulacao fraca)
+    const int bc0 = -1;  // define id para um material(cond contorno dirichlet)
+    gengrid->Read(gmesh, matId);
+
+    gengrid->SetBC(gmesh, ulCoord, llCoord, bc0);
+    gengrid->SetBC(gmesh, urCoord, ulCoord, bc0);
+    gengrid->SetBC(gmesh, lrCoord, urCoord, bc0);
+    gengrid->SetBC(gmesh, llCoord, lrCoord, bc0);
+
+    gmesh->BuildConnectivity();
+
+#ifdef PZDEBUG
+    TPZCheckGeom * Geometrytest = new TPZCheckGeom(gmesh);
+    int isBadMeshQ = Geometrytest->PerformCheck();
+
+    if (isBadMeshQ) {
+        DebugStop();
+    }
+#endif
+
+    if(print){
+        std::string meshFileName = prefix + "gmesh";
+        const size_t strlen = meshFileName.length();
+        meshFileName.append(".vtk");
+        std::ofstream outVTK(meshFileName.c_str());
+        meshFileName.replace(strlen, 4, ".txt");
+        std::ofstream outTXT(meshFileName.c_str());
+
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, outVTK, true);
+        gmesh->Print(outTXT);
+        outTXT.close();
+        outVTK.close();
+    }
+    delete gengrid;
+}
 
 void
 CreateStepFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec, const std::string &prefix,
@@ -1316,12 +1284,10 @@ CreateStepFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<in
     //refpatquadtri.rpt
     long nel = gmesh->NElements();
     for (long iel = 0; iel < nel; iel++) {
-        TPZGeoEl *gelQuad = nullptr;
-        TPZGeoEl *gelBlendQuad = nullptr;
-        gelQuad = dynamic_cast<TPZGeoElRefPattern< pzgeom::TPZGeoQuad> *>(gmesh->ElementVec()[iel]);
-        gelBlendQuad = dynamic_cast<TPZGeoElRefPattern< pzgeom::TPZGeoBlend<pzgeom::TPZGeoQuad>> *>(gmesh->ElementVec()[iel]);
-        if(gelQuad) {gelQuad->Divide(sons); nel = gmesh->NElements(); continue;}
-        if(gelBlendQuad) {gelBlendQuad->Divide(sons); nel = gmesh->NElements(); continue;}
+        TPZGeoEl *gelQuad = gmesh->ElementVec()[iel];
+        if(gelQuad->Type() == EQuadrilateral){
+            gelQuad->Divide(sons); nel = gmesh->NElements(); continue;
+        }
     }
 
     if(print){

@@ -465,7 +465,17 @@ void TPZMatModalAnalysis::Solution(TPZVec<TPZMaterialData> &datavec, int var, TP
     }
 }
 
+int TPZMatModalAnalysis::IntegrationRuleOrder(TPZVec<int> &elPMaxOrder) const
+{
+    int pmax = 0;
+    for (int ip=0;  ip<elPMaxOrder.size(); ip++)
+    {
+        if(elPMaxOrder[ip] > pmax) pmax = elPMaxOrder[ip];
+    }
+    const int integrationorder = 4+2*pmax;
 
+    return  integrationorder;
+}
 
 
 

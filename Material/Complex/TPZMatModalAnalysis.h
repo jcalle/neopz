@@ -189,6 +189,8 @@ public:
     void Solution(TPZMaterialData &data, int var, TPZVec<STATE> &Solout) override;
     
     void Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout) override;
+
+    int IntegrationRuleOrder(TPZVec<int> &elPMaxOrder) const override;
 };
 
 #endif
