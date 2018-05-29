@@ -335,23 +335,21 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
         REAL elRadius = 0;
         TPZVec<REAL> qsi(2,0.25);
         TPZVec<REAL> x(3,0.);
-        for (int j = 0; j < gmesh->NElements(); ++j) {
-            TPZGeoEl &el = *(gmesh->ElementVec()[j]);
-            // for (int i = 0; i < el.NCornerNodes() ; ++i) {
-            //     auto node = el.Node(i);
-            //     if(node.Coord(0) < tol && node.Coord(1) < tol){
-            //         elRadius = el.ElementRadius();
-            //         hSize = elRadius < hSize ? elRadius : hSize;
-            //     }
-            // }
-           TPZBndCond *matBound = dynamic_cast<TPZBndCond *>(meshVec[0]->MaterialVec()[el.MaterialId()]);
-           TPZMatWaveguidePml *matPml = dynamic_cast<TPZMatWaveguidePml *>(meshVec[0]->MaterialVec()[el.MaterialId()]);
-           if(!matBound && !matPml){
+        long nel = 0;
+        for (int j = 0; j < cmesh->NElements(); ++j) {
+            TPZGeoEl &el = *(cmesh->Element(j)->Reference());
+            if(el.Type() == MElementType::EQuadrilateral){
+                continue;
+            }
+            nel++;
+            TPZBndCond *matBound = dynamic_cast<TPZBndCond *>(meshVec[0]->MaterialVec()[el.MaterialId()]);
+            TPZMatWaveguidePml *matPml = dynamic_cast<TPZMatWaveguidePml *>(meshVec[0]->MaterialVec()[el.MaterialId()]);
+            if(!matBound && !matPml){
                elRadius = el.ElementRadius();
                hSize = elRadius > hSize ? elRadius : hSize;
-           }
+            }
         }
-        eigeninfo << std::fixed << neq << "," << gmesh->NElements() << ",";
+        eigeninfo << std::fixed << neq << "," << nel << ",";
         eigeninfo << std::fixed << hSize << "," << simData.pzOpts.pOrder<<",";
         eigeninfo << std::fixed << simData.physicalOpts.lambda<<",";
         eigeninfo << eigenValues.size()<<",";
