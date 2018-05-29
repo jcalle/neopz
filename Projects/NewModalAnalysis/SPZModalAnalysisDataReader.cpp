@@ -307,6 +307,7 @@ void SPZModalAnalysisDataReader::ReadParameters(SPZModalAnalysisData &data) {
       else{
         DebugStop();
       }
+      data.pzOpts.meshOrder = (int) 314;//useless, actually, just for file naming
     }
     else{
       data.pzOpts.meshFile = path + prm.get("Mesh file");//anything
