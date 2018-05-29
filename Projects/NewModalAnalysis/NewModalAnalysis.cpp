@@ -707,7 +707,7 @@ void CreateGMeshRectangularWaveguide(TPZGeoMesh *&gmesh, const std::string mshFi
 void
 CreateStepFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec, const std::string &prefix,
             const bool &print, const REAL &scale, const int &factor){
-    const int nDivTCore = factor * 4, nDivRCore = factor * 7, nDivTCladding = factor * 4, nDivPml = factor * 6;
+    const int nDivTCore = factor * 4, nDivRCore = factor * 7, nDivTCladding = factor * 4, nDivPml = factor * 5 + 1;
     //const int nDivTCore = factor * 2, nDivRCore = factor * 3, nDivTCladding = factor * 2, nDivPml = factor * (1+1);
     const int nQuads = 17;
     const int nEdges = 40;
@@ -1030,6 +1030,7 @@ CreateStepFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<in
             case 2 : return (iP*nQsi + (nQsi-1));
             case 3 : return (nQsi - 1 - iP + nQsi * (nEta - 1));
             case 4 : return (nEta - 1 - iP)*nQsi;
+            default: DebugStop(); return -1;
         }
     };
 
