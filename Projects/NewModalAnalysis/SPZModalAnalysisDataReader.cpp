@@ -104,7 +104,7 @@ void SPZModalAnalysisDataReader::DeclareParameters() {
                           " will be built accordingly)");
     prm.declare_entry("Number of iterations(p)","1",Patterns::Integer(0),
                     "Option with self-explaining name.");
-    prm.declare_entry("Factor","2",Patterns::List(Patterns::Integer(2),1),
+    prm.declare_entry("Factor","2",Patterns::List(Patterns::Integer(1),1),
                     "Vector with factor values related to element"
                     "sizes in mesh. In NeoPZ meshes it represents the number of nodes"
                     " that will be used to divide a quadrilateral edge"
