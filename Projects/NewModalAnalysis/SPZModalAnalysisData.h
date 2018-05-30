@@ -11,90 +11,101 @@
 #include "parameter_handler.h"
 
 struct SPZModalAnalysisData{
+  enum PzCases{
+    StepFiber = 1, RectangularWG = 2
+  };
+  enum boundtype{
+    PEC = 0, PMC = 1
+  };
+  enum pmltype{
+    xp=0,yp,xm,ym,xpyp,xmyp,xmym,xpym
+  };
+  struct SPZRectangularWGOpts{
+    REAL wDomain;
+    REAL hDomain;
+    bool usingSymmetry;
+    boundtype symmetryType;
+  };
+  struct SPZStepFiberOpts{
+    REAL realRCore;
+    REAL dPML;
+    REAL boundDist;
+    REAL hasPML;
+  };
   struct SPZPhysicalOpts{
     bool isCutOff;
     REAL lambda;
     int nMaterials;
     TPZVec<STATE> urVec;
     TPZVec<STATE> erVec;
-    bool hasPML;
-    REAL alphaMax;
     TPZVec<REAL> freqVec;
     bool isLambda;
+    REAL alphaMax;
+    SPZRectangularWGOpts rectangularWgOpts;
+    SPZStepFiberOpts stepFiberOpts;
+    TPZVec<pmltype> pmlTypeVec;
+    TPZVec<boundtype> boundTypeVec;
   };
-  enum boundtype{
-      PEC = 0, PMC = 1
-  };
-  enum pmltype{
-      xp=0,yp,xm,ym,xpyp,xmyp,xmym,xpym
-  };
-  SPZPhysicalOpts physicalOpts;
   struct SPZPzOpts{
 // polynomial order of basis functions
-    int pOrder;
+      int pOrder;
 // generate vtk for fields visualisation
-    bool genVTK;
+      bool genVTK;
 //whether to calculate error analysis
-    bool l2error;
+      bool l2error;
 // export l2 error
-    bool exportl2error;
-// export eigen values  
-    bool exportEigen;
+      bool exportl2error;
+// export eigen values
+      bool exportEigen;
 //number of NeoPZ threads
-    int nThreads;
+      int nThreads;
 //prefix to be added to all exported files
-    std::string prefix;
-    //whether to calculate abs or re of the eigenvectors
-    bool absVal;
-    //vtk resolution
-    long vtkRes;
-    bool exportGMesh;
-    bool exportCMesh;
-    REAL scaleFactor;
-    bool isTargetScaled;
-    std::string meshFile;
-    bool externGenMesh;
-    int meshOrder;
-    bool refineP;
-    int pSteps;
-    bool refineH;
-    int hSteps;
-    TPZVec<int> factorVec;
-    bool scaleByk0;
-    bool usingNeoPzMesh;
-
-    enum PzCases{
-        StepFiber = 1, RectangularWG = 2
-    };
-    PzCases pzCase;
+      std::string prefix;
+      //whether to calculate abs or re of the eigenvectors
+      bool absVal;
+      //vtk resolution
+      long vtkRes;
+      bool exportGMesh;
+      bool exportCMesh;
+      REAL scaleFactor;
+      bool isTargetScaled;
+      std::string meshFile;
+      bool externGenMesh;
+      int meshOrder;
+      int pSteps;
+      int hSteps;
+      TPZVec<int> factorVec;
+      bool scaleByk0;
+      bool usingNeoPzMesh;
+      PzCases pzCase;
   };
-  SPZPzOpts pzOpts;
-  
   struct SPZSolverOpts{
-    EPSProblemType eps_prob_type;
-    EPSType eps_type;
-    bool eps_krylov_locking;
-    PetscReal eps_krylov_restart;
-    EPSConv eps_conv_test;
-    bool eps_true_res;
-    EPSWhich eps_which_eig;
-    PetscScalar target;
-    PetscReal eps_tol;
-    PetscInt eps_max_its;
-    PetscInt eps_nev;
-    PetscInt eps_ncv;
-    PetscInt eps_mpd;
-    PetscInt eps_verbose;
+      EPSProblemType eps_prob_type;
+      EPSType eps_type;
+      bool eps_krylov_locking;
+      PetscReal eps_krylov_restart;
+      EPSConv eps_conv_test;
+      bool eps_true_res;
+      EPSWhich eps_which_eig;
+      PetscScalar target;
+      PetscReal eps_tol;
+      PetscInt eps_max_its;
+      PetscInt eps_nev;
+      PetscInt eps_ncv;
+      PetscInt eps_mpd;
+      PetscInt eps_verbose;
 
-    PCType st_precond;
-    KSPType st_solver;
-    PetscReal ksp_rtol;
-    PetscReal ksp_atol;
-    PetscReal ksp_dtol;
-    PetscReal ksp_max_its;
-    STType st_type;
-
+      PCType st_precond;
+      KSPType st_solver;
+      PetscReal ksp_rtol;
+      PetscReal ksp_atol;
+      PetscReal ksp_dtol;
+      PetscReal ksp_max_its;
+      STType st_type;
   };
+
+  SPZPhysicalOpts physicalOpts;
+  SPZPzOpts pzOpts;
   SPZSolverOpts solverOpts;
 };
 

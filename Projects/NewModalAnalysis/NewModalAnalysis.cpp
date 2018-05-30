@@ -227,10 +227,10 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
     TPZVec<SPZModalAnalysisData::pmltype> pmlTypeVec(0);
     if(simData.pzOpts.usingNeoPzMesh){
         switch(simData.pzOpts.pzCase){
-            case SPZModalAnalysisData::SPZPzOpts::StepFiber:{
-                const REAL realRCore = 0.000008;
-                const REAL dPML = 3;
-                const REAL boundDist = 5;
+            case SPZModalAnalysisData::StepFiber:{
+                const REAL realRCore = simData.physicalOpts.stepFiberOpts.realRCore;
+                const REAL dPML = simData.physicalOpts.stepFiberOpts.dPML;
+                const REAL boundDist = simData.physicalOpts.stepFiberOpts.boundDist;
                 const REAL outerMaterialReffIndex = std::sqrt(std::real(simData.physicalOpts.erVec[1]));
                 CreateStepFiberMesh(gmesh, simData.pzOpts.meshFile, matIdVec, simData.pzOpts.prefix,
                                     simData.pzOpts.exportGMesh, simData.pzOpts.scaleFactor,
@@ -238,11 +238,11 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
                                     boundDist, outerMaterialReffIndex);
                 break;
             }
-            case SPZModalAnalysisData::SPZPzOpts::RectangularWG:{
-                const REAL wDomain = 0.000001;
-                const REAL hDomain = 0.0000005;
-                const bool usingSymmetry = false;
-                const SPZModalAnalysisData::boundtype boundType= SPZModalAnalysisData::PMC;
+            case SPZModalAnalysisData::RectangularWG:{
+                const REAL wDomain = simData.physicalOpts.rectangularWgOpts.wDomain;
+                const REAL hDomain = simData.physicalOpts.rectangularWgOpts.hDomain;
+                const bool usingSymmetry = simData.physicalOpts.rectangularWgOpts.usingSymmetry;
+                const SPZModalAnalysisData::boundtype boundType= simData.physicalOpts.rectangularWgOpts.symmetryType;
                 CreateGMeshRectangularWaveguide(gmesh, simData.pzOpts.meshFile, matIdVec, simData.pzOpts.prefix,
                                                 simData.pzOpts.exportGMesh,
                                                 simData.pzOpts.scaleFactor, factor, wDomain, hDomain, boundTypeVec,
@@ -253,6 +253,8 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
                 DebugStop();
         }
     }else{
+        boundTypeVec = simData.physicalOpts.boundTypeVec;
+        pmlTypeVec = simData.physicalOpts.pmlTypeVec;
         ReadGMesh(gmesh, simData.pzOpts.meshFile, matIdVec, simData.pzOpts.prefix,
                   simData.pzOpts.exportGMesh);
     }
@@ -319,7 +321,7 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
         const int dim = 2;
         an.DefineGraphMesh(dim, scalnames, vecnames,
                            plotfile);  // define malha grafica
-        an.PostProcess(0);
+        an.PostProcess(simData.pzOpts.vtkRes);
     }
     std::cout << "Assembling..." << std::endl;
     boost::posix_time::ptime t1 =

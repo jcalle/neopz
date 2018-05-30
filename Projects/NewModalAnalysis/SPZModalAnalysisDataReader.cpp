@@ -31,18 +31,108 @@ void SPZModalAnalysisDataReader::DeclareParameters() {
                                 "(it will be ignored if Cut-off analysis is true)");
     }
     prm.leave_subsection ();
-
-    prm.enter_subsection("Material Properties");
+    prm.enter_subsection("Rectangular Waveguide Options");
     {
+      prm.declare_entry("Width", "0.02286",
+                        Patterns::Double(0.),
+                        "Width of the hollow rectangular waveguide");
+      prm.declare_entry("Height", "0.01016",
+                        Patterns::Double(0.),
+                        "Height of the hollow rectangular waveguide");
+      prm.declare_entry("Refractive index or relative permittivity", "n",
+                        Patterns::Selection("n|e"),
+                        "Whether to specify the refraction index(n) or the relative permittivity(e) of "
+                        "the dielectric materials.");
+      prm.declare_entry("Electric Permittivity/Refractive index", "1.",
+                        Patterns::Double(0.),
+                        "Electric Permittivity/Refractive index of the material inside the waveguide");
+      prm.declare_entry("Dielectric losses(epsilon)", "0.",
+                        Patterns::Double(0.),
+                        "The IMAGINARY part of the electric permittivity"
+                        " of the dielectric material.");
+      prm.declare_entry("Magnetic Permeability", "1.",
+                        Patterns::Double(0.),
+                        "Magnetic Permeability of the material inside the waveguide");
+      prm.declare_entry("Dielectric losses(mu)", "0.",
+                        Patterns::Double(0.),
+                        "The IMAGINARY part of the electric permittivity"
+                        " of the dielectric material.");
+      prm.declare_entry("Use symmetry", "false",
+                        Patterns::Bool(),
+                        "Whether to use horizontal symmetry to reduce domains size.");
+      prm.declare_entry("Symmetry type","PMC",Patterns::Selection("PEC|PMC"),
+                        "If symmetry is being used, the boundary condition that will be applied.");
+    };
+    prm.leave_subsection();
+    prm.enter_subsection("Step Fiber Options");
+    {
+      prm.declare_entry("Core radius", ".000008",
+                        Patterns::Double(0.),
+                        "Radius of the fibers core");
+      prm.declare_entry("Core refractive index", "1.4457",
+                        Patterns::Double(0.),
+                        "Refractive index of the fibers core");
+      prm.declare_entry("Core dielectric losses(epsilon)", "0.",
+                        Patterns::Double(0.),
+                        "The IMAGINARY part of the electric permittivity"
+                        " of the core.");
+      prm.declare_entry("Cladding refractive index", "1.4378",
+                        Patterns::Double(0.),
+                        "Refractive index of the fibers cladding");
+      prm.declare_entry("Cladding dielectric losses(epsilon)", "0.",
+                        Patterns::Double(0.),
+                        "The IMAGINARY part of the electric permittivity"
+                        " of the cladding.");
+      prm.declare_entry("Core magnetic permeability", "1",
+                        Patterns::Double(0.),
+                        "Refractive index of the fibers core");
+      prm.declare_entry("Core dielectric losses(mu)", "0.",
+                        Patterns::Double(0.),
+                        "The IMAGINARY part of the magnetic permeability"
+                        " of the core.");
+      prm.declare_entry("Cladding magnetic permeability", "1",
+                        Patterns::Double(0.),
+                        "Refractive index of the fibers core");
+      prm.declare_entry("Cladding dielectric losses(mu)", "0.",
+                        Patterns::Double(0.),
+                        "The IMAGINARY part of the magnetic permeability"
+                        " of the cladding.");
+      prm.declare_entry("PML", "true",
+                        Patterns::Bool(),
+                        "Whether to surround the domain with a PML.");
+      prm.declare_entry("PML length", "3",
+                        Patterns::Double(0.),
+                        "Length of the PML in relationship to the wavelength in the cladding material");
+      prm.declare_entry("Boundary distance", "5",
+                        Patterns::Double(0.),
+                        "Boundary distance (excluding PML) in relationship to the wavelength in the cladding material");
+      prm.declare_entry("PML attenuation constant", "5",
+                        Patterns::Double(0.),
+                        "The module of the IMAGINARY part of "
+                        "the s parameters of the PML");
+    }
+    prm.leave_subsection();
+    prm.enter_subsection("GMSH Mesh Options");
+    {
+        prm.declare_entry("Mesh file", "",
+                          Patterns::Anything(),
+                          "Path to .geo gmsh description of the mesh.");
+        prm.declare_entry("Mesh order", "1",
+                          Patterns::Integer(1),
+                          "Order of the geometrical mapping.");
       prm.declare_entry("Number of materials", "1",
                         Patterns::Integer(1),
                         "How many dielectric materials are present "
-                            "in the waveguide");
-      prm.declare_entry("Reffraction index or relative permittivity", "n",
+                            "in the waveguide (WITHOUT PML)");
+      prm.declare_entry("Boundary conditions", "PEC",
+                        Patterns::List(Patterns::Selection("PEC|PMC"),1),
+                        "The types of all boundary conditions in the order they appear "
+                        "in the gmsh file.");
+      prm.declare_entry("Refractive index or relative permittivity", "n",
                         Patterns::Selection("n|e"),
-                        "Whether to specify the reffraction index(n) or the relative permittivity(e) of "
-                            "the dielectric materials.");
-      prm.declare_entry("Reffraction/permittivity vector", "1.",
+                        "Whether to specify the refraction index(n) or the relative permittivity(e) of "
+                        "the dielectric materials.");
+      prm.declare_entry("Refractive/permittivity vector", "1.",
                         Patterns::List(Patterns::Double(0.),1),
                         "The REAL part of the square root of the electric permittivity of "
                             "the dielectric materials, separated by commas");
@@ -69,33 +159,42 @@ void SPZModalAnalysisDataReader::DeclareParameters() {
                             " if Lossless(mu) is false");
       prm.declare_entry("PML", "false",
                           Patterns::Bool(),
-                          "Whether the domain is surrounded by a PML.\n"
-                                "If true, the material ids of the PML regions "
-                                "are expected to be the last one, just before "
-                                "the boundary id, and precedeed by the outermost "
-                                "domain, e.g., air_id, pml_r,pml_u,"
-                                "pml_l,pml_d,pml_lr,pml_ur,pml_ul,pml_ll,bound_Id");
-      prm.declare_entry("PML attenuation constant", "20.",
+                          "Whether the domain is surrounded by a PML.\n");
+      prm.declare_entry("PML attenuation constant", "5.",
                           Patterns::Double(0.),
                           "The module of the IMAGINARY part of "
                                 "the s parameters of the PML");
+      prm.declare_entry("PML regions", "xp, yp, xm, ym, xpyp, xmyp, xmym, xpym",
+                          Patterns::List(Patterns::Selection("xp|yp|xm|ym|xpyp|xmyp|xmym|xpym"),1),
+                          "The PML regions present in the gmsh file, according to the following diagram:\n"
+                          "-----------------------------------------\n"
+                          "| xmyp |           yp            | xpyp |\n"
+                          "|---------------------------------------|\n"
+                          "|      |                         |      |\n"
+                          "|      |                         |      |\n"
+                          "|      |                         |      |\n"
+                          "|  xm  |                         |  xp  |\n"
+                          "|      |                         |      |\n"
+                          "|      |                         |      |\n"
+                          "|      |                         |      |\n"
+                          "-----------------------------------------\n"
+                          "| xmym |           ym            | xmym |\n"
+                          "-----------------------------------------\n");
     }
-    prm.leave_subsection ();
+      prm.leave_subsection ();
   }
-  prm.leave_subsection ();
+    prm.leave_subsection ();
 
   prm.enter_subsection("NeoPZ options");
   {
-    prm.declare_entry("Using NeoPZ mesh", "false",Patterns::Bool(),
-            "Whether to use NeoPZ generated mesh instead of .geo/.msh file.");
-    prm.declare_entry("NeoPZ mesh","Step Fiber",Patterns::Selection("Step Fiber|Hollow Rectangular Waveguide"),
-                      "If using NeoPZ generated mesh, this attribute specifies the simulation case");
-    prm.declare_entry("Mesh file", "",
-                      Patterns::Anything(),
-                      "Path to .geo gmsh description of the mesh(used only if Using NeoPZ mesh is false)");
-    prm.declare_entry("Mesh order", "1",
-                      Patterns::Integer(1),
-                      "Order of the geometrical mapping(used only if Using NeoPZ mesh is false)");
+    prm.declare_entry("Using NeoPZ mesh", "true",Patterns::Bool(),
+            "Whether to use NeoPZ simulation case instead of providing a .geo/.msh file.\n"
+            "If it is true, the mesh is specified in Which NeoPZ mesh and the corresponding settings are in\n"
+            "Physical options/(Step Fiber|Rectangular Waveguide) options."
+            "If it is false, the mesh is specified in Mesh file and the corresponding settings are in\n"
+            "Physical options/GMSH mesh options.");
+    prm.declare_entry("Which NeoPZ mesh","Step Fiber",Patterns::Selection("Step Fiber|Rectangular Waveguide|"),
+                      "If using NeoPZ generated mesh, this attribute specifies the simulation case\n");
     prm.declare_entry("Number of threads","4",Patterns::Integer(0),
                       "Number of threads to use in NeoPZ assembly.");
     prm.declare_entry("Polynomial order","1", Patterns::Integer(1),
@@ -107,7 +206,7 @@ void SPZModalAnalysisDataReader::DeclareParameters() {
     prm.declare_entry("Factor","2",Patterns::List(Patterns::Integer(1),1),
                     "Vector with factor values related to element"
                     "sizes in mesh. In NeoPZ meshes it represents the number of nodes"
-                    " that will be used to divide a quadrilateral edge"
+                    " that will be used to divide a quadrilateral edge.\n"
                     "If not using NeoPZ mesh, gmsh variable must be named factor");
 
     prm.enter_subsection("Export options");
@@ -119,13 +218,6 @@ void SPZModalAnalysisDataReader::DeclareParameters() {
       prm.declare_entry("Export eigenvalues","false",Patterns::Bool(),
                         "If set to true, eigenvalues will"
                             "be exported to a text file.");
-      prm.declare_entry("L2 error","false", Patterns::Bool(),
-                        "If set to true, the error (L2 norm) will be calculated"
-                            " for the electric field");
-      prm.declare_entry("L2 error(export)","false", Patterns::Bool(),
-                        "File name in which the L2 error will be saved "
-                            "if L2 error is true. If not set, it will "
-                            "be shown in std::cout only");
       prm.declare_entry("Prefix","",Patterns::Anything(),
                         "Prefix to be added to exported files(default is 1Mesh File)");
       prm.declare_entry("VTK","false", Patterns::Bool(),
@@ -155,7 +247,7 @@ void SPZModalAnalysisDataReader::DeclareParameters() {
   {
     prm.enter_subsection("Eigensolver(EPS)");
     {
-      prm.declare_entry("Problem type", "EPS_NHEP",
+      prm.declare_entry("Problem type", "EPS_GNHEP",
                         Patterns::Selection("EPS_HEP|EPS_GHEP|EPS_NHEP"
                                                 "|EPS_GNHEP|EPS_PGNHEP|EPS_GHIEP"),
                         "Sets the type of the eigenvalue problem type.\n"
@@ -173,14 +265,14 @@ void SPZModalAnalysisDataReader::DeclareParameters() {
           " whether to use the locking variant or not.");
       prm.declare_entry("Krylov restart","0.5",Patterns::Double(0.5,0.95),"Sets the restart parameter for the "
           "Krylov-Schur method, in particular the proportion of basis vectors that must be kept after restart.");
-      prm.declare_entry("Convergence test", "EPS_CONV_REL",
+      prm.declare_entry("Convergence test", "EPS_CONV_ABS",
                         Patterns::Selection("EPS_CONV_ABS|EPS_CONV_REL"
                                                 "|EPS_CONV_NORM"),
                         "Specifies how to compute the error"
                             " estimate used in the convergence test.");
       prm.declare_entry("True residual","false",Patterns::Bool(),"Whether to calculate the true residual"
           " if using shift-and-invert as a spectral transformation.");
-      prm.declare_entry("Which eigenvalues", "EPS_LARGEST_MAGNITUDE",
+      prm.declare_entry("Which eigenvalues", "EPS_TARGET_REAL",
                         Patterns::Selection("EPS_LARGEST_MAGNITUDE|EPS_SMALLEST_MAGNITUDE"
                                                 "|EPS_LARGEST_REAL|EPS_SMALLEST_REAL|"
                                                 "EPS_LARGEST_IMAGINARY|EPS_SMALLEST_IMAGINARY|"
@@ -190,7 +282,7 @@ void SPZModalAnalysisDataReader::DeclareParameters() {
       prm.declare_entry("Target eigenvalue", "-1.", Patterns::Double(),
                         "Target eigenvalue to be sought if Which eigenvalues is equal "
                             "to EPS_TARGET_(MAGNITUDE|IMAGINARY|REAL).");
-      prm.declare_entry("Eigensolver tolerance", "0", Patterns::Double(0.),
+      prm.declare_entry("Eigensolver tolerance", "1e-50", Patterns::Double(0.),
                         "Eigensolver convergence tolerance(0 for PETSC_DEFAULT).");
       prm.declare_entry("Eigensolver maximum iterations", "0", Patterns::Integer(0),
                         "Maximum number of iterations of the eigensolver(0 for PETSC_DEFAULT).");
@@ -226,12 +318,12 @@ void SPZModalAnalysisDataReader::DeclareParameters() {
       prm.declare_entry("Linear solver absolute tolerance", "0", Patterns::Double(0.),
                         "Sets the absolute convergence tolerance absolute size of the "
                             "residual norm(0 for PETSC_DEFAULT)");
-      prm.declare_entry("Linear solver divergence tolerance", "0", Patterns::Double(0.),
+      prm.declare_entry("Linear solver divergence tolerance", "1000", Patterns::Double(0.),
                         "Sets the divergence tolerance, amount residual norm can increase before "
                             "the convergence test concludes that the method is diverging(0 for PETSC_DEFAULT)");
       prm.declare_entry("Linear solver maximum iterations", "0", Patterns::Integer(0),
                         "Maximum number of iterations to use(0 for PETSC_DEFAULT)");
-      prm.declare_entry("Preconditioner","PCREDUNDANT",Patterns::Selection("PCNONE|PCCHOLESKY|PCJACOBI|PCSOR|PCLU|"
+      prm.declare_entry("Preconditioner","PCLU",Patterns::Selection("PCNONE|PCCHOLESKY|PCJACOBI|PCSOR|PCLU|"
                                                                                "PCSHELL|PCBJACOBI|PCMG|PCEISENSTAT|PCILU|"
                                                                                "PCICC|PCASM|PCGASM|PCKSP|"
                                                                                "PCCOMPOSITE|PCREDUNDANT"),
@@ -243,6 +335,61 @@ void SPZModalAnalysisDataReader::DeclareParameters() {
 }
 
 void SPZModalAnalysisDataReader::ReadParameters(SPZModalAnalysisData &data) {
+
+  prm.enter_subsection("NeoPZ options");
+  {
+    data.pzOpts.usingNeoPzMesh = prm.get_bool("Using NeoPZ mesh");
+    if(data.pzOpts.usingNeoPzMesh){
+      auto val = prm.get("Which NeoPZ mesh");
+        if(val == "Step Fiber"){
+          data.pzOpts.pzCase = SPZModalAnalysisData::StepFiber;
+          data.pzOpts.meshFile = path + "stepFiberPzMesh";
+        }
+        else if(val == "Rectangular Waveguide"){
+          data.pzOpts.pzCase = SPZModalAnalysisData::RectangularWG;
+          data.pzOpts.meshFile = path + "rectangularWGPzMesh";
+        }
+        else{
+            DebugStop();
+        }
+        data.pzOpts.meshOrder = (int) 314;//useless, actually, just for file naming
+    }
+
+    data.pzOpts.nThreads = (int) prm.get_integer("Number of threads");//integer
+    data.pzOpts.pOrder = (int) prm.get_integer("Polynomial order");//integer
+    data.pzOpts.pSteps  = prm.get_integer("Number of iterations(p)");
+    if(!data.pzOpts.externGenMesh){
+        std::string rawVec = prm.get("Factor");
+        const std::vector<std::string> split_list =
+                Utilities::split_string_list(rawVec, ",");
+        data.pzOpts.hSteps = split_list.size();
+        data.pzOpts.factorVec.Resize(data.pzOpts.hSteps);
+        for (int i = 0; i < split_list.size() ; i++){
+            const std::string & string = split_list[i];
+            data.pzOpts.factorVec[i] = (int)Utilities::string_to_int(string);
+        }
+    }
+    prm.enter_subsection("Export options");
+    {
+        data.pzOpts.exportCMesh = prm.get_bool("Export compmesh");//bool
+        data.pzOpts.exportGMesh = prm.get_bool("Export geomesh");//bool
+        data.pzOpts.exportEigen = prm.get_bool("Export eigenvalues");//bool
+        data.pzOpts.prefix = data.pzOpts.meshFile.substr(0, data.pzOpts.meshFile.size() - 4);
+        data.pzOpts.prefix += prm.get("Prefix");//anything
+        data.pzOpts.genVTK = prm.get_bool("VTK");//bool
+        data.pzOpts.vtkRes = prm.get_integer("VTK resolution");//integer
+        data.pzOpts.absVal = prm.get("VTK Abs|Re") == "Abs" ? true : false;//selection
+    }
+    prm.leave_subsection();
+    prm.enter_subsection("Scaling");
+    {
+        data.pzOpts.scaleByk0 = prm.get_bool("Scale by k0");
+        data.pzOpts.scaleFactor = prm.get_double("Scale factor");//double
+        data.pzOpts.isTargetScaled = prm.get_bool("Is target scaled");//bool
+    }
+    prm.leave_subsection ();
+  }
+  prm.leave_subsection();
 
   prm.enter_subsection ("Physical options");
   {
@@ -266,113 +413,155 @@ void SPZModalAnalysisDataReader::ReadParameters(SPZModalAnalysisData &data) {
       }
     }
     prm.leave_subsection ();
-    //get wavelength from frequency
-    //data.physicalOpts.lambda = isLambda ? data.physicalOpts.lambda : 299792458 / data.physicalOpts.lambda;
-    prm.enter_subsection("Material Properties");
-    {
-      data.physicalOpts.nMaterials=(int)prm.get_integer("Number of materials");//int
-      bool isReffraction=prm.get("Reffraction index or relative permittivity")
-                         == "n" ? true : false;
-      ReadComplexVector(data.physicalOpts.nMaterials,"Reffraction/permittivity vector",
-                        "Dielectric losses vector(epsilon)","Lossless(epsilon)",
-                        data.physicalOpts.erVec);
-      if(isReffraction){
-        for (int i = 0; i < data.physicalOpts.erVec.size(); ++i) {
-          data.physicalOpts.erVec[i] *= data.physicalOpts.erVec[i];//gets er from n
-        }
-      }
-      ReadComplexVector(data.physicalOpts.nMaterials,"Magnetic permeability vector",
-                        "Dielectric losses vector(mu)","Lossless(mu)",
-                        data.physicalOpts.urVec);
-
-      data.physicalOpts.hasPML = prm.get_bool("PML");
-      data.physicalOpts.alphaMax = prm.get_double("PML attenuation constant");
-    }
-    prm.leave_subsection ();
-  }
-  prm.leave_subsection();
-  prm.enter_subsection("NeoPZ options");
-  {
-    data.pzOpts.usingNeoPzMesh = prm.get_bool("Using NeoPZ mesh");
-    if(data.pzOpts.usingNeoPzMesh){
-      auto val = prm.get("NeoPZ mesh");
-      if(val == "Step Fiber"){
-        data.pzOpts.pzCase = SPZModalAnalysisData::SPZPzOpts::StepFiber;
-        data.pzOpts.meshFile = path + "stepFiberPzMesh";
-      }
-      else if(val == "Hollow Rectangular Waveguide"){
-        data.pzOpts.pzCase = SPZModalAnalysisData::SPZPzOpts::RectangularWG;
-        data.pzOpts.meshFile = path + "rectangularWGPzMesh";
-      }
-      else{
-        DebugStop();
-      }
-      data.pzOpts.meshOrder = (int) 314;//useless, actually, just for file naming
-    }
-    else{
-      data.pzOpts.meshFile = path + prm.get("Mesh file");//anything
-      std::string &str = data.pzOpts.meshFile;
-      data.pzOpts.externGenMesh = false;
-      while(str.size() == 0 || str.substr(str.size()-4,4) != ".geo" || !FileExists(str)){
-        if(str.substr(str.size()-4,4) == ".msh"){
-          if(FileExists(str)){
-            data.pzOpts.externGenMesh = true;
-            break;
-          }
-        }
-        std::cout<<"Input a valid mesh file: "<<std::endl;
-        std::cin >> data.pzOpts.meshFile;
-        if(str.size() == 0 || str.substr(str.size()-4,4) != ".geo" || !FileExists(str)){
-          if(str.substr(str.size()-4,4) == ".msh"){
-            if(FileExists(str)){
-              data.pzOpts.externGenMesh = true;
-              break;
+    if(data.pzOpts.usingNeoPzMesh && data.pzOpts.pzCase == SPZModalAnalysisData::RectangularWG){
+        prm.enter_subsection("Rectangular Waveguide Options");
+        {
+            data.physicalOpts.rectangularWgOpts.wDomain = prm.get_double("Width");
+            data.physicalOpts.rectangularWgOpts.hDomain = prm.get_double("Height");
+            data.physicalOpts.erVec.Resize(1);
+            data.physicalOpts.urVec.Resize(1);
+            data.physicalOpts.erVec[0] = prm.get_double("Electric Permittivity/Refractive index");
+            if(prm.get("Refractive index or relative permittivity") == std::string("n")){
+                data.physicalOpts.erVec[0] *= data.physicalOpts.erVec[0];
             }
-          }
-          std::cout<<"Not a valid name."<<std::endl;
-          DebugStop();
+            data.physicalOpts.erVec[0] += sqrt(std::complex<REAL>(-1)) * prm.get_double("Dielectric losses(epsilon)");
+            data.physicalOpts.urVec[0] =(STATE) prm.get_double("Magnetic Permeability");
+            data.physicalOpts.erVec[0] += sqrt(std::complex<REAL>(-1)) * prm.get_double("Dielectric losses(mu)");
+            data.physicalOpts.rectangularWgOpts.usingSymmetry= prm.get_bool("Use symmetry");
+            if(data.physicalOpts.rectangularWgOpts.usingSymmetry){
+                std::string symType = prm.get("Symmetry type");
+                data.physicalOpts.rectangularWgOpts.symmetryType =
+                        symType == std::string("PEC") ? SPZModalAnalysisData::PEC : SPZModalAnalysisData::PMC ;
+            }
         }
-      }
-      data.pzOpts.meshOrder = (int) prm.get_integer("Mesh order");
+        prm.leave_subsection();
     }
+    if(data.pzOpts.usingNeoPzMesh && data.pzOpts.pzCase == SPZModalAnalysisData::StepFiber){
+        prm.enter_subsection("Step Fiber Options");
+        {
+            data.physicalOpts.stepFiberOpts.realRCore = prm.get_double("Core radius");
+            data.physicalOpts.erVec.Resize(2);
+            data.physicalOpts.urVec.Resize(2);
+            data.physicalOpts.erVec[0] = (STATE)prm.get_double("Core refractive index");
+            data.physicalOpts.erVec[0] *= data.physicalOpts.erVec[0];
+            data.physicalOpts.erVec[0] += sqrt(std::complex<REAL>(-1)) * prm.get_double("Core dielectric losses(epsilon)");
+            data.physicalOpts.erVec[1] = (STATE)prm.get_double("Cladding refractive index");
+            data.physicalOpts.erVec[1] *= data.physicalOpts.erVec[0];
+            data.physicalOpts.erVec[1] += sqrt(std::complex<REAL>(-1)) * prm.get_double("Cladding dielectric losses(epsilon)");
 
-    data.pzOpts.nThreads = (int) prm.get_integer("Number of threads");//integer
-    data.pzOpts.pOrder = (int) prm.get_integer("Polynomial order");//integer
-    data.pzOpts.pSteps  = prm.get_integer("Number of iterations(p)");
-    if(!data.pzOpts.externGenMesh){
-      std::string rawVec = prm.get("Factor");
-      const std::vector<std::string> split_list =
-              Utilities::split_string_list(rawVec, ",");
-      data.pzOpts.hSteps = split_list.size();
-      data.pzOpts.factorVec.Resize(data.pzOpts.hSteps);
-      for (int i = 0; i < split_list.size() ; i++){
-        const std::string & string = split_list[i];
-        data.pzOpts.factorVec[i] = (int)Utilities::string_to_int(string);
-      }
+            data.physicalOpts.urVec[0] = (STATE)prm.get_double("Core magnetic permeability");
+            data.physicalOpts.urVec[0] *= data.physicalOpts.urVec[0];
+            data.physicalOpts.urVec[0] += sqrt(std::complex<REAL>(-1)) * prm.get_double("Core dielectric losses(mu)");
+            data.physicalOpts.urVec[1] = (STATE)prm.get_double("Cladding magnetic permeability");
+            data.physicalOpts.urVec[1] *= data.physicalOpts.urVec[0];
+            data.physicalOpts.urVec[1] += sqrt(std::complex<REAL>(-1)) * prm.get_double("Cladding dielectric losses(mu)");
+            data.physicalOpts.stepFiberOpts.boundDist = prm.get_double("Boundary distance");
+            data.physicalOpts.stepFiberOpts.hasPML = prm.get_bool("PML");
+            if(data.physicalOpts.stepFiberOpts.hasPML){
+                data.physicalOpts.stepFiberOpts.dPML = prm.get_double("PML length");
+                data.physicalOpts.alphaMax = prm.get_double("PML attenuation constant");
+            }
+        }
+        prm.leave_subsection();
     }
-    prm.enter_subsection("Export options");
-    {
-      data.pzOpts.exportCMesh = prm.get_bool("Export compmesh");//bool
-      data.pzOpts.exportGMesh = prm.get_bool("Export geomesh");//bool
-      data.pzOpts.exportEigen = prm.get_bool("Export eigenvalues");//bool
-      data.pzOpts.l2error = prm.get_bool("L2 error");//bool
-      data.pzOpts.exportl2error = prm.get_bool("L2 error(export)");//bool
-      data.pzOpts.prefix = data.pzOpts.meshFile.substr(0, data.pzOpts.meshFile.size() - 4);
-      data.pzOpts.prefix += prm.get("Prefix");//anything
-      data.pzOpts.genVTK = prm.get_bool("VTK");//bool
-      data.pzOpts.vtkRes = prm.get_integer("VTK resolution");//integer
-      data.pzOpts.absVal = prm.get("VTK Abs|Re") == "Abs" ? true : false;//selection
+    if(data.pzOpts.usingNeoPzMesh == false){
+        prm.enter_subsection("GMSH Mesh Options");
+        {
+            data.pzOpts.meshFile = path + prm.get("Mesh file");//anything
+            std::string &str = data.pzOpts.meshFile;
+            data.pzOpts.externGenMesh = false;
+            while(str.size() == 0 || str.substr(str.size()-4,4) != ".geo" || !FileExists(str)){
+                if(str.substr(str.size()-4,4) == ".msh"){
+                    if(FileExists(str)){
+                        data.pzOpts.externGenMesh = true;
+                        break;
+                    }
+                }
+                std::cout<<"Input a valid mesh file: "<<std::endl;
+                std::cin >> data.pzOpts.meshFile;
+                if(str.size() == 0 || str.substr(str.size()-4,4) != ".geo" || !FileExists(str)){
+                    if(str.substr(str.size()-4,4) == ".msh"){
+                        if(FileExists(str)){
+                            data.pzOpts.externGenMesh = true;
+                            break;
+                        }
+                    }
+                    std::cout<<"Not a valid name."<<std::endl;
+                    DebugStop();
+                }
+            }
+            data.pzOpts.meshOrder = (int) prm.get_integer("Mesh order");
+            data.physicalOpts.nMaterials=(int)prm.get_integer("Number of materials");//int
+            bool isRefractive = prm.get("Refractive index or relative permittivity")
+                                == "n" ? true : false;
+            ReadComplexVector(data.physicalOpts.nMaterials,"Refractive/permittivity vector",
+                              "Dielectric losses vector(epsilon)","Lossless(epsilon)",
+                              data.physicalOpts.erVec);
+            if(isRefractive){
+                for (int i = 0; i < data.physicalOpts.erVec.size(); ++i) {
+                    data.physicalOpts.erVec[i] *= data.physicalOpts.erVec[i];//gets er from n
+                }
+            }
+            ReadComplexVector(data.physicalOpts.nMaterials,"Magnetic permeability vector",
+                              "Dielectric losses vector(mu)","Lossless(mu)",
+                              data.physicalOpts.urVec);
+            {
+                std::string rawVec = prm.get("Boundary conditions");//double
+                const std::vector<std::string> split_list =
+                        Utilities::split_string_list(rawVec, ",");
+                data.physicalOpts.boundTypeVec.Resize(split_list.size());
+                for (int i = 0; i < split_list.size(); ++i) {
+                    switch(Utilities::str_to_constexpr(split_list[i].c_str())){
+                        case Utilities::str_to_constexpr("PEC"):
+                            data.physicalOpts.boundTypeVec[i] = SPZModalAnalysisData::PEC;
+                            break;
+                        case Utilities::str_to_constexpr("PMC"):
+                            data.physicalOpts.boundTypeVec[i] = SPZModalAnalysisData::PMC;
+                            break;
+                    }
+                }
+            }
+            if(prm.get_bool("PML")){
+                data.physicalOpts.alphaMax = prm.get_double("PML attenuation constant");
+                std::string rawVec = prm.get("PML regions");//double
+                const std::vector<std::string> split_list =
+                        Utilities::split_string_list(rawVec, ",");
+                data.physicalOpts.pmlTypeVec.Resize(split_list.size());
+                for(int i = 0; i < split_list.size(); i++ ){
+                    switch(Utilities::str_to_constexpr(split_list[i].c_str())){
+                        case Utilities::str_to_constexpr("xp"):
+                            data.physicalOpts.pmlTypeVec[i] = SPZModalAnalysisData::xp;
+                            break;
+                        case Utilities::str_to_constexpr("yp"):
+                            data.physicalOpts.pmlTypeVec[i] = SPZModalAnalysisData::yp;
+                            break;
+                        case Utilities::str_to_constexpr("xm"):
+                            data.physicalOpts.pmlTypeVec[i] = SPZModalAnalysisData::xm;
+                            break;
+                        case Utilities::str_to_constexpr("ym"):
+                            data.physicalOpts.pmlTypeVec[i] = SPZModalAnalysisData::ym;
+                            break;
+                        case Utilities::str_to_constexpr("xpyp"):
+                            data.physicalOpts.pmlTypeVec[i] = SPZModalAnalysisData::xpyp;
+                            break;
+                        case Utilities::str_to_constexpr("xmyp"):
+                            data.physicalOpts.pmlTypeVec[i] = SPZModalAnalysisData::xmyp;
+                            break;
+                        case Utilities::str_to_constexpr("xmym"):
+                            data.physicalOpts.pmlTypeVec[i] = SPZModalAnalysisData::xmym;
+                            break;
+                        case Utilities::str_to_constexpr("xpym"):
+                            data.physicalOpts.pmlTypeVec[i] = SPZModalAnalysisData::xpym;
+                            break;
+                    }
+                }
+            }
+        }
+        prm.leave_subsection ();
     }
-    prm.leave_subsection();
-    prm.enter_subsection("Scaling");
-    {
-      data.pzOpts.scaleByk0 = prm.get_bool("Scale by k0");
-      data.pzOpts.scaleFactor = prm.get_double("Scale factor");//double
-      data.pzOpts.isTargetScaled = prm.get_bool("Is target scaled");//bool
-    }
-    prm.leave_subsection ();
   }
   prm.leave_subsection();
+
   prm.enter_subsection("SLEPc solver options");
   {
     std::string str;
