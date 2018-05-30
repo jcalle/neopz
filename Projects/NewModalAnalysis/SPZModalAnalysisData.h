@@ -22,6 +22,12 @@ struct SPZModalAnalysisData{
     TPZVec<REAL> freqVec;
     bool isLambda;
   };
+  enum boundtype{
+      PEC = 0, PMC = 1
+  };
+  enum pmltype{
+      xp=0,yp,xm,ym,xpyp,xmyp,xmym,xpym
+  };
   SPZPhysicalOpts physicalOpts;
   struct SPZPzOpts{
 // polynomial order of basis functions
