@@ -446,14 +446,14 @@ void SPZModalAnalysisDataReader::ReadParameters(SPZModalAnalysisData &data) {
             data.physicalOpts.erVec[0] *= data.physicalOpts.erVec[0];
             data.physicalOpts.erVec[0] += sqrt(std::complex<REAL>(-1)) * prm.get_double("Core dielectric losses(epsilon)");
             data.physicalOpts.erVec[1] = (STATE)prm.get_double("Cladding refractive index");
-            data.physicalOpts.erVec[1] *= data.physicalOpts.erVec[0];
+            data.physicalOpts.erVec[1] *= data.physicalOpts.erVec[1];
             data.physicalOpts.erVec[1] += sqrt(std::complex<REAL>(-1)) * prm.get_double("Cladding dielectric losses(epsilon)");
 
             data.physicalOpts.urVec[0] = (STATE)prm.get_double("Core magnetic permeability");
             data.physicalOpts.urVec[0] *= data.physicalOpts.urVec[0];
             data.physicalOpts.urVec[0] += sqrt(std::complex<REAL>(-1)) * prm.get_double("Core dielectric losses(mu)");
             data.physicalOpts.urVec[1] = (STATE)prm.get_double("Cladding magnetic permeability");
-            data.physicalOpts.urVec[1] *= data.physicalOpts.urVec[0];
+            data.physicalOpts.urVec[1] *= data.physicalOpts.urVec[1];
             data.physicalOpts.urVec[1] += sqrt(std::complex<REAL>(-1)) * prm.get_double("Cladding dielectric losses(mu)");
             data.physicalOpts.stepFiberOpts.boundDist = prm.get_double("Boundary distance");
             data.physicalOpts.stepFiberOpts.hasPML = prm.get_bool("PML");

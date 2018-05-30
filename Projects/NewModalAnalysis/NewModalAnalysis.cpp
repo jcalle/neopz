@@ -1514,26 +1514,26 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
         }
     }
     for(int i = 0; i < pmlMatIdVec.size(); i++){
-        REAL xMax=1e20,xMin=-1e20,yMax=1e20,yMin=-1e20;
+        REAL xMax =-1e20,xMin = 1e20,yMax =-1e20,yMin =1e20;
         TPZGeoMesh * gmesh = cmeshMF->Reference();
         for (int iel = 0; iel < gmesh->NElements(); ++iel) {
-            TPZGeoEl *geo = gmesh->Element(i);
+            TPZGeoEl *geo = gmesh->Element(iel);
             if(geo->MaterialId() == pmlMatIdVec[i]){
                 for (int iNode = 0; iNode < geo->NCornerNodes(); ++iNode) {
                     TPZManVector<REAL,3> co(3);
                     geo->Node(iNode).GetCoordinates(co);
                     const REAL & xP = co[0];
                     const REAL & yP = co[1];
-                    if( xP < xMax ){
+                    if( xP > xMax ){
                         xMax = xP;
                     }
-                    if( xP > xMin ){
+                    if( xP < xMin ){
                         xMin = xP;
                     }
-                    if( yP < yMax ){
+                    if( yP > yMax ){
                         yMax = yP;
                     }
-                    if( yP > yMin ){
+                    if( yP < yMin ){
                         yMin = yP;
                     }
                 }
