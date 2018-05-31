@@ -12,6 +12,31 @@ SPZModalAnalysisDataReader::SPZModalAnalysisDataReader(ParameterHandler &param,c
 }
 
 void SPZModalAnalysisDataReader::DeclareParameters() {
+  prm.enter_subsection("NeoPZ options");
+  {
+      prm.declare_entry("Using NeoPZ mesh", "true",Patterns::Bool(),
+                        "Whether to use NeoPZ simulation case instead of providing a .geo/.msh file.\n"
+                        "If it is true, the mesh is specified in Which NeoPZ mesh and the corresponding settings are in\n"
+                        "Physical options/(Step Fiber|Rectangular Waveguide) options."
+                        "If it is false, the mesh is specified in Mesh file and the corresponding settings are in\n"
+                        "Physical options/GMSH mesh options.");
+      prm.declare_entry("Which NeoPZ mesh","Step Fiber",Patterns::Selection("Step Fiber|Rectangular Waveguide|"),
+                        "If using NeoPZ generated mesh, this attribute specifies the simulation case\n");
+      prm.declare_entry("Number of threads","4",Patterns::Integer(0),
+                        "Number of threads to use in NeoPZ assembly.");
+      prm.declare_entry("Polynomial order","1", Patterns::Integer(1),
+                        "Default polynomial order of the Pk space used to build"
+                        "the Nédélec elements(The H1 elements"
+                        " will be built accordingly)");
+      prm.declare_entry("Number of iterations(p)","1",Patterns::Integer(0),
+                        "Option with self-explaining name.");
+      prm.declare_entry("Factor","2",Patterns::List(Patterns::Integer(1),1),
+                        "Vector with factor values related to element"
+                        "sizes in mesh. In NeoPZ meshes it represents the number of nodes"
+                        " that will be used to divide a quadrilateral edge.\n"
+                        "If not using NeoPZ mesh, gmsh variable must be named factor");
+  }
+  prm.leave_subsection ();
   prm.enter_subsection ("Physical options");
   {
     prm.declare_entry("Cut-off analysis", "false",
@@ -183,65 +208,39 @@ void SPZModalAnalysisDataReader::DeclareParameters() {
     }
       prm.leave_subsection ();
   }
-    prm.leave_subsection ();
-
-  prm.enter_subsection("NeoPZ options");
-  {
-    prm.declare_entry("Using NeoPZ mesh", "true",Patterns::Bool(),
-            "Whether to use NeoPZ simulation case instead of providing a .geo/.msh file.\n"
-            "If it is true, the mesh is specified in Which NeoPZ mesh and the corresponding settings are in\n"
-            "Physical options/(Step Fiber|Rectangular Waveguide) options."
-            "If it is false, the mesh is specified in Mesh file and the corresponding settings are in\n"
-            "Physical options/GMSH mesh options.");
-    prm.declare_entry("Which NeoPZ mesh","Step Fiber",Patterns::Selection("Step Fiber|Rectangular Waveguide|"),
-                      "If using NeoPZ generated mesh, this attribute specifies the simulation case\n");
-    prm.declare_entry("Number of threads","4",Patterns::Integer(0),
-                      "Number of threads to use in NeoPZ assembly.");
-    prm.declare_entry("Polynomial order","1", Patterns::Integer(1),
-                      "Default polynomial order of the Pk space used to build"
-                          "the Nédélec elements(The H1 elements"
-                          " will be built accordingly)");
-    prm.declare_entry("Number of iterations(p)","1",Patterns::Integer(0),
-                    "Option with self-explaining name.");
-    prm.declare_entry("Factor","2",Patterns::List(Patterns::Integer(1),1),
-                    "Vector with factor values related to element"
-                    "sizes in mesh. In NeoPZ meshes it represents the number of nodes"
-                    " that will be used to divide a quadrilateral edge.\n"
-                    "If not using NeoPZ mesh, gmsh variable must be named factor");
-
-    prm.enter_subsection("Export options");
-    {
-      prm.declare_entry("Export compmesh","false",Patterns::Bool(),
-                        "Whether to export the computational mesh in both .txt and .vtk formats.");
-      prm.declare_entry("Export geomesh","false",Patterns::Bool(),
-                        "Whether to export the geometrical mesh in both .txt and .vtk formats.");
-      prm.declare_entry("Export eigenvalues","false",Patterns::Bool(),
-                        "If set to true, eigenvalues will"
-                            "be exported to a text file.");
-      prm.declare_entry("Prefix","",Patterns::Anything(),
-                        "Prefix to be added to exported files(default is 1Mesh File)");
-      prm.declare_entry("VTK","false", Patterns::Bool(),
-                        "If set to true, a .vtk plot of the electric field will be generated"
-                            "for the calculated modes");
-      prm.declare_entry("VTK resolution","0",Patterns::Integer(0),
-                        "Resolution to be used during post-processing.");
-      prm.declare_entry("VTK Abs|Re","Abs",Patterns::Selection("Abs|Re"),
-                        "Whether to export magnitude or real part of eigenvector");
-    }
-    prm.leave_subsection();
-
-    prm.enter_subsection("Scaling");
-    {
-      prm.declare_entry("Is target scaled","true",Patterns::Bool(),
-                        "Whether the target value is already scaled(frequency/lambda will be scaled)");
-      prm.declare_entry("Scale by k0","true",Patterns::Bool(),
-                        "If set to true, the eigenvalues will be beta/k0 and scale factor will be ignored.");
-      prm.declare_entry("Scale factor","1.",Patterns::Double(0),
-                        "Maximum dimension for geometric domain(frequency/lambda will be scaled)");
-    }
-    prm.leave_subsection();
-  }
   prm.leave_subsection ();
+  prm.enter_subsection("Export options");
+  {
+    prm.declare_entry("Export compmesh","false",Patterns::Bool(),
+                        "Whether to export the computational mesh in both .txt and .vtk formats.");
+    prm.declare_entry("Export geomesh","false",Patterns::Bool(),
+                        "Whether to export the geometrical mesh in both .txt and .vtk formats.");
+    prm.declare_entry("Export eigenvalues","false",Patterns::Bool(),
+                        "If set to true, eigenvalues will"
+                        "be exported to a text file.");
+    prm.declare_entry("Prefix","",Patterns::Anything(),
+                        "Prefix to be added to exported files(default is 1Mesh File)");
+    prm.declare_entry("VTK","false", Patterns::Bool(),
+                        "If set to true, a .vtk plot of the electric field will be generated"
+                        "for the calculated modes");
+    prm.declare_entry("VTK resolution","0",Patterns::Integer(0),
+                        "Resolution to be used during post-processing.");
+    prm.declare_entry("VTK Abs|Re","Abs",Patterns::Selection("Abs|Re"),
+                        "Whether to export magnitude or real part of eigenvector");
+  }
+  prm.leave_subsection();
+  prm.enter_subsection("Scaling");
+  {
+    prm.declare_entry("Is target scaled","true",Patterns::Bool(),
+                        "Whether the target value is already scaled(frequency/lambda will be scaled)");
+    prm.declare_entry("Scale by k0","true",Patterns::Bool(),
+                        "If set to true, the eigenvalues will be beta/k0 and scale factor will be ignored.");
+    prm.declare_entry("Scale factor","1.",Patterns::Double(0),
+                        "Maximum dimension for geometric domain(frequency/lambda will be scaled)");
+  }
+  prm.leave_subsection();
+
+
   //IN THE FOLLOWING OPTIONS, -1 =  PETSC_DECIDE and -2 = PETSC_DEFAULT
   prm.enter_subsection("SLEPc solver options");
   {
@@ -369,25 +368,6 @@ void SPZModalAnalysisDataReader::ReadParameters(SPZModalAnalysisData &data) {
             data.pzOpts.factorVec[i] = (int)Utilities::string_to_int(string);
         }
     }
-    prm.enter_subsection("Export options");
-    {
-        data.pzOpts.exportCMesh = prm.get_bool("Export compmesh");//bool
-        data.pzOpts.exportGMesh = prm.get_bool("Export geomesh");//bool
-        data.pzOpts.exportEigen = prm.get_bool("Export eigenvalues");//bool
-        data.pzOpts.prefix = data.pzOpts.meshFile.substr(0, data.pzOpts.meshFile.size() - 4);
-        data.pzOpts.prefix += prm.get("Prefix");//anything
-        data.pzOpts.genVTK = prm.get_bool("VTK");//bool
-        data.pzOpts.vtkRes = prm.get_integer("VTK resolution");//integer
-        data.pzOpts.absVal = prm.get("VTK Abs|Re") == "Abs" ? true : false;//selection
-    }
-    prm.leave_subsection();
-    prm.enter_subsection("Scaling");
-    {
-        data.pzOpts.scaleByk0 = prm.get_bool("Scale by k0");
-        data.pzOpts.scaleFactor = prm.get_double("Scale factor");//double
-        data.pzOpts.isTargetScaled = prm.get_bool("Is target scaled");//bool
-    }
-    prm.leave_subsection ();
   }
   prm.leave_subsection();
 
@@ -561,7 +541,25 @@ void SPZModalAnalysisDataReader::ReadParameters(SPZModalAnalysisData &data) {
     }
   }
   prm.leave_subsection();
-
+  prm.enter_subsection("Export options");
+  {
+      data.pzOpts.exportCMesh = prm.get_bool("Export compmesh");//bool
+      data.pzOpts.exportGMesh = prm.get_bool("Export geomesh");//bool
+      data.pzOpts.exportEigen = prm.get_bool("Export eigenvalues");//bool
+      data.pzOpts.prefix = data.pzOpts.meshFile.substr(0, data.pzOpts.meshFile.size() - 4);
+      data.pzOpts.prefix += prm.get("Prefix");//anything
+      data.pzOpts.genVTK = prm.get_bool("VTK");//bool
+      data.pzOpts.vtkRes = prm.get_integer("VTK resolution");//integer
+      data.pzOpts.absVal = prm.get("VTK Abs|Re") == "Abs" ? true : false;//selection
+  }
+  prm.leave_subsection();
+  prm.enter_subsection("Scaling");
+  {
+      data.pzOpts.scaleByk0 = prm.get_bool("Scale by k0");
+      data.pzOpts.scaleFactor = prm.get_double("Scale factor");//double
+      data.pzOpts.isTargetScaled = prm.get_bool("Is target scaled");//bool
+  }
+  prm.leave_subsection ();
   prm.enter_subsection("SLEPc solver options");
   {
     std::string str;

@@ -78,9 +78,8 @@ void FilterBoundaryEquations(TPZVec<TPZCompMesh *> cmeshMF,
                              int &neqOriginal);
 
 
-void CreateGmshMesh(const std::string &meshName, const std::string &newName,
-                    const REAL &factor, const int &nThreads,
-                    const REAL &scale, const int &meshOrder);
+void CreateGmshMesh(const std::string &meshName, const std::string &newName, const REAL &factor, const int &nThreads,
+                    const REAL &scale, const int &meshOrder, const REAL &refIndexOuterDomain);
 
 int main(int argc, char *argv[]) {
 #ifdef LOG4CXX
@@ -160,9 +159,12 @@ int main(int argc, char *argv[]) {
                     simData.pzOpts.meshFile += "ord" + std::to_string(simData.pzOpts.meshOrder);
                     simData.pzOpts.meshFile += "h" + std::to_string(iH);
                     simData.pzOpts.meshFile += ".msh";
-                    CreateGmshMesh(meshOriginal, simData.pzOpts.meshFile,
-                                   factorVal, simData.pzOpts.nThreads,
-                                   simData.pzOpts.scaleFactor, simData.pzOpts.meshOrder);
+                    const int nMaterials = simData.physicalOpts.erVec.size();
+                    const REAL refIndexOuterMat =
+                            std::sqrt(std::real(simData.physicalOpts.erVec[nMaterials-1]));
+                    CreateGmshMesh(meshOriginal, simData.pzOpts.meshFile, factorVal, simData.pzOpts.nThreads,
+                                   simData.pzOpts.scaleFactor, simData.pzOpts.meshOrder,
+                                   refIndexOuterMat);
                 }
             }
 
@@ -188,13 +190,14 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void CreateGmshMesh(const std::string &meshName, const std::string &newName,
-                    const REAL &factor, const int &nThreads,
-                    const REAL &scale, const int &meshOrder){
+void CreateGmshMesh(const std::string &meshName, const std::string &newName, const REAL &factor, const int &nThreads,
+                    const REAL &scale, const int &meshOrder, const REAL &refIndexOuterDomain) {
     std::ostringstream str_factor;
     str_factor << std::setprecision(20) << factor;
     std::ostringstream str_scale;
     str_scale<< std::setprecision(20) << scale;
+    std::ostringstream str_n_mat;
+    str_n_mat<< std::setprecision(20) << refIndexOuterDomain;
 
     std::string command = "gmsh " + meshName + " -2 -match ";
     command += " -nt " + std::to_string(nThreads);
@@ -202,6 +205,7 @@ void CreateGmshMesh(const std::string &meshName, const std::string &newName,
     command += " -v 3 ";
     command += " -setnumber scale "+str_scale.str();
     command += " -setnumber factor "+str_factor.str();
+    command += " -setnumber nOuterDomain "+str_n_mat.str();
     command += " -order " + std::to_string(meshOrder);
     if( meshOrder > 1 ) command += " -optimize_ho";
     command += " -o " + newName;
@@ -275,7 +279,7 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
     std::cout<<"Created! "<<t2_c-t1_c<<std::endl;
     TPZCompMesh *cmesh = meshVec[0];
 
-    TPZEigenAnalysis an(cmesh, false);
+    TPZEigenAnalysis an(cmesh, true);
 
     TPZManVector<long, 1000> activeEquations;
     int neq = 0;
