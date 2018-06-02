@@ -73,6 +73,10 @@ void TPZSlepcSTHandler::SetPrecond(const PCType &precond) {
     KSPCreate(PETSC_COMM_WORLD,&fKsp);
     fHasSolver = true;
   }
+  const PetscReal zero = 1e-16;
+  ierr = PCFactorSetZeroPivot(fPc,zero);
+
+  if(ierr != 0) DebugStop();
   KSPSetPC(fKsp,fPc);
 }
 #endif //USING_SLEPC

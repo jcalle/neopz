@@ -252,6 +252,7 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
                                                 simData.pzOpts.scaleFactor, factor, wDomain, hDomain, boundTypeVec,
                                                 pmlTypeVec,
                                                 usingSymmetry, boundType);
+                break;
             }
             default:
                 DebugStop();
@@ -677,12 +678,12 @@ void CreateGMeshRectangularWaveguide(TPZGeoMesh *&gmesh, const std::string mshFi
     llCoord[1] = 0.;
 
     ulCoord[0] = 0.;
-    ulCoord[1] = hDomain/scale;
+    ulCoord[1] = hDomain*scale;
 
-    urCoord[0] = usingSymmetry ? (wDomain/scale)/2. : wDomain/scale;
-    urCoord[1] = hDomain/scale;
+    urCoord[0] = usingSymmetry ? (wDomain*scale)/2. : wDomain*scale;
+    urCoord[1] = hDomain*scale;
 
-    lrCoord[0] = usingSymmetry ? (wDomain/scale)/2. : wDomain/scale;
+    lrCoord[0] = usingSymmetry ? (wDomain*scale)/2. : wDomain*scale;
     lrCoord[1] = 0.;
 
     nx[0] = factor;

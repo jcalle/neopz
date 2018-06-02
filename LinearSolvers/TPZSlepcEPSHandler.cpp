@@ -133,8 +133,8 @@ int TPZSlepcEPSHandler<TVar>::SolveGeneralisedEigenProblem(TPZFYsmpMatrix<TVar> 
   ierr=MatCreateSeqBAIJWithArrays(MPI_COMM_WORLD,blockSize,nRows,nCols,ibP,jbP,(PetscScalar *)B.fA.begin(),&fBmat);CHKERRQ(ierr);
 
   std::cout<<"Created!"<<std::endl;
-
   EPSSetOperators(fEps, fAmat, fBmat);
+  EPSSetUp(fEps);
 
   if(fVerbose){
     EPSView(fEps,PETSC_VIEWER_STDOUT_WORLD);

@@ -321,69 +321,41 @@ void TPZMatModalAnalysis::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL we
     const int nH1Functions  = phiH1.Rows();
     const int firstH1 = h1meshindex * nHCurlFunctions;
     const int firstHCurl = hcurlmeshindex * nH1Functions;
-    {
         
-        int nshape=phiH1.Rows();
-        REAL BIG = TPZMaterial::gBigNumber;
-        
-        //const STATE v1 = bc.Val1()(0,0);//sera posto na matriz K no caso de condicao mista
-        const STATE v2 = bc.Val2()(0,0);//sera posto no vetor F
-        
-        switch ( bc.Type() )
-        {
-            case 0:
-                if(this->fAssembling == B || this->fAssembling == A){
-                    for(int i = 0 ; i<nshape ; i++)
-                    {
-                        const STATE rhs = phiH1(i,0) * BIG  * v2;
-                        ef(firstH1+i,0) += rhs*weight;
-                        for(int j=0;j<nshape;j++)
-                        {
-                            const STATE stiff = phiH1(i,0) * phiH1(j,0) * BIG ;
-                            ek(firstH1+i,firstH1+j) += stiff*weight;
-                        }
-                    }
-                }
-                break;
-            case 1:
-                DebugStop();
-                break;
-            case 2:
-                DebugStop();
-                break;
-        }
+    int nshape=phiH1.Rows();
+    REAL BIG = TPZMaterial::gBigNumber;
+
+    const STATE v1 = bc.Val1()(0,0);//sera posto na matriz K no caso de condicao mista
+    const STATE v2 = bc.Val2()(0,0);//sera posto no vetor F
+    const REAL tol = 1e-15;
+    if(std::abs(v1) > tol || std::abs(v2) > tol){
+        std::cout<<"This method supports only homogeneous boundary conditions."<<std::endl;
+        std::cout<<"Stopping now..."<<std::endl;
+        DebugStop();
     }
+    switch ( bc.Type() )
     {
-        
-        int nshape=phiHCurl.Rows();
-        REAL BIG = TPZMaterial::gBigNumber;
-        
-        //const STATE v1 = bc.Val1()(0,0);//sera posto na matriz K no caso de condicao mista
-        const STATE v2 = bc.Val2()(0,0);//sera posto no vetor F
-        
-        switch ( bc.Type() )
-        {
-            case 0:
+        case 0:
+            if(this->fAssembling == B || this->fAssembling == A){
                 for(int i = 0 ; i<nshape ; i++)
                 {
-                    const STATE rhs = phiHCurl(i,0) * BIG  * v2;
-                    ef(firstHCurl+i,0) += rhs*weight;
                     for(int j=0;j<nshape;j++)
                     {
-                        const STATE stiff = phiHCurl(i,0) * phiHCurl(j,0) * BIG ;
-                        ek(firstHCurl+i,firstHCurl+j) += stiff*weight;
+                        const STATE stiff = phiH1(i,0) * phiH1(j,0) * BIG ;
+                        ek(firstH1+i,firstH1+j) += stiff*weight;
                     }
                 }
-                break;
-            case 1:
-                DebugStop();
-                break;
-            case 2:
-                DebugStop();
-                break;
-        }
+            }
+            break;
+        case 1:
+            ///PMC condition just adds zero to both matrices. nothing to do here....
+            break;
+        case 2:
+            std::cout<<"This module supports only dirichlet and neumann boundary conditions."<<std::endl;
+            std::cout<<"Stopping now..."<<std::endl;
+            DebugStop();
+            break;
     }
-
 }
 
 void TPZMatModalAnalysis::Contribute(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ef)
@@ -472,7 +444,7 @@ int TPZMatModalAnalysis::IntegrationRuleOrder(TPZVec<int> &elPMaxOrder) const
     {
         if(elPMaxOrder[ip] > pmax) pmax = elPMaxOrder[ip];
     }
-    const int integrationorder = 4+2*pmax;
+    const int integrationorder = 2*pmax;
 
     return  integrationorder;
 }
