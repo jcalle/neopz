@@ -75,7 +75,11 @@ void TPZSlepcSTHandler::SetPrecond(const PCType &precond) {
   }
   const PetscReal zero = 1e-16;
   ierr = PCFactorSetZeroPivot(fPc,zero);
-
+#ifdef PETSC_HAVE_MUMPS
+  if(!strcmp(precond,"lu")||!strcmp(precond,"cholesky")){
+      ierr = PCFactorSetMatSolverPackage(fPc,MATSOLVERMUMPS);
+  }
+#endif
   if(ierr != 0) DebugStop();
   KSPSetPC(fKsp,fPc);
 }

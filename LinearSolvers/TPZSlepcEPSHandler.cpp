@@ -88,7 +88,6 @@ int TPZSlepcEPSHandler<TVar>::SolveGeneralisedEigenProblem(TPZFYsmpMatrix<TVar> 
    *  CREATE MATRICES
    *****************************/
   PetscReal error;
-  const int blockSize = 1;
   const int nRows = A.Rows();
   const int nCols = A.Cols();
 
@@ -116,7 +115,7 @@ int TPZSlepcEPSHandler<TVar>::SolveGeneralisedEigenProblem(TPZFYsmpMatrix<TVar> 
   for (int j = 0; j < A.fJA.size(); ++j) {
     jaP[j]=A.fJA[j];
   }
-  ierr = MatCreateSeqBAIJWithArrays(MPI_COMM_WORLD,blockSize,nRows,nCols,fIaP,jaP,(PetscScalar *)A.fA.begin(),&fAmat);CHKERRQ(ierr);
+  ierr = MatCreateSeqAIJWithArrays(MPI_COMM_WORLD,nRows,nCols,fIaP,jaP,(PetscScalar *)A.fA.begin(),&fAmat);CHKERRQ(ierr);
 
   std::cout<<"Created!"<<std::endl;
   std::cout<<"Creating PETSc fBmat...";
@@ -130,7 +129,7 @@ int TPZSlepcEPSHandler<TVar>::SolveGeneralisedEigenProblem(TPZFYsmpMatrix<TVar> 
     jbP[j]=B.fJA[j];
   }
 
-  ierr=MatCreateSeqBAIJWithArrays(MPI_COMM_WORLD,blockSize,nRows,nCols,ibP,jbP,(PetscScalar *)B.fA.begin(),&fBmat);CHKERRQ(ierr);
+  ierr=MatCreateSeqAIJWithArrays(MPI_COMM_WORLD,nRows,nCols,ibP,jbP,(PetscScalar *)B.fA.begin(),&fBmat);CHKERRQ(ierr);
 
   std::cout<<"Created!"<<std::endl;
   EPSSetOperators(fEps, fAmat, fBmat);
