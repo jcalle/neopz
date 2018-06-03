@@ -1374,6 +1374,604 @@ CreateStepFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<in
 }
 
 void
+CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec, const std::string &prefix,
+                    const bool &print, const REAL &scale, const int &factor,
+                    TPZVec<SPZModalAnalysisData::boundtype> &boundTypeVec,
+                    TPZVec<SPZModalAnalysisData::pmltype> &pmlTypeVec, const REAL &realRCore, const REAL &dPML,
+                    const REAL &boundDist, const REAL &outerReffIndex) {
+    const int nDivTHole = factor * 4, nDivRHole = factor * 6,
+            nDivCladding1 = factor * 4, nDivCladding2 = factor * 4,nDivCladding3 = factor * 4,
+                    nDivPml = factor * 5 + 1;
+    const int nQuads = 13;
+    const int nEdges = 55;
+    const int nPoints = 33;
+
+    if(std::min<int>({nDivTHole,nDivRHole,nDivCladding1,nDivPml}) < 2 ) {
+        std::cout<<"Mesh has not sufficient divisions."<<std::endl;
+        std::cout<<"Minimum is 2."<<std::endl;
+        DebugStop();
+    }
+
+    const int matIdHole = 1, matIdCladding = 2, matIdBC= 13;
+    const int matIdPMLxp = 10,
+            matIdPMLyp = 11,
+            matIdPMLxpyp = 12;
+
+    const REAL rCore = scale * 2.5e-6;
+    const REAL lengthPML = scale * 2.e-6;
+    const REAL bound = scale * 15.75e-6;
+    const REAL Lambda = scale * 6.75e-6;
+    //holes centers
+    TPZManVector<REAL,2> xc1(2, 0.);
+    TPZManVector<REAL,2> xc2(2, 0.);
+    xc1[0] = Lambda * 0.5;
+    xc1[1] = Lambda * std::sqrt(3) * 0.5;
+    xc2[0] = Lambda;
+    xc2[1] = 0;
+
+
+
+    ///all points
+    TPZManVector<TPZManVector<REAL,2>,33> pointsVec(nPoints,TPZManVector<REAL,2>(2,0.));
+    //hole 1
+    pointsVec[0][0]= xc1[0] + 0.5 * sqrt(2)*rCore; pointsVec[0][1]= xc1[1] + 0.5 * sqrt(2)*rCore;
+    pointsVec[1][0]= xc1[0] - 0.5 * sqrt(2)*rCore; pointsVec[1][1]= xc1[1] + 0.5 * sqrt(2)*rCore;
+    pointsVec[2][0]= xc1[0] - 0.5 * sqrt(2)*rCore; pointsVec[2][1]= xc1[1] - 0.5 * sqrt(2)*rCore;
+    pointsVec[3][0]= xc1[0] + 0.5 * sqrt(2)*rCore; pointsVec[3][1]= xc1[1] - 0.5 * sqrt(2)*rCore;
+
+    pointsVec[4][0]= xc1[0] + sqrt(2)*rCore; pointsVec[4][1]= xc1[1] + sqrt(2)*rCore;
+    pointsVec[5][0]= xc1[0] - sqrt(2)*rCore; pointsVec[5][1]= xc1[1] + sqrt(2)*rCore;
+    pointsVec[6][0]= xc1[0] - sqrt(2)*rCore; pointsVec[6][1]= xc1[1] - sqrt(2)*rCore;
+    pointsVec[7][0]= xc1[0] + sqrt(2)*rCore; pointsVec[7][1]= xc1[1] - sqrt(2)*rCore;
+
+    //hole 2
+    pointsVec[8][0]= xc2[0] + 0.5 * sqrt(2)*rCore; pointsVec[8][1]= xc2[1] + 0.5 * sqrt(2)*rCore;
+    pointsVec[9][0]= xc2[0] - 0.5 * sqrt(2)*rCore; pointsVec[9][1]= xc2[1] + 0.5 * sqrt(2)*rCore;
+    pointsVec[10][0]= xc2[0] + 0.5 * sqrt(2)*rCore; pointsVec[10][1]= xc2[1];
+    pointsVec[11][0]= xc2[0] - 0.5 * sqrt(2)*rCore; pointsVec[11][1]= xc2[1];
+
+    pointsVec[12][0]= xc2[0] + sqrt(2)*rCore; pointsVec[12][1]= xc2[1] + sqrt(2)*rCore;
+    pointsVec[13][0]= xc2[0] - sqrt(2)*rCore; pointsVec[13][1]= xc2[1] + sqrt(2)*rCore;
+    pointsVec[14][0]= xc2[0] - rCore; pointsVec[14][1]= xc2[1];
+    pointsVec[15][0]= xc2[0] - rCore; pointsVec[15][1]= xc2[1];
+
+    //cladding
+    pointsVec[16][0]= 0.; pointsVec[16][1]= 0.;
+    pointsVec[17][0]= pointsVec[6][0]; pointsVec[17][1]= 0.;
+    pointsVec[18][0]= bound; pointsVec[18][1]= 0.;
+
+    pointsVec[19][0]= pointsVec[16][0]; pointsVec[19][1]= pointsVec[12][1];
+    pointsVec[20][0]= pointsVec[17][0]; pointsVec[20][1]= pointsVec[12][1];
+    pointsVec[21][0]= pointsVec[18][0]; pointsVec[21][1]= pointsVec[12][1];
+
+    pointsVec[22][0]= pointsVec[16][0]; pointsVec[22][1]= pointsVec[6][1];
+    pointsVec[23][0]= pointsVec[17][0]; pointsVec[23][1]= pointsVec[6][1];
+    pointsVec[24][0]= pointsVec[18][0]; pointsVec[24][1]= pointsVec[6][1];
+
+    pointsVec[25][0]= pointsVec[16][0]; pointsVec[25][1]= pointsVec[4][1];
+    pointsVec[26][0]= pointsVec[17][0]; pointsVec[26][1]= pointsVec[4][1];
+    pointsVec[27][0]= pointsVec[18][0]; pointsVec[27][1]= pointsVec[4][1];
+
+    pointsVec[28][0]= pointsVec[16][0]; pointsVec[28][1]= bound;
+    pointsVec[29][0]= pointsVec[5][0]; pointsVec[29][1]= bound;
+    pointsVec[30][0]= pointsVec[4][0]; pointsVec[30][1]= bound;
+    pointsVec[31][0]= pointsVec[12][0]; pointsVec[31][1]= bound;
+    pointsVec[32][0]= pointsVec[18][0]; pointsVec[32][1]= bound;
+    auto map_quad_side_arc = [](const TPZVec<REAL> &theta ,const TPZVec<REAL> &xc, const REAL &r, const REAL & s) {
+        TPZVec<REAL> point(2,0.);
+        point[0] = xc[0] + r*cos((theta[1] + s*theta[1] + theta[0] - s*theta[0])/2.);
+        point[1] = xc[1] + r*sin((theta[1] + s*theta[1] + theta[0] - s*theta[0])/2.);
+        return point;
+    };
+
+    TPZFMatrix<int> quadPointsVec(nQuads,4);
+    quadPointsVec(0,0) = 0; quadPointsVec(0,1) = 1; quadPointsVec(0,2) = 2; quadPointsVec(0,3) = 3;
+    quadPointsVec(1,0) = 4; quadPointsVec(1,1) = 5; quadPointsVec(1,2) = 1; quadPointsVec(1,3) = 0;
+    quadPointsVec(2,0) = 1; quadPointsVec(2,1) = 5; quadPointsVec(2,2) = 6; quadPointsVec(2,3) = 2;
+    quadPointsVec(3,0) = 4; quadPointsVec(3,1) = 0; quadPointsVec(3,2) = 3; quadPointsVec(3,3) = 7;
+    quadPointsVec(4,0) = 3; quadPointsVec(4,1) = 2; quadPointsVec(4,2) = 6; quadPointsVec(4,3) = 7;
+    quadPointsVec(5,0) = 8; quadPointsVec(5,1) = 9; quadPointsVec(5,2) = 10; quadPointsVec(5,3) = 11;
+    quadPointsVec(6,0) = 12; quadPointsVec(6,1) = 13; quadPointsVec(6,2) = 9; quadPointsVec(6,3) = 8;
+    quadPointsVec(7,0) = 9; quadPointsVec(7,1) = 13; quadPointsVec(7,2) = 14; quadPointsVec(7,3) = 10;
+    quadPointsVec(8,0) = 12; quadPointsVec(8,1) = 8; quadPointsVec(8,2) = 11; quadPointsVec(8,3) = 15;
+    quadPointsVec(9,0) = 20; quadPointsVec(9,1) = 19; quadPointsVec(9,2) = 16; quadPointsVec(9,3) = 17;
+    quadPointsVec(10,0) = 13; quadPointsVec(10,1) = 20; quadPointsVec(10,2) = 17; quadPointsVec(10,3) = 14;
+    quadPointsVec(11,0) = 21; quadPointsVec(11,1) = 12; quadPointsVec(11,2) = 15; quadPointsVec(11,3) = 18;
+    quadPointsVec(12,0) = 6; quadPointsVec(12,1) = 22; quadPointsVec(12,2) = 19; quadPointsVec(12,3) = 20;
+    quadPointsVec(13,0) = 7; quadPointsVec(13,1) = 6; quadPointsVec(13,2) = 20; quadPointsVec(13,3) = 13;
+    quadPointsVec(14,0) = 23; quadPointsVec(14,1) = 7; quadPointsVec(14,2) = 13; quadPointsVec(14,3) = 12;
+    quadPointsVec(15,0) = 24; quadPointsVec(15,1) = 23; quadPointsVec(15,2) = 12; quadPointsVec(15,3) = 21;
+    quadPointsVec(16,0) = 5; quadPointsVec(16,1) = 25; quadPointsVec(16,2) = 22; quadPointsVec(16,3) = 6;
+    quadPointsVec(17,0) = 26; quadPointsVec(17,1) = 4; quadPointsVec(17,2) = 7; quadPointsVec(17,3) = 23;
+    quadPointsVec(10,0) = 27; quadPointsVec(10,1) = 26; quadPointsVec(10,2) = 23; quadPointsVec(10,3) = 24;
+    quadPointsVec(19,0) = 29; quadPointsVec(19,1) = 28; quadPointsVec(19,2) = 25; quadPointsVec(19,3) = 5;
+    quadPointsVec(20,0) = 30; quadPointsVec(20,1) = 29; quadPointsVec(20,2) = 5; quadPointsVec(20,3) = 4;
+    quadPointsVec(21,0) = 31; quadPointsVec(21,1) = 30; quadPointsVec(21,2) = 4; quadPointsVec(21,3) = 26;
+    quadPointsVec(22,0) = 32; quadPointsVec(22,1) = 31; quadPointsVec(22,2) = 26; quadPointsVec(22,3) = 27;
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // quadrilateral zero to four - first hole                                                              //
+    // quadrilateral five to eight - second hole                                                            //
+    // quadrilateral nine to twenty-eight - fiber's cladding                                                //
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    ////////////////////////////////////////CREATE QUADS///////////////////////////////////////
+    TPZVec<QuadrilateralData *> quadVec(nQuads,nullptr);
+    TPZManVector<int,nQuads> matIdsQuads(nQuads,-1);
+    matIdsQuads[0] = matIdHole;
+    matIdsQuads[1] = matIdHole;    matIdsQuads[2] = matIdHole;
+    matIdsQuads[3] = matIdHole;    matIdsQuads[4] = matIdHole;
+    matIdsQuads[5] = matIdHole;    matIdsQuads[6] = matIdHole;
+    matIdsQuads[7] = matIdHole;    matIdsQuads[8] = matIdHole;
+
+    matIdsQuads[9] = matIdCladding;    matIdsQuads[10] = matIdCladding;
+    matIdsQuads[11] = matIdCladding;    matIdsQuads[12] = matIdCladding;
+    matIdsQuads[13] = matIdCladding;    matIdsQuads[14] = matIdCladding;
+    matIdsQuads[15] = matIdCladding;    matIdsQuads[16] = matIdCladding;
+    matIdsQuads[17] = matIdCladding;    matIdsQuads[18] = matIdCladding;
+    matIdsQuads[19] = matIdCladding;    matIdsQuads[20] = matIdCladding;
+    matIdsQuads[21] = matIdCladding;    matIdsQuads[22] = matIdCladding;
+
+    TPZManVector<int,nQuads> nDivQsi(nQuads,-1);
+    TPZManVector<int,nQuads> nDivEta(nQuads,-1);
+    //first hole
+    nDivQsi[0]=nDivRHole;nDivEta[0]=nDivRHole;
+    nDivQsi[1]=nDivRHole; nDivEta[1]=nDivTHole;
+    nDivQsi[2]=nDivTHole; nDivEta[2]=nDivRHole;
+    nDivQsi[3]=nDivTHole; nDivEta[3]=nDivRHole;
+    nDivQsi[4]=nDivRHole; nDivEta[4]=nDivTHole;
+    //second hole
+    nDivQsi[5]=nDivRHole; nDivEta[5]=nDivRHole/2;
+    nDivQsi[6]=nDivRHole; nDivEta[6]=nDivTHole;
+    nDivQsi[7]=nDivTHole; nDivEta[7]=nDivRHole/2;
+    nDivQsi[8]=nDivRHole; nDivEta[8]=nDivRHole/2;
+    //cladding
+    nDivQsi[9]= nDivCladding3; nDivEta[9]=nDivRHole/2;
+    nDivQsi[10]=nDivRHole; nDivEta[10]=nDivRHole/2;
+    nDivQsi[11]=nDivCladding1; nDivEta[11]=nDivRHole/2;
+
+    nDivQsi[12]=nDivCladding3; nDivEta[12]=nDivCladding2;
+    nDivQsi[13]=nDivRHole; nDivEta[13]=nDivCladding2;
+    nDivQsi[14]=nDivRHole; nDivEta[14]=nDivCladding2;
+    nDivQsi[15]=nDivCladding1; nDivEta[15]=nDivCladding2;
+
+    nDivQsi[16]=nDivCladding3; nDivEta[16]=nDivRHole;
+    nDivQsi[17]=nDivRHole; nDivEta[17]=nDivRHole;
+    nDivQsi[18]=nDivCladding1; nDivEta[18]=nDivRHole;
+
+    nDivQsi[19]=nDivCladding3; nDivEta[19]=nDivCladding1;
+    nDivQsi[20]=nDivRHole; nDivEta[20]=nDivCladding1;
+    nDivQsi[21]=nDivRHole; nDivEta[21]=nDivCladding1;
+    nDivQsi[22]=nDivCladding1; nDivEta[22]=nDivCladding1;
+    TPZManVector<bool,nQuads> side1NonLinearVec(nQuads,false);
+    TPZManVector<bool,nQuads> side2NonLinearVec(nQuads,false);
+    TPZManVector<bool,nQuads> side3NonLinearVec(nQuads,false);
+    TPZManVector<bool,nQuads> side4NonLinearVec(nQuads,false);
+
+    side1NonLinearVec[1] = true;
+    side2NonLinearVec[2] = true;
+    side4NonLinearVec[3] = true;
+    side1NonLinearVec[4] = true;
+
+    side1NonLinearVec[6] = true;
+    side2NonLinearVec[7] = true;
+    side4NonLinearVec[8] = true;
+
+    side4NonLinearVec[10] = true;
+    side2NonLinearVec[11] = true;
+    side1NonLinearVec[13] = true;
+    side3NonLinearVec[14] = true;
+    side4NonLinearVec[16] = true;
+    side2NonLinearVec[17] = true;
+    side3NonLinearVec[20] = true;
+
+    {
+        TPZManVector<TPZManVector<REAL,2>,14> thetaVec(14,TPZManVector<REAL,2>(2,0.));
+
+        thetaVec[0][0] = 1 * M_PI/4;thetaVec[0][1] = 3 * M_PI/4;//quad1
+        thetaVec[1][0] = 3 * M_PI/4;thetaVec[1][1] = 5 * M_PI/4;//quad2
+        thetaVec[2][0] = 7 * M_PI/4;thetaVec[2][1] = 9 * M_PI/4;//quad3
+        thetaVec[3][0] = 5 * M_PI/4;thetaVec[3][1] = 7 * M_PI/4;//quad4
+
+        thetaVec[4][0] = 1 * M_PI/4;thetaVec[4][1] = 3 * M_PI/4;//quad6
+        thetaVec[5][0] = 3 * M_PI/4;thetaVec[5][1] = 4 * M_PI/4;//quad7
+        thetaVec[6][0] = 0 * M_PI/4;thetaVec[6][1] = 1 * M_PI/4;//quad8
+
+        thetaVec[7][0] = 4 * M_PI/4;thetaVec[7][1] = 3 * M_PI/4;//quad10
+        thetaVec[8][0] = 1 * M_PI/4;thetaVec[8][1] = 0 * M_PI/4;//quad11
+        thetaVec[9][0] = 7 * M_PI/4;thetaVec[9][1] = 5 * M_PI/4;//quad13
+        thetaVec[10][0] = 3 * M_PI/4;thetaVec[10][1] = 1 * M_PI/4;//quad14
+        thetaVec[11][0] = 5 * M_PI/4;thetaVec[11][1] = 3 * M_PI/4;//quad16
+        thetaVec[12][0] = 9 * M_PI/4;thetaVec[12][1] = 7 * M_PI/4;//quad17
+        thetaVec[13][0] = 3 * M_PI/4;thetaVec[13][1] = 1 * M_PI/4;//quad20
+
+
+        TPZVec<TPZVec<REAL>*> xcRef(14,&xc1);
+        xcRef[4] = &xc2;
+        xcRef[5] = &xc2;
+        xcRef[6] = &xc2;
+        xcRef[7] = &xc2;
+        xcRef[8] = &xc2;
+        xcRef[10] = &xc2;
+        int iNonLinear = 0;
+        for(int iQuad = 0; iQuad < nQuads; iQuad++){
+            quadVec[iQuad] = new QuadrilateralData(
+                    pointsVec[quadPointsVec(iQuad,0)],pointsVec[quadPointsVec(iQuad,1)],
+                    pointsVec[quadPointsVec(iQuad,2)],pointsVec[quadPointsVec(iQuad,3)]);
+            if(side1NonLinearVec[iQuad]){
+                TPZVec<REAL> &xc = *(xcRef[iNonLinear]);
+                quadVec[iQuad]->mapSide1 = std::bind(map_quad_side_arc,thetaVec[iNonLinear], xc, rCore,std::placeholders::_1);
+                iNonLinear++;
+            } else if(side2NonLinearVec[iQuad]){
+                TPZVec<REAL> &xc = *(xcRef[iNonLinear]);
+                quadVec[iQuad]->mapSide2 = std::bind(map_quad_side_arc,thetaVec[iNonLinear], xc, rCore,std::placeholders::_1);
+                iNonLinear++;
+            } else if(side3NonLinearVec[iQuad]){
+                TPZVec<REAL> &xc = *(xcRef[iNonLinear]);
+                quadVec[iQuad]->mapSide3 = std::bind(map_quad_side_arc,thetaVec[iNonLinear], xc, rCore,std::placeholders::_1);
+                iNonLinear++;
+            } else if(side4NonLinearVec[iQuad]){
+                TPZVec<REAL> &xc = *(xcRef[iNonLinear]);
+                quadVec[iQuad]->mapSide4 = std::bind(map_quad_side_arc,thetaVec[iNonLinear], xc, rCore,std::placeholders::_1);
+                iNonLinear++;
+            }
+            quadVec[iQuad]->SetMapsLinearity(side1NonLinearVec[iQuad],side2NonLinearVec[iQuad],side3NonLinearVec[iQuad],side4NonLinearVec[iQuad]);
+            quadVec[iQuad]->CreateQuadrilateral(nDivQsi[iQuad],nDivEta[iQuad]);
+        }
+    }
+
+    ////////////////////////////////////////CREATE NODES///////////////////////////////////////
+    ////////////////////////////////////////FOR INTERIOR///////////////////////////////////////
+    ///////////////////////////////////////////POINTS//////////////////////////////////////////
+    long nodeId = 0;
+    gmesh = new TPZGeoMesh;
+    TPZManVector<TPZManVector<long,20>,nQuads> elNodeFaceVecs(nQuads,TPZManVector<long,20>(0,-1));
+
+    for(int el = 0; el < nQuads ; el ++) {
+        const long nNodesOld = gmesh->NodeVec().NElements();
+        const long nNodesEl = (nDivQsi[el]-2)*(nDivEta[el]-2);
+        gmesh->NodeVec().Resize(nNodesOld + nNodesEl);
+        elNodeFaceVecs[el].Resize(nDivEta[el] * nDivQsi[el],-1);
+        //interior nodes only
+        for (int i = 1; i < nDivEta[el] - 1; i++) {
+            for(int j = 1 ; j < nDivQsi[el] - 1; j++){
+                TPZManVector<REAL, 3> node(3, 0.);
+                node[0] = quadVec[el]->facePts(i * nDivQsi[el] + j,0);
+                node[1] = quadVec[el]->facePts(i * nDivQsi[el] + j,1);
+                gmesh->NodeVec()[nodeId].Initialize(node, *gmesh);
+                elNodeFaceVecs[el][i * nDivQsi[el] + j] = nodeId;
+                nodeId++;
+            }
+        }
+    }
+
+    ////////////////////////////////////////CREATE NODES///////////////////////////////////////
+    //////////////////////////////////////////FOR EDGE/////////////////////////////////////////
+    ///////////////////////////////////////////POINTS//////////////////////////////////////////
+    auto sidePos = [](const int side, const int &i, const int &nQsi, const int &nEta, const bool &reverse){
+        const int iP = reverse ? (side%2 ? nQsi -1 - i : nEta -1 - i) : i;
+        switch(side){
+            case 1 : return iP;
+            case 2 : return (iP*nQsi + (nQsi-1));
+            case 3 : return (nQsi - 1 - iP + nQsi * (nEta - 1));
+            case 4 : return (nEta - 1 - iP)*nQsi;
+            default: DebugStop(); return -1;
+        }
+    };
+
+    auto createEdgeNodes = [sidePos,nDivEta,nDivQsi,quadVec,gmesh]
+            (TPZManVector<TPZManVector<long,20>,nQuads> &elNodeFaceVecs, const long &el1, const long &el2,const int &side1, const int &side2, long &nodeId,
+             TPZVec<long> &side1pts, TPZVec<long> &side2pts, const bool &revEl2){
+        const int nPts = side1 % 2 ? nDivQsi[el1] : nDivEta[el1];
+        long nNodesOld = gmesh->NodeVec().NElements();
+        long nNodesEl = nPts;
+        for (int i = 0; i < nPts; i++) {
+            const int posEl1 = sidePos(side1,i,nDivQsi[el1],nDivEta[el1],false);
+            const int posEl2 = sidePos(side2,i,nDivQsi[el2],nDivEta[el2],revEl2);
+            if(elNodeFaceVecs[el1][posEl1] != -1){
+                elNodeFaceVecs[el2][posEl2] = elNodeFaceVecs[el1][posEl1];
+                continue;
+            }
+            if(elNodeFaceVecs[el2][posEl2] != -1){
+                elNodeFaceVecs[el1][posEl1] = elNodeFaceVecs[el2][posEl2];
+                continue;
+            }
+            TPZManVector<REAL, 3> node(3, 0.);
+            node[0] = quadVec[el1]->facePts(posEl1,0);
+            node[1] = quadVec[el1]->facePts(posEl1,1);
+            long nNodesOld = gmesh->NodeVec().NElements();
+            gmesh->NodeVec().Resize(nNodesOld + 1);
+            gmesh->NodeVec()[nodeId].Initialize(node, *gmesh);
+            elNodeFaceVecs[el1][posEl1] = nodeId;
+            elNodeFaceVecs[el2][posEl2] = nodeId;
+            nodeId++;
+        }
+        TPZFMatrix<REAL> *nonLinearPts = nullptr;
+        if(quadVec[el1]->isSide1nonLinear && side1 == 1) { nonLinearPts = &quadVec[el1]->side1IntPts;}
+        else if(quadVec[el1]->isSide2nonLinear && side1 == 2) { nonLinearPts = &quadVec[el1]->side2IntPts;}
+        else if(quadVec[el1]->isSide3nonLinear && side1 == 3) { nonLinearPts = &quadVec[el1]->side3IntPts;}
+        else if(quadVec[el1]->isSide4nonLinear && side1 == 4) { nonLinearPts = &quadVec[el1]->side4IntPts;}
+        long nNonLinPts = 0;
+        if(nonLinearPts){
+            nNonLinPts=nonLinearPts->Rows();
+            side1pts.Resize(nNonLinPts);
+            side2pts.Resize(nNonLinPts);
+            nNodesOld = gmesh->NodeVec().NElements();
+            nNodesEl = nNonLinPts;
+            gmesh->NodeVec().Resize(nNodesOld + nNodesEl);
+        }
+        for (int i = 0; i < nNonLinPts; i++){
+            const int posEl1 = i;
+            const int posEl2 = revEl2? nNonLinPts - 1 - i : i;
+            TPZManVector<REAL, 3> node(3, 0.);
+            node[0] += (*nonLinearPts)(posEl1,0);
+            node[1] += (*nonLinearPts)(posEl1,1);
+            gmesh->NodeVec()[nodeId].Initialize(node, *gmesh);
+            side1pts[posEl1] = nodeId;
+            side2pts[posEl2] = nodeId;
+            nodeId++;
+        }
+    };
+
+    TPZManVector<TPZManVector<long,20>,nQuads> elNodeSide1Vecs(nQuads,TPZManVector<long,20>(0,-1));
+    TPZManVector<TPZManVector<long,20>,nQuads> elNodeSide2Vecs(nQuads,TPZManVector<long,20>(0,-1));
+    TPZManVector<TPZManVector<long,20>,nQuads> elNodeSide3Vecs(nQuads,TPZManVector<long,20>(0,-1));
+    TPZManVector<TPZManVector<long,20>,nQuads> elNodeSide4Vecs(nQuads,TPZManVector<long,20>(0,-1));
+    TPZManVector<long,nEdges> quad1Vec(nEdges,-1);//need to keep track of edges and quads
+    TPZManVector<long,nEdges> side1Vec(nEdges,-1);
+    TPZManVector<long,nEdges> revEl2(nEdges,-1);
+    {
+        TPZManVector<long,nEdges> quad2Vec(nEdges,-1);
+        TPZManVector<long,nEdges> side2Vec(nEdges,-1);
+      //quad1Vec[0] = ok; quad2Vec[0] = ok; side1Vec[0] =nok; side2Vec[0] =nok; revEl2[0] = ok;
+        quad1Vec[0] = 0; quad2Vec[0] = 1; side1Vec[0] = 1; side2Vec[0] = 3; revEl2[0] = true;
+        quad1Vec[1] = 0; quad2Vec[1] = 2; side1Vec[1] = 2; side2Vec[1] = 4; revEl2[1] = true;
+        quad1Vec[2] = 0; quad2Vec[2] = 4; side1Vec[2] = 3; side2Vec[2] = 1; revEl2[2] = true;
+        quad1Vec[3] = 0; quad2Vec[3] = 3; side1Vec[3] = 4; side2Vec[3] = 2; revEl2[3] = true;
+
+        quad1Vec[4] = 1; quad2Vec[4] = 3; side1Vec[4] = 1; side2Vec[4] = 4; revEl2[4] = true;
+        quad1Vec[5] = 1; quad2Vec[5] = 2; side1Vec[5] = 3; side2Vec[5] = 4; revEl2[5] = true;
+
+        quad1Vec[6] = 2; quad2Vec[6] = 4; side1Vec[6] = 4; side2Vec[6] = 2; revEl2[6] = true;
+
+        quad1Vec[7] = 4; quad2Vec[7] = 3; side1Vec[7] = 1; side2Vec[7] = 3; revEl2[7] = true;
+
+        quad1Vec[8] = 1; quad2Vec[8] =20; side1Vec[8] = 2; side2Vec[8] = 1; revEl2[8] = true;
+        quad1Vec[9] = 2; quad2Vec[9] =16; side1Vec[9] = 2; side2Vec[9] = 4; revEl2[9] = true;
+        quad1Vec[10] = 4; quad2Vec[10] =13; side1Vec[10] = 3; side2Vec[10] = 2; revEl2[10] = true;
+        quad1Vec[11] = 3; quad2Vec[11] =17; side1Vec[11] = 3; side2Vec[11] = 1; revEl2[11] = true;
+
+        quad1Vec[12] = 5; quad2Vec[12] = 6; side1Vec[12] = 1; side2Vec[12] = 4; revEl2[12] = true;
+        quad1Vec[13] = 5; quad2Vec[13] = 7; side1Vec[13] = 3; side2Vec[13] = 4; revEl2[13] = true;
+        quad1Vec[14] = 5; quad2Vec[14] = 8; side1Vec[14] = 4; side2Vec[14] = 2; revEl2[14] = true;
+
+        quad1Vec[15] = 6; quad2Vec[15] = 8; side1Vec[15] = 1; side2Vec[15] = 3; revEl2[15] = true;
+        quad1Vec[16] = 6; quad2Vec[16] = 7; side1Vec[16] = 2; side2Vec[16] = 1; revEl2[16] = true;
+        quad1Vec[17] = 6; quad2Vec[17] =14; side1Vec[17] = 2; side2Vec[17] = 4; revEl2[17] = true;
+        quad1Vec[18] = 7; quad2Vec[18] =10; side1Vec[18] = 3; side2Vec[18] = 2; revEl2[18] = true;
+        quad1Vec[19] = 8; quad2Vec[19] =11; side1Vec[19] = 3; side2Vec[19] = 1; revEl2[19] = true;
+        quad1Vec[20] = 9; quad2Vec[20] =12; side1Vec[20] = 1; side2Vec[20] = 3; revEl2[20] = true;
+        quad1Vec[21] = 9; quad2Vec[21] =10; side1Vec[21] = 3; side2Vec[21] = 1; revEl2[21] = true;
+        quad1Vec[22] =10; quad2Vec[22] =13; side1Vec[22] = 4; side2Vec[22] = 4; revEl2[22] = true;
+        quad1Vec[23] =11; quad2Vec[23] =15; side1Vec[23] = 1; side2Vec[23] = 1; revEl2[23] = true;
+        quad1Vec[24] =12; quad2Vec[24] =16; side1Vec[24] = 2; side2Vec[24] = 4; revEl2[24] = true;
+        quad1Vec[25] =12; quad2Vec[25] =13; side1Vec[25] = 4; side2Vec[25] = 2; revEl2[25] = true;
+        quad1Vec[26] =13; quad2Vec[26] =14; side1Vec[26] = 1; side2Vec[26] = 3; revEl2[26] = true;
+        quad1Vec[27] =14; quad2Vec[27] =17; side1Vec[27] = 2; side2Vec[27] = 2; revEl2[27] = true;
+        quad1Vec[28] =14; quad2Vec[28] =15; side1Vec[28] = 3; side2Vec[28] = 1; revEl2[28] = true;
+        quad1Vec[29] =15; quad2Vec[29] =18; side1Vec[29] = 2; side2Vec[29] = 4; revEl2[29] = true;
+        quad1Vec[30] =16; quad2Vec[30] =19; side1Vec[30] = 3; side2Vec[30] = 3; revEl2[30] = true;
+        quad1Vec[31] =17; quad2Vec[31] =21; side1Vec[31] = 4; side2Vec[31] = 2; revEl2[31] = true;
+        quad1Vec[32] =17; quad2Vec[32] =18; side1Vec[32] = 1; side2Vec[32] = 1; revEl2[32] = true;
+        quad1Vec[33] =18; quad2Vec[33] =22; side1Vec[33] = 4; side2Vec[33] = 4; revEl2[33] = true;
+        quad1Vec[34] =19; quad2Vec[34] =20; side1Vec[34] = 1; side2Vec[34] = 1; revEl2[34] = true;
+        quad1Vec[35] =20; quad2Vec[35] =21; side1Vec[35] = 2; side2Vec[35] = 2; revEl2[35] = true;
+        quad1Vec[36] =21; quad2Vec[36] =22; side1Vec[36] = 2; side2Vec[36] = 2; revEl2[36] = true;
+
+
+        quad1Vec[37] =19; quad2Vec[37] =19; side1Vec[37] = 3; side2Vec[37] = 3; revEl2[37] = false;
+        quad1Vec[38] =16; quad2Vec[38] =16; side1Vec[38] = 3; side2Vec[38] = 3; revEl2[38] = false;
+        quad1Vec[39] =12; quad2Vec[39] =12; side1Vec[39] = 4; side2Vec[39] = 4; revEl2[39] = false;
+        quad1Vec[40] = 9; quad2Vec[40] = 9; side1Vec[40] = 4; side2Vec[40] = 4; revEl2[40] = false;
+
+        quad1Vec[41] = 9; quad2Vec[41] = 9; side1Vec[41] = 3; side2Vec[41] = 3; revEl2[41] = false;
+        quad1Vec[42] =10; quad2Vec[42] =10; side1Vec[42] = 3; side2Vec[42] = 3; revEl2[42] = false;
+        quad1Vec[43] = 7; quad2Vec[43] = 7; side1Vec[43] = 4; side2Vec[43] = 4; revEl2[43] = false;
+        quad1Vec[44] = 5; quad2Vec[44] = 5; side1Vec[44] = 4; side2Vec[44] = 4; revEl2[44] = false;
+        quad1Vec[45] = 8; quad2Vec[45] = 8; side1Vec[45] = 4; side2Vec[45] = 4; revEl2[45] = false;
+        quad1Vec[46] =11; quad2Vec[46] =11; side1Vec[46] = 4; side2Vec[46] = 4; revEl2[46] = false;
+
+        quad1Vec[47] =11; quad2Vec[47] =11; side1Vec[47] = 3; side2Vec[47] = 3; revEl2[47] = false;
+        quad1Vec[48] =15; quad2Vec[48] =15; side1Vec[48] = 3; side2Vec[48] = 3; revEl2[48] = false;
+        quad1Vec[49] =18; quad2Vec[49] =18; side1Vec[49] = 4; side2Vec[49] = 4; revEl2[49] = false;
+        quad1Vec[50] =22; quad2Vec[50] =22; side1Vec[50] = 4; side2Vec[50] = 4; revEl2[50] = false;
+
+        quad1Vec[51] =22; quad2Vec[51] =22; side1Vec[51] = 3; side2Vec[51] = 3; revEl2[51] = false;
+        quad1Vec[52] =21; quad2Vec[52] =21; side1Vec[52] = 3; side2Vec[52] = 3; revEl2[52] = false;
+        quad1Vec[53] =19; quad2Vec[53] =19; side1Vec[53] = 4; side2Vec[53] = 4; revEl2[53] = false;
+        quad1Vec[54] =20; quad2Vec[54] =20; side1Vec[54] = 4; side2Vec[54] = 4; revEl2[54] = false;
+        for(int i = 0; i < nEdges; i++){
+            TPZVec<long> *side1pts = nullptr;
+            TPZVec<long> *side2pts = nullptr;
+            switch(side1Vec[i]){
+                case 1: side1pts = & elNodeSide1Vecs[quad1Vec[i]]; break;
+                case 2: side1pts = & elNodeSide2Vecs[quad1Vec[i]]; break;
+                case 3: side1pts = & elNodeSide3Vecs[quad1Vec[i]]; break;
+                case 4: side1pts = & elNodeSide4Vecs[quad1Vec[i]]; break;
+            }
+
+            switch(side2Vec[i]){
+                case 1: side2pts = & elNodeSide1Vecs[quad2Vec[i]]; break;
+                case 2: side2pts = & elNodeSide2Vecs[quad2Vec[i]]; break;
+                case 3: side2pts = & elNodeSide3Vecs[quad2Vec[i]]; break;
+                case 4: side2pts = & elNodeSide4Vecs[quad2Vec[i]]; break;
+            }
+
+            createEdgeNodes(elNodeFaceVecs,quad1Vec[i], quad2Vec[i],side1Vec[i],side2Vec[i],nodeId,
+                            *side1pts, *side2pts, revEl2[i]);
+        }
+    }
+///creates refpattern
+    TPZAutoPointer<TPZRefPattern> refp;
+    char buf[] =
+            "4 3 "
+            "-50 Quad0000111111111 "
+            "-1 -1 0 "
+            "1 -1 0 "
+            "1 1 0 "
+            "-1 1 0 "
+            "3 4 0  1  2  3 "
+            "2 3 0  1  2 "
+            "2 3 0  2  3 ";
+    std::istringstream str(buf);
+    refp = new TPZRefPattern(str);
+    refp->GenerateSideRefPatterns();
+    gRefDBase.InsertRefPattern(refp);
+    if(!refp)
+    {
+        DebugStop();
+    }
+    for(int quad = 0; quad < nQuads ; quad ++) {
+        for (int i = 0; i < nDivEta[quad] - 1; i++) {
+            for(int j = 0 ; j < nDivQsi[quad] - 1; j++){
+
+                const int node0=i * nDivQsi[quad] + j;//Lower left vertex
+                const int node1=i * nDivQsi[quad] + j + 1;//Lower right vertex
+                const int node2=(i+1) * nDivQsi[quad] + j + 1;//Upper right vertex
+                const int node3=(i+1) * nDivQsi[quad] + j;//Upper left vertex
+
+                TPZManVector<long, 3> nodesIdVec(4, 0.);
+
+                const int matId = matIdsQuads[quad];
+                nodesIdVec[0] = elNodeFaceVecs[quad][node0];
+                nodesIdVec[1] = elNodeFaceVecs[quad][node1];
+                nodesIdVec[2] = elNodeFaceVecs[quad][node2];
+                nodesIdVec[3] = elNodeFaceVecs[quad][node3];
+                if(nodesIdVec[0] == -1 || nodesIdVec[1] == -1 || nodesIdVec[2] == -1 || nodesIdVec[3] == -1){
+                    DebugStop();
+                }
+                if((i == 0 && quadVec[quad]->isSide1nonLinear) ||
+                   (j == nDivQsi[quad] - 2 && quadVec[quad]->isSide2nonLinear) ||
+                   (i == nDivEta[quad] - 2 && quadVec[quad]->isSide3nonLinear) ||
+                   (j == 0 && quadVec[quad]->isSide4nonLinear)){
+                    TPZGeoElRefPattern< pzgeom::TPZGeoBlend<pzgeom::TPZGeoQuad> >  * quadEl =
+                            new TPZGeoElRefPattern< pzgeom::TPZGeoBlend<pzgeom::TPZGeoQuad> >  (nodesIdVec,matId,*gmesh);
+                    quadEl->SetRefPattern(refp);
+                }
+                else{
+                    TPZGeoElRefPattern< pzgeom::TPZGeoQuad >  * quadEl =
+                            new TPZGeoElRefPattern< pzgeom::TPZGeoQuad >  (nodesIdVec,matId,*gmesh);
+                    quadEl->SetRefPattern(refp);
+                }
+            }
+        }
+    }
+
+    for(int edge = 0; edge < nEdges ; edge ++) {
+        const int quad = quad1Vec[edge];
+        const int side = side1Vec[edge];
+        if(revEl2[edge] == false){//boundary edge
+            const int nArcs = side % 2 ? nDivQsi[quad] -1 : nDivEta[quad] - 1;
+            for (int i = 0; i < nArcs; i++) {
+                TPZManVector<long, 3> nodesIdVec(2, 0.);
+                const int vertex1 = sidePos(side,i,nDivQsi[quad],nDivEta[quad],false);
+                const int vertex2 = sidePos(side,i + 1,nDivQsi[quad],nDivEta[quad],false);
+
+
+                nodesIdVec[0] = elNodeFaceVecs[quad][vertex1];
+                nodesIdVec[1] = elNodeFaceVecs[quad][vertex2];
+                if(nodesIdVec[0] == -1 || nodesIdVec[1] == -1){
+                    DebugStop();
+                }
+                TPZGeoElRefPattern< pzgeom::TPZGeoLinear > *arc =
+                        new TPZGeoElRefPattern< pzgeom::TPZGeoLinear > (nodesIdVec,matIdBC,*gmesh);
+            }
+            continue;
+        }
+
+        TPZVec<long> *intPointsCoord = nullptr;
+        switch(side){
+            case 1:
+                if(quadVec[quad]->isSide1nonLinear == false) continue;
+                intPointsCoord = &(elNodeSide1Vecs[quad]);
+                break;
+            case 2:
+                if(quadVec[quad]->isSide2nonLinear == false) continue;
+                intPointsCoord = &(elNodeSide2Vecs[quad]);
+                break;
+            case 3:
+                if(quadVec[quad]->isSide3nonLinear == false) continue;
+                intPointsCoord = &(elNodeSide3Vecs[quad]);
+                break;
+            case 4:
+                if(quadVec[quad]->isSide4nonLinear == false) continue;
+                intPointsCoord = &(elNodeSide4Vecs[quad]);
+                break;
+        }
+
+        const int nArcs = side % 2 ? nDivQsi[quad] -1 : nDivEta[quad] - 1;
+        //auto sidePos = [](const int side, const int &i, const int &nQsi, const int &nEta, const bool &reverse){
+        for (int i = 0; i < nArcs; i++) {
+            TPZManVector<long, 3> nodesIdVec(3, 0.);
+            const int vertex1 = sidePos(side,i,nDivQsi[quad],nDivEta[quad],false);
+            const int vertex2 = sidePos(side,i + 1,nDivQsi[quad],nDivEta[quad],false);
+
+
+            nodesIdVec[0] = elNodeFaceVecs[quad][vertex1];
+            nodesIdVec[1] = elNodeFaceVecs[quad][vertex2];
+            nodesIdVec[2] =(*intPointsCoord)[i];//mid-point
+            if(nodesIdVec[0] == -1 || nodesIdVec[1] == -1 || nodesIdVec[2] == -1){
+                DebugStop();
+            }
+            TPZGeoElRefPattern< pzgeom::TPZArc3D > *arc =
+                    new TPZGeoElRefPattern< pzgeom::TPZArc3D > (nodesIdVec,-24,*gmesh);//random material id
+        }
+    }
+    matIdVec.Resize(3);
+    matIdVec[0]=matIdHole;
+    matIdVec[1]=matIdCladding;
+    pmlTypeVec.Resize(0);
+//    pmlTypeVec.Resize(3);
+//    pmlTypeVec[0]=SPZModalAnalysisData::xp;
+//    matIdVec[2]=matIdPMLxp;
+//    pmlTypeVec[1]=SPZModalAnalysisData::yp;
+//    matIdVec[3]=matIdPMLyp;
+//    pmlTypeVec[2]=SPZModalAnalysisData::xpyp;
+//    matIdVec[4]=matIdPMLxpyp;
+
+    boundTypeVec.Resize(1);
+    boundTypeVec[0] = SPZModalAnalysisData::PEC;
+    matIdVec[matIdVec.size()-1]=matIdBC;
+
+    gmesh->BuildConnectivity();
+
+    TPZVec<TPZGeoEl *> sons;
+    //refpatquadtri.rpt
+    long nel = gmesh->NElements();
+    for (long iel = 0; iel < nel; iel++) {
+        TPZGeoEl *gelQuad = gmesh->ElementVec()[iel];
+        if(gelQuad->Type() == EQuadrilateral){
+            gelQuad->Divide(sons); nel = gmesh->NElements(); continue;
+        }
+    }
+
+    if(print){
+        std::string meshFileName = prefix + "gmesh";
+        const size_t strlen = meshFileName.length();
+        meshFileName.append(".vtk");
+        std::ofstream outVTK(meshFileName.c_str());
+        meshFileName.replace(strlen, 4, ".txt");
+        std::ofstream outTXT(meshFileName.c_str());
+
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, outVTK, true);
+        gmesh->Print(outTXT);
+        outTXT.close();
+        outVTK.close();
+    }
+
+    return;
+}
+void
 ReadGMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec, const std::string &prefix,
           const bool &print, const REAL &scale) {
     TPZGmshReader meshReader;
