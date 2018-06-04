@@ -12,7 +12,7 @@
 
 struct SPZModalAnalysisData{
   enum PzCases{
-    StepFiber = 1, RectangularWG = 2
+    StepFiber = 1, RectangularWG = 2, HoleyFiber
   };
   enum boundtype{
     PEC = 0, PMC = 1
@@ -32,6 +32,12 @@ struct SPZModalAnalysisData{
     REAL boundDist;
     REAL hasPML;
   };
+
+  struct SPZHoleyFiberOpts{
+      REAL dPML;
+      REAL boundDist;
+      SPZModalAnalysisData::boundtype symmetry;
+  };
   struct SPZPhysicalOpts{
     bool isCutOff;
     REAL lambda;
@@ -43,6 +49,7 @@ struct SPZModalAnalysisData{
     REAL alphaMax;
     SPZRectangularWGOpts rectangularWgOpts;
     SPZStepFiberOpts stepFiberOpts;
+    SPZHoleyFiberOpts holeyFiberOpts;
     TPZVec<pmltype> pmlTypeVec;
     TPZVec<boundtype> boundTypeVec;
   };

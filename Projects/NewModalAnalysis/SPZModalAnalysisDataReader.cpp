@@ -20,7 +20,7 @@ void SPZModalAnalysisDataReader::DeclareParameters() {
                         "Physical options/(Step Fiber|Rectangular Waveguide) options."
                         "If it is false, the mesh is specified in Mesh file and the corresponding settings are in\n"
                         "Physical options/GMSH mesh options.");
-      prm.declare_entry("Which NeoPZ mesh","Step Fiber",Patterns::Selection("Step Fiber|Rectangular Waveguide|"),
+      prm.declare_entry("Which NeoPZ mesh","Step Fiber",Patterns::Selection("Step Fiber|Rectangular Waveguide|Holey Fiber|"),
                         "If using NeoPZ generated mesh, this attribute specifies the simulation case\n");
       prm.declare_entry("Number of threads","4",Patterns::Integer(0),
                         "Number of threads to use in NeoPZ assembly.");
@@ -135,6 +135,51 @@ void SPZModalAnalysisDataReader::DeclareParameters() {
                         Patterns::Double(0.),
                         "The module of the IMAGINARY part of "
                         "the s parameters of the PML");
+    }
+    prm.leave_subsection();
+
+    prm.enter_subsection("Holey Fiber Options");
+    {
+        prm.declare_entry("Hole refractive index", "1.",
+                          Patterns::Double(0.),
+                          "Refractive index of the fibers hole");
+        prm.declare_entry("Hole dielectric losses(epsilon)", "0.",
+                          Patterns::Double(0.),
+                          "The IMAGINARY part of the electric permittivity"
+                          " of the hole.");
+        prm.declare_entry("Cladding refractive index", "1.45",
+                          Patterns::Double(0.),
+                          "Refractive index of the fibers cladding");
+        prm.declare_entry("Cladding dielectric losses(epsilon)", "0.",
+                          Patterns::Double(0.),
+                          "The IMAGINARY part of the electric permittivity"
+                          " of the cladding.");
+        prm.declare_entry("Hole magnetic permeability", "1",
+                          Patterns::Double(0.),
+                          "Refractive index of the fibers hole");
+        prm.declare_entry("Hole dielectric losses(mu)", "0.",
+                          Patterns::Double(0.),
+                          "The IMAGINARY part of the magnetic permeability"
+                          " of the hole.");
+        prm.declare_entry("Cladding magnetic permeability", "1",
+                          Patterns::Double(0.),
+                          "Refractive index of the fibers core");
+        prm.declare_entry("Cladding dielectric losses(mu)", "0.",
+                          Patterns::Double(0.),
+                          "The IMAGINARY part of the magnetic permeability"
+                          " of the cladding.");
+        prm.declare_entry("PML length", "2e-6",
+                          Patterns::Double(0.),
+                          "Length of the PML");
+        prm.declare_entry("Boundary distance", "15.75e-6",
+                          Patterns::Double(0.),
+                          "Boundary distance (excluding PML)");
+        prm.declare_entry("PML attenuation constant", "0.00005",
+                          Patterns::Double(0.),
+                          "The module of the IMAGINARY part of "
+                          "the s parameters of the PML");
+        prm.declare_entry("Symmetry type","PMC",Patterns::Selection("PEC|PMC"),
+                          "If symmetry is being used, the boundary condition that will be applied.");
     }
     prm.leave_subsection();
     prm.enter_subsection("GMSH Mesh Options");
@@ -348,7 +393,10 @@ void SPZModalAnalysisDataReader::ReadParameters(SPZModalAnalysisData &data) {
           data.pzOpts.pzCase = SPZModalAnalysisData::RectangularWG;
           data.pzOpts.meshFile = path + "rectangularWGPzMesh";
         }
-        else{
+        else if(val == "Holey Fiber"){
+            data.pzOpts.pzCase = SPZModalAnalysisData::HoleyFiber;
+            data.pzOpts.meshFile = path + "holeyFiberPzMesh";
+        } else{
             DebugStop();
         }
         data.pzOpts.meshOrder = (int) 314;//useless, actually, just for file naming
@@ -441,6 +489,33 @@ void SPZModalAnalysisDataReader::ReadParameters(SPZModalAnalysisData &data) {
                 data.physicalOpts.stepFiberOpts.dPML = prm.get_double("PML length");
                 data.physicalOpts.alphaMax = prm.get_double("PML attenuation constant");
             }
+        }
+        prm.leave_subsection();
+    }
+
+    if(data.pzOpts.usingNeoPzMesh && data.pzOpts.pzCase == SPZModalAnalysisData::HoleyFiber){
+        prm.enter_subsection("Holey Fiber Options");
+        {
+            data.physicalOpts.erVec.Resize(2);
+            data.physicalOpts.urVec.Resize(2);
+            data.physicalOpts.erVec[0] = (STATE)prm.get_double("Hole refractive index");
+            data.physicalOpts.erVec[0] *= data.physicalOpts.erVec[0];
+            data.physicalOpts.erVec[0] += sqrt(std::complex<REAL>(1)) * prm.get_double("Hole dielectric losses(epsilon)");
+            data.physicalOpts.erVec[1] = (STATE)prm.get_double("Cladding refractive index");
+            data.physicalOpts.erVec[1] *= data.physicalOpts.erVec[1];
+            data.physicalOpts.erVec[1] += sqrt(std::complex<REAL>(-1)) * prm.get_double("Cladding dielectric losses(epsilon)");
+            data.physicalOpts.urVec[0] = (STATE)prm.get_double("Hole magnetic permeability");
+            data.physicalOpts.urVec[0] *= data.physicalOpts.urVec[0];
+            data.physicalOpts.urVec[0] += sqrt(std::complex<REAL>(-1)) * prm.get_double("Hole dielectric losses(mu)");
+            data.physicalOpts.urVec[1] = (STATE)prm.get_double("Cladding magnetic permeability");
+            data.physicalOpts.urVec[1] *= data.physicalOpts.urVec[1];
+            data.physicalOpts.urVec[1] += sqrt(std::complex<REAL>(-1)) * prm.get_double("Cladding dielectric losses(mu)");
+            data.physicalOpts.holeyFiberOpts.boundDist = prm.get_double("Boundary distance");
+            data.physicalOpts.holeyFiberOpts.dPML = prm.get_double("PML length");
+            data.physicalOpts.alphaMax = prm.get_double("PML attenuation constant");
+            std::string symType = prm.get("Symmetry type");
+            data.physicalOpts.holeyFiberOpts.symmetry =
+                    symType == std::string("PEC") ? SPZModalAnalysisData::PEC : SPZModalAnalysisData::PMC ;
         }
         prm.leave_subsection();
     }

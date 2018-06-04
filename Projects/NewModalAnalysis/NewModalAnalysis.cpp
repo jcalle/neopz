@@ -22,6 +22,7 @@
 #include <TPZSpStructMatrix.h>
 #include <tpzgeoelmapped.h>
 #include <tpzarc3d.h>
+#include <tpzgeoblend.h>
 #include "pzgengrid.h"
 #include "pzgmesh.h"
 #include "TPZVTKGeoMesh.h"
@@ -63,6 +64,13 @@ CreateStepFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<in
                     TPZVec<SPZModalAnalysisData::boundtype> &boundTypeVec,
                     TPZVec<SPZModalAnalysisData::pmltype> &pmlTypeVec, const REAL &realRCore, const REAL &dPML,
                     const REAL &boundDist, const REAL &outerReffIndex);
+
+void
+CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec,
+                     const std::string &prefix, const bool &print, const REAL &scale, const int &factor,
+                     TPZVec<SPZModalAnalysisData::boundtype> &boundTypeVec,
+                     TPZVec<SPZModalAnalysisData::pmltype> &pmlTypeVec, const REAL &dPML, const REAL &boundDist,
+                     SPZModalAnalysisData::boundtype symmetry);
 
 void
 ReadGMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec, const std::string &prefix, const bool &print, const REAL &scale = 1.);
@@ -231,6 +239,15 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
     TPZVec<SPZModalAnalysisData::pmltype> pmlTypeVec(0);
     if(simData.pzOpts.usingNeoPzMesh){
         switch(simData.pzOpts.pzCase){
+            case SPZModalAnalysisData::HoleyFiber:{
+                const REAL dPML = simData.physicalOpts.holeyFiberOpts.dPML;
+                const REAL boundDist = simData.physicalOpts.holeyFiberOpts.boundDist;
+                const SPZModalAnalysisData::boundtype symmetry = simData.physicalOpts.holeyFiberOpts.symmetry;
+                CreateHoleyFiberMesh(gmesh, simData.pzOpts.meshFile, matIdVec, simData.pzOpts.prefix,
+                                     simData.pzOpts.exportGMesh, simData.pzOpts.scaleFactor,
+                                     factor, boundTypeVec, pmlTypeVec, dPML, boundDist, symmetry);
+                break;
+            }
             case SPZModalAnalysisData::StepFiber:{
                 const REAL realRCore = simData.physicalOpts.stepFiberOpts.realRCore;
                 const REAL dPML = simData.physicalOpts.stepFiberOpts.dPML;
@@ -430,6 +447,7 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
         delete meshVec[k];
         meshVec[k] = nullptr;
     }
+
     delete gmesh;
     std::cout << "FINISHED!" << std::endl;
     return;
@@ -521,9 +539,24 @@ void FilterBoundaryEquations(TPZVec<TPZCompMesh *> meshVec,
     return;
 }
 
+struct EdgeData {
+    int coord1;
+    int coord2;
+    bool isNonLinearMapped;
+    bool amIboundaryEdge;
+    int quad1;
+    int side1;
+    int quad2;
+    int side2;
+};
+
 //struct used for structural meshing of a general quadrilateral. the coordinates can then be used to create
 //triangular or quadrilateral elements.
 struct QuadrilateralData {
+    TPZVec<int> pts;
+    TPZVec<int> sides;
+    TPZVec<bool> invSide;
+
     const TPZVec<REAL> &coord1;
     const TPZVec<REAL> &coord2;
     const TPZVec<REAL> &coord3;
@@ -545,14 +578,45 @@ struct QuadrilateralData {
     TPZFMatrix<REAL> side4IntPts;
     TPZFMatrix<REAL> facePts;
 
-    QuadrilateralData(const TPZVec<REAL> &c1,const TPZVec<REAL> &c2,const TPZVec<REAL> &c3,const TPZVec<REAL> &c4) :
-            coord1(c1),coord2(c2),coord3(c3),coord4(c4){
+    QuadrilateralData(const int &p1, const int &p2, const int &p3, const int &p4,
+                      const TPZVec<REAL> &co1,const TPZVec<REAL> &co2,const TPZVec<REAL> &co3,const TPZVec<REAL> &co4) :
+            coord1(co1),coord2(co2),coord3(co3),coord4(co4){
         auto map_quad_side_linear = [](const TPZVec<REAL> &coord1 ,const TPZVec<REAL> &coord2,const REAL & s) {
             TPZVec<REAL> point(2,0.);
             point[0] = (coord1[0] - s*coord1[0] + coord2[0] + s*coord2[0])/2.;
             point[1] = (coord1[1] - s*coord1[1] + coord2[1] + s*coord2[1])/2.;
             return point;
         };
+        pts.Resize(4);
+        pts[0]=p1;
+        pts[1]=p2;
+        pts[2]=p3;
+        pts[3]=p4;
+
+        isSide1nonLinear = false;
+        mapSide1 = std::bind(map_quad_side_linear,coord1,coord2,std::placeholders::_1);
+        isSide2nonLinear = false;
+        mapSide2 = std::bind(map_quad_side_linear,coord2,coord3,std::placeholders::_1);
+        isSide3nonLinear = false;
+        mapSide3 = std::bind(map_quad_side_linear,coord3,coord4,std::placeholders::_1);
+        isSide4nonLinear = false;
+        mapSide4 = std::bind(map_quad_side_linear,coord4,coord1,std::placeholders::_1);
+
+    }
+
+    QuadrilateralData(const TPZVec<REAL> &p1, const TPZVec<REAL> &p2, const TPZVec<REAL> &p3, const TPZVec<REAL> &p4) :
+            coord1(p1),coord2(p2),coord3(p3),coord4(p4){
+        auto map_quad_side_linear = [](const TPZVec<REAL> &coord1 ,const TPZVec<REAL> &coord2,const REAL & s) {
+            TPZVec<REAL> point(2,0.);
+            point[0] = (coord1[0] - s*coord1[0] + coord2[0] + s*coord2[0])/2.;
+            point[1] = (coord1[1] - s*coord1[1] + coord2[1] + s*coord2[1])/2.;
+            return point;
+        };
+
+        pts.Resize(0);
+        sides.Resize(0);
+        invSide.Resize(0);
+
         isSide1nonLinear = false;
         mapSide1 = std::bind(map_quad_side_linear,coord1,coord2,std::placeholders::_1);
         isSide2nonLinear = false;
@@ -568,6 +632,62 @@ struct QuadrilateralData {
         isSide2nonLinear = m2;
         isSide3nonLinear = m3;
         isSide4nonLinear = m4;
+    }
+
+    void SetMapsLinearity(const bool &m1, const bool &m2, const bool &m3, const bool &m4, const int quad, TPZVec<EdgeData> &allEdges){
+        isSide1nonLinear = m1;
+        isSide2nonLinear = m2;
+        isSide3nonLinear = m3;
+        isSide4nonLinear = m4;
+        sides.Resize(4);
+        invSide.Resize(4);
+        for(int iSide = 0; iSide < 4; iSide++){
+            const int &pt1 = pts[iSide];
+            const int &pt2 = pts[(iSide+1)%4];
+            int foundEdge = -1;
+            for(int iEdge = 0; iEdge < allEdges.size(); iEdge++){
+                if(allEdges[iEdge].coord1 == pt1 && allEdges[iEdge].coord2 == pt2) {
+                    std::cout<<"found existing edge with same orientation"<<std::endl;
+                    DebugStop();
+                }
+                if(allEdges[iEdge].coord1 == pt2 && allEdges[iEdge].coord2 == pt1) {
+                    foundEdge = iEdge;
+                    invSide = true;
+                    allEdges[foundEdge].quad2 = quad;
+                    allEdges[foundEdge].side2 = iSide + 1;
+                    allEdges[foundEdge].amIboundaryEdge = false;
+                }
+            }
+            if(foundEdge == -1){
+                foundEdge = allEdges.size();
+                invSide[iSide] = false;
+                allEdges.Resize(foundEdge + 1);
+                allEdges[foundEdge].coord1 = pt1;
+                allEdges[foundEdge].coord2 = pt2;
+                allEdges[foundEdge].quad1 = quad;
+                allEdges[foundEdge].side1 = iSide + 1;
+                allEdges[foundEdge].quad2 = quad;
+                allEdges[foundEdge].side2 = iSide + 1;
+                allEdges[foundEdge].amIboundaryEdge = true;
+                switch(iSide){
+                    case 0:
+                        allEdges[foundEdge].isNonLinearMapped = isSide1nonLinear;
+                        break;
+                    case 1:
+                        allEdges[foundEdge].isNonLinearMapped = isSide2nonLinear;
+                        break;
+                    case 2:
+                        allEdges[foundEdge].isNonLinearMapped = isSide3nonLinear;
+                        break;
+                    case 3:
+                        allEdges[foundEdge].isNonLinearMapped = isSide4nonLinear;
+                        break;
+                    default:
+                        DebugStop();
+                }
+            }
+            sides[iSide] = foundEdge;
+        }
     }
 
     void CreateQuadrilateral(const int &nQsi, const int &nEta){
@@ -1364,7 +1484,7 @@ CreateStepFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<in
         meshFileName.replace(strlen, 4, ".txt");
         std::ofstream outTXT(meshFileName.c_str());
 
-        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, outVTK, true);
+        //TPZVTKGeoMesh::PrintGMeshVTK(gmesh, outVTK, true);
         gmesh->Print(outTXT);
         outTXT.close();
         outVTK.close();
@@ -1374,17 +1494,18 @@ CreateStepFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<in
 }
 
 void
-CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec, const std::string &prefix,
-                    const bool &print, const REAL &scale, const int &factor,
-                    TPZVec<SPZModalAnalysisData::boundtype> &boundTypeVec,
-                    TPZVec<SPZModalAnalysisData::pmltype> &pmlTypeVec, const REAL &realRCore, const REAL &dPML,
-                    const REAL &boundDist, const REAL &outerReffIndex) {
-    const int nDivTHole = factor * 4, nDivRHole = factor * 6,
-            nDivCladding1 = factor * 4, nDivCladding2 = factor * 4,nDivCladding3 = factor * 4,
-                    nDivPml = factor * 5 + 1;
-    const int nQuads = 13;
-    const int nEdges = 55;
-    const int nPoints = 33;
+CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec,
+                     const std::string &prefix, const bool &print, const REAL &scale, const int &factor,
+                     TPZVec<SPZModalAnalysisData::boundtype> &boundTypeVec,
+                     TPZVec<SPZModalAnalysisData::pmltype> &pmlTypeVec, const REAL &dPML, const REAL &boundDist,
+                     SPZModalAnalysisData::boundtype symmetry) {
+    //SPZModalAnalysisData::boundtype symmetry;
+    const int nDivTHole = factor * 2 + 1, nDivRHole = factor * 4 + 1,
+            nDivCladding1 = factor * 6 + 1, nDivCladding2 = factor * 4,nDivCladding3 = factor * 2,
+                    nDivPml = factor * 3 + 1;
+
+    const int nQuads = 32;
+    const int nPoints = 44;
 
     if(std::min<int>({nDivTHole,nDivRHole,nDivCladding1,nDivPml}) < 2 ) {
         std::cout<<"Mesh has not sufficient divisions."<<std::endl;
@@ -1392,14 +1513,14 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
         DebugStop();
     }
 
-    const int matIdHole = 1, matIdCladding = 2, matIdBC= 13;
-    const int matIdPMLxp = 10,
-            matIdPMLyp = 11,
-            matIdPMLxpyp = 12;
+    const int matIdHole = 1, matIdCladding = 2, matIdBC= 7,matIdSymmetry = 6;
+    const int matIdPMLxp = 3,
+            matIdPMLyp = 4,
+            matIdPMLxpyp = 5;
 
     const REAL rCore = scale * 2.5e-6;
-    const REAL lengthPML = scale * 2.e-6;
-    const REAL bound = scale * 15.75e-6;
+    const REAL lengthPML = scale * dPML;
+    const REAL bound = scale * boundDist;
     const REAL Lambda = scale * 6.75e-6;
     //holes centers
     TPZManVector<REAL,2> xc1(2, 0.);
@@ -1413,27 +1534,28 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
 
     ///all points
     TPZManVector<TPZManVector<REAL,2>,33> pointsVec(nPoints,TPZManVector<REAL,2>(2,0.));
+    TPZManVector<EdgeData,33> edgesVec(0,EdgeData());
     //hole 1
-    pointsVec[0][0]= xc1[0] + 0.5 * sqrt(2)*rCore; pointsVec[0][1]= xc1[1] + 0.5 * sqrt(2)*rCore;
-    pointsVec[1][0]= xc1[0] - 0.5 * sqrt(2)*rCore; pointsVec[1][1]= xc1[1] + 0.5 * sqrt(2)*rCore;
-    pointsVec[2][0]= xc1[0] - 0.5 * sqrt(2)*rCore; pointsVec[2][1]= xc1[1] - 0.5 * sqrt(2)*rCore;
-    pointsVec[3][0]= xc1[0] + 0.5 * sqrt(2)*rCore; pointsVec[3][1]= xc1[1] - 0.5 * sqrt(2)*rCore;
+    pointsVec[0][0]= xc1[0] + 0.5 * std::cos(M_PI_4)*rCore; pointsVec[0][1]= xc1[1] + 0.5 * std::sin(M_PI_4)*rCore;
+    pointsVec[1][0]= xc1[0] - 0.5 * std::cos(M_PI_4)*rCore; pointsVec[1][1]= xc1[1] + 0.5 * std::sin(M_PI_4)*rCore;
+    pointsVec[2][0]= xc1[0] - 0.5 * std::cos(M_PI_4)*rCore; pointsVec[2][1]= xc1[1] - 0.5 * std::sin(M_PI_4)*rCore;
+    pointsVec[3][0]= xc1[0] + 0.5 * std::cos(M_PI_4)*rCore; pointsVec[3][1]= xc1[1] - 0.5 * std::sin(M_PI_4)*rCore;
 
-    pointsVec[4][0]= xc1[0] + sqrt(2)*rCore; pointsVec[4][1]= xc1[1] + sqrt(2)*rCore;
-    pointsVec[5][0]= xc1[0] - sqrt(2)*rCore; pointsVec[5][1]= xc1[1] + sqrt(2)*rCore;
-    pointsVec[6][0]= xc1[0] - sqrt(2)*rCore; pointsVec[6][1]= xc1[1] - sqrt(2)*rCore;
-    pointsVec[7][0]= xc1[0] + sqrt(2)*rCore; pointsVec[7][1]= xc1[1] - sqrt(2)*rCore;
+    pointsVec[4][0]= xc1[0] + std::cos(M_PI_4)*rCore; pointsVec[4][1]= xc1[1] + std::sin(M_PI_4)*rCore;
+    pointsVec[5][0]= xc1[0] - std::cos(M_PI_4)*rCore; pointsVec[5][1]= xc1[1] + std::sin(M_PI_4)*rCore;
+    pointsVec[6][0]= xc1[0] - std::cos(M_PI_4)*rCore; pointsVec[6][1]= xc1[1] - std::sin(M_PI_4)*rCore;
+    pointsVec[7][0]= xc1[0] + std::cos(M_PI_4)*rCore; pointsVec[7][1]= xc1[1] - std::sin(M_PI_4)*rCore;
 
     //hole 2
-    pointsVec[8][0]= xc2[0] + 0.5 * sqrt(2)*rCore; pointsVec[8][1]= xc2[1] + 0.5 * sqrt(2)*rCore;
-    pointsVec[9][0]= xc2[0] - 0.5 * sqrt(2)*rCore; pointsVec[9][1]= xc2[1] + 0.5 * sqrt(2)*rCore;
-    pointsVec[10][0]= xc2[0] + 0.5 * sqrt(2)*rCore; pointsVec[10][1]= xc2[1];
-    pointsVec[11][0]= xc2[0] - 0.5 * sqrt(2)*rCore; pointsVec[11][1]= xc2[1];
+    pointsVec[8][0]= xc2[0] + 0.5 * std::cos(M_PI_4)*rCore; pointsVec[8][1]= xc2[1] + 0.5 * std::sin(M_PI_4)*rCore;
+    pointsVec[9][0]= xc2[0] - 0.5 * std::cos(M_PI_4)*rCore; pointsVec[9][1]= xc2[1] + 0.5 * std::sin(M_PI_4)*rCore;
+    pointsVec[10][0]= xc2[0] - 0.5 * std::cos(M_PI_4)*rCore; pointsVec[10][1]= xc2[1];
+    pointsVec[11][0]= xc2[0] + 0.5 * std::cos(M_PI_4)*rCore; pointsVec[11][1]= xc2[1];
 
-    pointsVec[12][0]= xc2[0] + sqrt(2)*rCore; pointsVec[12][1]= xc2[1] + sqrt(2)*rCore;
-    pointsVec[13][0]= xc2[0] - sqrt(2)*rCore; pointsVec[13][1]= xc2[1] + sqrt(2)*rCore;
+    pointsVec[12][0]= xc2[0] + std::cos(M_PI_4)*rCore; pointsVec[12][1]= xc2[1] + std::sin(M_PI_4)*rCore;
+    pointsVec[13][0]= xc2[0] - std::cos(M_PI_4)*rCore; pointsVec[13][1]= xc2[1] + std::sin(M_PI_4)*rCore;
     pointsVec[14][0]= xc2[0] - rCore; pointsVec[14][1]= xc2[1];
-    pointsVec[15][0]= xc2[0] - rCore; pointsVec[15][1]= xc2[1];
+    pointsVec[15][0]= xc2[0] + rCore; pointsVec[15][1]= xc2[1];
 
     //cladding
     pointsVec[16][0]= 0.; pointsVec[16][1]= 0.;
@@ -1445,11 +1567,11 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
     pointsVec[21][0]= pointsVec[18][0]; pointsVec[21][1]= pointsVec[12][1];
 
     pointsVec[22][0]= pointsVec[16][0]; pointsVec[22][1]= pointsVec[6][1];
-    pointsVec[23][0]= pointsVec[17][0]; pointsVec[23][1]= pointsVec[6][1];
+    pointsVec[23][0]= pointsVec[12][0]; pointsVec[23][1]= pointsVec[6][1];
     pointsVec[24][0]= pointsVec[18][0]; pointsVec[24][1]= pointsVec[6][1];
 
     pointsVec[25][0]= pointsVec[16][0]; pointsVec[25][1]= pointsVec[4][1];
-    pointsVec[26][0]= pointsVec[17][0]; pointsVec[26][1]= pointsVec[4][1];
+    pointsVec[26][0]= pointsVec[12][0]; pointsVec[26][1]= pointsVec[4][1];
     pointsVec[27][0]= pointsVec[18][0]; pointsVec[27][1]= pointsVec[4][1];
 
     pointsVec[28][0]= pointsVec[16][0]; pointsVec[28][1]= bound;
@@ -1457,6 +1579,20 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
     pointsVec[30][0]= pointsVec[4][0]; pointsVec[30][1]= bound;
     pointsVec[31][0]= pointsVec[12][0]; pointsVec[31][1]= bound;
     pointsVec[32][0]= pointsVec[18][0]; pointsVec[32][1]= bound;
+    //pml yp
+    pointsVec[33][0]= pointsVec[16][0]; pointsVec[33][1]= bound + lengthPML;
+    pointsVec[34][0]= pointsVec[5][0]; pointsVec[34][1]= bound + lengthPML;
+    pointsVec[35][0]= pointsVec[4][0]; pointsVec[35][1]= bound + lengthPML;
+    pointsVec[36][0]= pointsVec[12][0]; pointsVec[36][1]= bound + lengthPML;
+    pointsVec[37][0]= pointsVec[18][0]; pointsVec[37][1]= bound + lengthPML;
+    //pml xpyp
+    pointsVec[38][0]= bound + lengthPML; pointsVec[38][1]= bound + lengthPML;
+    //pml xp
+    pointsVec[39][0]= bound + lengthPML; pointsVec[39][1]= pointsVec[28][1];
+    pointsVec[40][0]= bound + lengthPML; pointsVec[40][1]= pointsVec[4][1];
+    pointsVec[41][0]= bound + lengthPML; pointsVec[41][1]= pointsVec[6][1];
+    pointsVec[42][0]= bound + lengthPML; pointsVec[42][1]= pointsVec[12][1];
+    pointsVec[43][0]= bound + lengthPML; pointsVec[43][1]= pointsVec[14][1];
     auto map_quad_side_arc = [](const TPZVec<REAL> &theta ,const TPZVec<REAL> &xc, const REAL &r, const REAL & s) {
         TPZVec<REAL> point(2,0.);
         point[0] = xc[0] + r*cos((theta[1] + s*theta[1] + theta[0] - s*theta[0])/2.);
@@ -1483,11 +1619,23 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
     quadPointsVec(15,0) = 24; quadPointsVec(15,1) = 23; quadPointsVec(15,2) = 12; quadPointsVec(15,3) = 21;
     quadPointsVec(16,0) = 5; quadPointsVec(16,1) = 25; quadPointsVec(16,2) = 22; quadPointsVec(16,3) = 6;
     quadPointsVec(17,0) = 26; quadPointsVec(17,1) = 4; quadPointsVec(17,2) = 7; quadPointsVec(17,3) = 23;
-    quadPointsVec(10,0) = 27; quadPointsVec(10,1) = 26; quadPointsVec(10,2) = 23; quadPointsVec(10,3) = 24;
+    quadPointsVec(18,0) = 27; quadPointsVec(18,1) = 26; quadPointsVec(18,2) = 23; quadPointsVec(18,3) = 24;
     quadPointsVec(19,0) = 29; quadPointsVec(19,1) = 28; quadPointsVec(19,2) = 25; quadPointsVec(19,3) = 5;
     quadPointsVec(20,0) = 30; quadPointsVec(20,1) = 29; quadPointsVec(20,2) = 5; quadPointsVec(20,3) = 4;
     quadPointsVec(21,0) = 31; quadPointsVec(21,1) = 30; quadPointsVec(21,2) = 4; quadPointsVec(21,3) = 26;
     quadPointsVec(22,0) = 32; quadPointsVec(22,1) = 31; quadPointsVec(22,2) = 26; quadPointsVec(22,3) = 27;
+    ///////////////////PML XP
+    quadPointsVec(23,0) = 39; quadPointsVec(23,1) = 32; quadPointsVec(23,2) = 27; quadPointsVec(23,3) = 40;
+    quadPointsVec(24,0) = 40; quadPointsVec(24,1) = 27; quadPointsVec(24,2) = 24; quadPointsVec(24,3) = 41;
+    quadPointsVec(25,0) = 41; quadPointsVec(25,1) = 24; quadPointsVec(25,2) = 21; quadPointsVec(25,3) = 42;
+    quadPointsVec(26,0) = 42; quadPointsVec(26,1) = 21; quadPointsVec(26,2) = 18; quadPointsVec(26,3) = 43;
+    ///////////////////PML YP
+    quadPointsVec(27,0) = 34; quadPointsVec(27,1) = 33; quadPointsVec(27,2) = 28; quadPointsVec(27,3) = 29;
+    quadPointsVec(28,0) = 35; quadPointsVec(28,1) = 34; quadPointsVec(28,2) = 29; quadPointsVec(28,3) = 30;
+    quadPointsVec(29,0) = 36; quadPointsVec(29,1) = 35; quadPointsVec(29,2) = 30; quadPointsVec(29,3) = 31;
+    quadPointsVec(30,0) = 37; quadPointsVec(30,1) = 36; quadPointsVec(30,2) = 31; quadPointsVec(30,3) = 32;
+    ///////////////////PML XPYP
+    quadPointsVec(31,0) = 38; quadPointsVec(31,1) = 37; quadPointsVec(31,2) = 32; quadPointsVec(31,3) = 39;
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
     // quadrilateral zero to four - first hole                                                              //
@@ -1511,6 +1659,11 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
     matIdsQuads[17] = matIdCladding;    matIdsQuads[18] = matIdCladding;
     matIdsQuads[19] = matIdCladding;    matIdsQuads[20] = matIdCladding;
     matIdsQuads[21] = matIdCladding;    matIdsQuads[22] = matIdCladding;
+    matIdsQuads[23] = matIdPMLxp;    matIdsQuads[24] = matIdPMLxp;
+    matIdsQuads[25] = matIdPMLxp;    matIdsQuads[26] = matIdPMLxp;
+    matIdsQuads[27] = matIdPMLyp;    matIdsQuads[28] = matIdPMLyp;
+    matIdsQuads[29] = matIdPMLyp;    matIdsQuads[30] = matIdPMLyp;
+    matIdsQuads[31] = matIdPMLxpyp;
 
     TPZManVector<int,nQuads> nDivQsi(nQuads,-1);
     TPZManVector<int,nQuads> nDivEta(nQuads,-1);
@@ -1521,14 +1674,14 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
     nDivQsi[3]=nDivTHole; nDivEta[3]=nDivRHole;
     nDivQsi[4]=nDivRHole; nDivEta[4]=nDivTHole;
     //second hole
-    nDivQsi[5]=nDivRHole; nDivEta[5]=nDivRHole/2;
+    nDivQsi[5]=nDivRHole; nDivEta[5]=(int)std::ceil(nDivRHole/2.);
     nDivQsi[6]=nDivRHole; nDivEta[6]=nDivTHole;
-    nDivQsi[7]=nDivTHole; nDivEta[7]=nDivRHole/2;
-    nDivQsi[8]=nDivRHole; nDivEta[8]=nDivRHole/2;
+    nDivQsi[7]=nDivTHole; nDivEta[7]=(int)std::ceil(nDivRHole/2.);
+    nDivQsi[8]=nDivTHole; nDivEta[8]=(int)std::ceil(nDivRHole/2.);
     //cladding
-    nDivQsi[9]= nDivCladding3; nDivEta[9]=nDivRHole/2;
-    nDivQsi[10]=nDivRHole; nDivEta[10]=nDivRHole/2;
-    nDivQsi[11]=nDivCladding1; nDivEta[11]=nDivRHole/2;
+    nDivQsi[9]= nDivCladding3; nDivEta[9]=(int)std::ceil(nDivRHole/2.);
+    nDivQsi[10]=nDivRHole; nDivEta[10]=(int)std::ceil(nDivRHole/2.);
+    nDivQsi[11]=nDivCladding1; nDivEta[11]=(int)std::ceil(nDivRHole/2.);
 
     nDivQsi[12]=nDivCladding3; nDivEta[12]=nDivCladding2;
     nDivQsi[13]=nDivRHole; nDivEta[13]=nDivCladding2;
@@ -1543,6 +1696,19 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
     nDivQsi[20]=nDivRHole; nDivEta[20]=nDivCladding1;
     nDivQsi[21]=nDivRHole; nDivEta[21]=nDivCladding1;
     nDivQsi[22]=nDivCladding1; nDivEta[22]=nDivCladding1;
+
+    nDivQsi[23]=nDivPml; nDivEta[23]=nDivCladding1;
+    nDivQsi[24]=nDivPml; nDivEta[24]=nDivRHole;
+    nDivQsi[25]=nDivPml; nDivEta[25]=nDivCladding2;
+    nDivQsi[26]=nDivPml; nDivEta[26]=(int)std::ceil(nDivRHole/2.);
+
+    nDivQsi[27]=nDivCladding3; nDivEta[27]=nDivPml;
+    nDivQsi[28]=nDivRHole; nDivEta[28]=nDivPml;
+    nDivQsi[29]=nDivRHole; nDivEta[29]=nDivPml;
+    nDivQsi[30]=nDivCladding1; nDivEta[30]=nDivPml;
+
+    nDivQsi[31]=nDivPml; nDivEta[31]=nDivPml;
+
     TPZManVector<bool,nQuads> side1NonLinearVec(nQuads,false);
     TPZManVector<bool,nQuads> side2NonLinearVec(nQuads,false);
     TPZManVector<bool,nQuads> side3NonLinearVec(nQuads,false);
@@ -1551,7 +1717,7 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
     side1NonLinearVec[1] = true;
     side2NonLinearVec[2] = true;
     side4NonLinearVec[3] = true;
-    side1NonLinearVec[4] = true;
+    side3NonLinearVec[4] = true;
 
     side1NonLinearVec[6] = true;
     side2NonLinearVec[7] = true;
@@ -1595,9 +1761,10 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
         xcRef[10] = &xc2;
         int iNonLinear = 0;
         for(int iQuad = 0; iQuad < nQuads; iQuad++){
-            quadVec[iQuad] = new QuadrilateralData(
-                    pointsVec[quadPointsVec(iQuad,0)],pointsVec[quadPointsVec(iQuad,1)],
-                    pointsVec[quadPointsVec(iQuad,2)],pointsVec[quadPointsVec(iQuad,3)]);
+            quadVec[iQuad] = new QuadrilateralData(quadPointsVec(iQuad,0),quadPointsVec(iQuad,1),
+                                                   quadPointsVec(iQuad,2),quadPointsVec(iQuad,3),
+                                                   pointsVec[quadPointsVec(iQuad,0)],pointsVec[quadPointsVec(iQuad,1)],
+                                                   pointsVec[quadPointsVec(iQuad,2)],pointsVec[quadPointsVec(iQuad,3)]);
             if(side1NonLinearVec[iQuad]){
                 TPZVec<REAL> &xc = *(xcRef[iNonLinear]);
                 quadVec[iQuad]->mapSide1 = std::bind(map_quad_side_arc,thetaVec[iNonLinear], xc, rCore,std::placeholders::_1);
@@ -1615,7 +1782,8 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
                 quadVec[iQuad]->mapSide4 = std::bind(map_quad_side_arc,thetaVec[iNonLinear], xc, rCore,std::placeholders::_1);
                 iNonLinear++;
             }
-            quadVec[iQuad]->SetMapsLinearity(side1NonLinearVec[iQuad],side2NonLinearVec[iQuad],side3NonLinearVec[iQuad],side4NonLinearVec[iQuad]);
+            quadVec[iQuad]->SetMapsLinearity(side1NonLinearVec[iQuad],side2NonLinearVec[iQuad],side3NonLinearVec[iQuad],side4NonLinearVec[iQuad],
+            iQuad,edgesVec);
             quadVec[iQuad]->CreateQuadrilateral(nDivQsi[iQuad],nDivEta[iQuad]);
         }
     }
@@ -1645,6 +1813,14 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
         }
     }
 
+//    std::cout<<"NUMBER OF EDGES "<<edgesVec.size()<<std::endl;
+//    for(int iEdge = 0; iEdge < edgesVec.size(); iEdge++){
+//        std::cout<<"Edge "<<iEdge<<std::setfill(' ');;
+//        std::cout<<"\tquad1:"<<std::setw(2)<<edgesVec[iEdge].quad1<<"\tquad2:"<<std::setw(2)<<edgesVec[iEdge].quad2;
+//        std::cout<<"\tNon-linear mapped:"<<edgesVec[iEdge].isNonLinearMapped;
+//        std::cout<<"\tBoundary:"<<edgesVec[iEdge].amIboundaryEdge<<std::endl;
+//    }
+    const int nEdges = edgesVec.size();
     ////////////////////////////////////////CREATE NODES///////////////////////////////////////
     //////////////////////////////////////////FOR EDGE/////////////////////////////////////////
     ///////////////////////////////////////////POINTS//////////////////////////////////////////
@@ -1717,100 +1893,30 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
     TPZManVector<TPZManVector<long,20>,nQuads> elNodeSide2Vecs(nQuads,TPZManVector<long,20>(0,-1));
     TPZManVector<TPZManVector<long,20>,nQuads> elNodeSide3Vecs(nQuads,TPZManVector<long,20>(0,-1));
     TPZManVector<TPZManVector<long,20>,nQuads> elNodeSide4Vecs(nQuads,TPZManVector<long,20>(0,-1));
-    TPZManVector<long,nEdges> quad1Vec(nEdges,-1);//need to keep track of edges and quads
-    TPZManVector<long,nEdges> side1Vec(nEdges,-1);
-    TPZManVector<long,nEdges> revEl2(nEdges,-1);
-    {
-        TPZManVector<long,nEdges> quad2Vec(nEdges,-1);
-        TPZManVector<long,nEdges> side2Vec(nEdges,-1);
-      //quad1Vec[0] = ok; quad2Vec[0] = ok; side1Vec[0] =nok; side2Vec[0] =nok; revEl2[0] = ok;
-        quad1Vec[0] = 0; quad2Vec[0] = 1; side1Vec[0] = 1; side2Vec[0] = 3; revEl2[0] = true;
-        quad1Vec[1] = 0; quad2Vec[1] = 2; side1Vec[1] = 2; side2Vec[1] = 4; revEl2[1] = true;
-        quad1Vec[2] = 0; quad2Vec[2] = 4; side1Vec[2] = 3; side2Vec[2] = 1; revEl2[2] = true;
-        quad1Vec[3] = 0; quad2Vec[3] = 3; side1Vec[3] = 4; side2Vec[3] = 2; revEl2[3] = true;
+    for(int i = 0; i < nEdges; i++){
+        TPZVec<long> *side1pts = nullptr;
+        TPZVec<long> *side2pts = nullptr;
+        int quad1 = edgesVec[i].quad1, quad2 = edgesVec[i].quad2,
+                side1 = edgesVec[i].side1, side2 = edgesVec[i].side2;
+        bool revEl = !(edgesVec[i].amIboundaryEdge);
 
-        quad1Vec[4] = 1; quad2Vec[4] = 3; side1Vec[4] = 1; side2Vec[4] = 4; revEl2[4] = true;
-        quad1Vec[5] = 1; quad2Vec[5] = 2; side1Vec[5] = 3; side2Vec[5] = 4; revEl2[5] = true;
-
-        quad1Vec[6] = 2; quad2Vec[6] = 4; side1Vec[6] = 4; side2Vec[6] = 2; revEl2[6] = true;
-
-        quad1Vec[7] = 4; quad2Vec[7] = 3; side1Vec[7] = 1; side2Vec[7] = 3; revEl2[7] = true;
-
-        quad1Vec[8] = 1; quad2Vec[8] =20; side1Vec[8] = 2; side2Vec[8] = 1; revEl2[8] = true;
-        quad1Vec[9] = 2; quad2Vec[9] =16; side1Vec[9] = 2; side2Vec[9] = 4; revEl2[9] = true;
-        quad1Vec[10] = 4; quad2Vec[10] =13; side1Vec[10] = 3; side2Vec[10] = 2; revEl2[10] = true;
-        quad1Vec[11] = 3; quad2Vec[11] =17; side1Vec[11] = 3; side2Vec[11] = 1; revEl2[11] = true;
-
-        quad1Vec[12] = 5; quad2Vec[12] = 6; side1Vec[12] = 1; side2Vec[12] = 4; revEl2[12] = true;
-        quad1Vec[13] = 5; quad2Vec[13] = 7; side1Vec[13] = 3; side2Vec[13] = 4; revEl2[13] = true;
-        quad1Vec[14] = 5; quad2Vec[14] = 8; side1Vec[14] = 4; side2Vec[14] = 2; revEl2[14] = true;
-
-        quad1Vec[15] = 6; quad2Vec[15] = 8; side1Vec[15] = 1; side2Vec[15] = 3; revEl2[15] = true;
-        quad1Vec[16] = 6; quad2Vec[16] = 7; side1Vec[16] = 2; side2Vec[16] = 1; revEl2[16] = true;
-        quad1Vec[17] = 6; quad2Vec[17] =14; side1Vec[17] = 2; side2Vec[17] = 4; revEl2[17] = true;
-        quad1Vec[18] = 7; quad2Vec[18] =10; side1Vec[18] = 3; side2Vec[18] = 2; revEl2[18] = true;
-        quad1Vec[19] = 8; quad2Vec[19] =11; side1Vec[19] = 3; side2Vec[19] = 1; revEl2[19] = true;
-        quad1Vec[20] = 9; quad2Vec[20] =12; side1Vec[20] = 1; side2Vec[20] = 3; revEl2[20] = true;
-        quad1Vec[21] = 9; quad2Vec[21] =10; side1Vec[21] = 3; side2Vec[21] = 1; revEl2[21] = true;
-        quad1Vec[22] =10; quad2Vec[22] =13; side1Vec[22] = 4; side2Vec[22] = 4; revEl2[22] = true;
-        quad1Vec[23] =11; quad2Vec[23] =15; side1Vec[23] = 1; side2Vec[23] = 1; revEl2[23] = true;
-        quad1Vec[24] =12; quad2Vec[24] =16; side1Vec[24] = 2; side2Vec[24] = 4; revEl2[24] = true;
-        quad1Vec[25] =12; quad2Vec[25] =13; side1Vec[25] = 4; side2Vec[25] = 2; revEl2[25] = true;
-        quad1Vec[26] =13; quad2Vec[26] =14; side1Vec[26] = 1; side2Vec[26] = 3; revEl2[26] = true;
-        quad1Vec[27] =14; quad2Vec[27] =17; side1Vec[27] = 2; side2Vec[27] = 2; revEl2[27] = true;
-        quad1Vec[28] =14; quad2Vec[28] =15; side1Vec[28] = 3; side2Vec[28] = 1; revEl2[28] = true;
-        quad1Vec[29] =15; quad2Vec[29] =18; side1Vec[29] = 2; side2Vec[29] = 4; revEl2[29] = true;
-        quad1Vec[30] =16; quad2Vec[30] =19; side1Vec[30] = 3; side2Vec[30] = 3; revEl2[30] = true;
-        quad1Vec[31] =17; quad2Vec[31] =21; side1Vec[31] = 4; side2Vec[31] = 2; revEl2[31] = true;
-        quad1Vec[32] =17; quad2Vec[32] =18; side1Vec[32] = 1; side2Vec[32] = 1; revEl2[32] = true;
-        quad1Vec[33] =18; quad2Vec[33] =22; side1Vec[33] = 4; side2Vec[33] = 4; revEl2[33] = true;
-        quad1Vec[34] =19; quad2Vec[34] =20; side1Vec[34] = 1; side2Vec[34] = 1; revEl2[34] = true;
-        quad1Vec[35] =20; quad2Vec[35] =21; side1Vec[35] = 2; side2Vec[35] = 2; revEl2[35] = true;
-        quad1Vec[36] =21; quad2Vec[36] =22; side1Vec[36] = 2; side2Vec[36] = 2; revEl2[36] = true;
-
-
-        quad1Vec[37] =19; quad2Vec[37] =19; side1Vec[37] = 3; side2Vec[37] = 3; revEl2[37] = false;
-        quad1Vec[38] =16; quad2Vec[38] =16; side1Vec[38] = 3; side2Vec[38] = 3; revEl2[38] = false;
-        quad1Vec[39] =12; quad2Vec[39] =12; side1Vec[39] = 4; side2Vec[39] = 4; revEl2[39] = false;
-        quad1Vec[40] = 9; quad2Vec[40] = 9; side1Vec[40] = 4; side2Vec[40] = 4; revEl2[40] = false;
-
-        quad1Vec[41] = 9; quad2Vec[41] = 9; side1Vec[41] = 3; side2Vec[41] = 3; revEl2[41] = false;
-        quad1Vec[42] =10; quad2Vec[42] =10; side1Vec[42] = 3; side2Vec[42] = 3; revEl2[42] = false;
-        quad1Vec[43] = 7; quad2Vec[43] = 7; side1Vec[43] = 4; side2Vec[43] = 4; revEl2[43] = false;
-        quad1Vec[44] = 5; quad2Vec[44] = 5; side1Vec[44] = 4; side2Vec[44] = 4; revEl2[44] = false;
-        quad1Vec[45] = 8; quad2Vec[45] = 8; side1Vec[45] = 4; side2Vec[45] = 4; revEl2[45] = false;
-        quad1Vec[46] =11; quad2Vec[46] =11; side1Vec[46] = 4; side2Vec[46] = 4; revEl2[46] = false;
-
-        quad1Vec[47] =11; quad2Vec[47] =11; side1Vec[47] = 3; side2Vec[47] = 3; revEl2[47] = false;
-        quad1Vec[48] =15; quad2Vec[48] =15; side1Vec[48] = 3; side2Vec[48] = 3; revEl2[48] = false;
-        quad1Vec[49] =18; quad2Vec[49] =18; side1Vec[49] = 4; side2Vec[49] = 4; revEl2[49] = false;
-        quad1Vec[50] =22; quad2Vec[50] =22; side1Vec[50] = 4; side2Vec[50] = 4; revEl2[50] = false;
-
-        quad1Vec[51] =22; quad2Vec[51] =22; side1Vec[51] = 3; side2Vec[51] = 3; revEl2[51] = false;
-        quad1Vec[52] =21; quad2Vec[52] =21; side1Vec[52] = 3; side2Vec[52] = 3; revEl2[52] = false;
-        quad1Vec[53] =19; quad2Vec[53] =19; side1Vec[53] = 4; side2Vec[53] = 4; revEl2[53] = false;
-        quad1Vec[54] =20; quad2Vec[54] =20; side1Vec[54] = 4; side2Vec[54] = 4; revEl2[54] = false;
-        for(int i = 0; i < nEdges; i++){
-            TPZVec<long> *side1pts = nullptr;
-            TPZVec<long> *side2pts = nullptr;
-            switch(side1Vec[i]){
-                case 1: side1pts = & elNodeSide1Vecs[quad1Vec[i]]; break;
-                case 2: side1pts = & elNodeSide2Vecs[quad1Vec[i]]; break;
-                case 3: side1pts = & elNodeSide3Vecs[quad1Vec[i]]; break;
-                case 4: side1pts = & elNodeSide4Vecs[quad1Vec[i]]; break;
-            }
-
-            switch(side2Vec[i]){
-                case 1: side2pts = & elNodeSide1Vecs[quad2Vec[i]]; break;
-                case 2: side2pts = & elNodeSide2Vecs[quad2Vec[i]]; break;
-                case 3: side2pts = & elNodeSide3Vecs[quad2Vec[i]]; break;
-                case 4: side2pts = & elNodeSide4Vecs[quad2Vec[i]]; break;
-            }
-
-            createEdgeNodes(elNodeFaceVecs,quad1Vec[i], quad2Vec[i],side1Vec[i],side2Vec[i],nodeId,
-                            *side1pts, *side2pts, revEl2[i]);
+        switch(side1){
+            case 1: side1pts = & elNodeSide1Vecs[quad1]; break;
+            case 2: side1pts = & elNodeSide2Vecs[quad1]; break;
+            case 3: side1pts = & elNodeSide3Vecs[quad1]; break;
+            case 4: side1pts = & elNodeSide4Vecs[quad1]; break;
         }
+
+        switch(side2){
+            case 1: side2pts = & elNodeSide1Vecs[quad2]; break;
+            case 2: side2pts = & elNodeSide2Vecs[quad2]; break;
+            case 3: side2pts = & elNodeSide3Vecs[quad2]; break;
+            case 4: side2pts = & elNodeSide4Vecs[quad2]; break;
+        }
+        createEdgeNodes(elNodeFaceVecs,quad1,quad2,side1,side2,nodeId,
+                        *side1pts, *side2pts, revEl);
     }
+
 ///creates refpattern
     TPZAutoPointer<TPZRefPattern> refp;
     char buf[] =
@@ -1840,7 +1946,7 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
                 const int node2=(i+1) * nDivQsi[quad] + j + 1;//Upper right vertex
                 const int node3=(i+1) * nDivQsi[quad] + j;//Upper left vertex
 
-                TPZManVector<long, 3> nodesIdVec(4, 0.);
+                TPZManVector<long, 4> nodesIdVec(4, -1);
 
                 const int matId = matIdsQuads[quad];
                 nodesIdVec[0] = elNodeFaceVecs[quad][node0];
@@ -1868,10 +1974,29 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
     }
 
     for(int edge = 0; edge < nEdges ; edge ++) {
-        const int quad = quad1Vec[edge];
-        const int side = side1Vec[edge];
-        if(revEl2[edge] == false){//boundary edge
+        int quad = edgesVec[edge].quad1, side = edgesVec[edge].side1;
+        if(edgesVec[edge].amIboundaryEdge){//boundary edge
             const int nArcs = side % 2 ? nDivQsi[quad] -1 : nDivEta[quad] - 1;
+            TPZVec<REAL> &pt1 = pointsVec[edgesVec[edge].coord1];
+            TPZVec<REAL> &pt2 = pointsVec[edgesVec[edge].coord2];
+            REAL tol = 1e-08;
+            int matId = -666;
+            if(std::abs(pt1[1]-pt2[1]) < tol){//horizontal edge
+                if(std::abs(pt1[1] - (bound+lengthPML)) < tol){
+                    matId = matIdBC;
+                }else{
+                    matId = matIdSymmetry;
+                }
+            }
+            else if(std::abs(pt1[0]-pt2[0]) < tol){//vertical edge
+                if(std::abs(pt1[0] - (bound+lengthPML)) < tol){
+                    matId = matIdBC;
+                }else{
+                    matId = matIdSymmetry;
+                }
+            }else{
+                DebugStop();
+            }
             for (int i = 0; i < nArcs; i++) {
                 TPZManVector<long, 3> nodesIdVec(2, 0.);
                 const int vertex1 = sidePos(side,i,nDivQsi[quad],nDivEta[quad],false);
@@ -1883,8 +2008,9 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
                 if(nodesIdVec[0] == -1 || nodesIdVec[1] == -1){
                     DebugStop();
                 }
+
                 TPZGeoElRefPattern< pzgeom::TPZGeoLinear > *arc =
-                        new TPZGeoElRefPattern< pzgeom::TPZGeoLinear > (nodesIdVec,matIdBC,*gmesh);
+                        new TPZGeoElRefPattern< pzgeom::TPZGeoLinear > (nodesIdVec,matId,*gmesh);
             }
             continue;
         }
@@ -1927,21 +2053,22 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
                     new TPZGeoElRefPattern< pzgeom::TPZArc3D > (nodesIdVec,-24,*gmesh);//random material id
         }
     }
-    matIdVec.Resize(3);
+    matIdVec.Resize(7);
     matIdVec[0]=matIdHole;
     matIdVec[1]=matIdCladding;
-    pmlTypeVec.Resize(0);
-//    pmlTypeVec.Resize(3);
-//    pmlTypeVec[0]=SPZModalAnalysisData::xp;
-//    matIdVec[2]=matIdPMLxp;
-//    pmlTypeVec[1]=SPZModalAnalysisData::yp;
-//    matIdVec[3]=matIdPMLyp;
-//    pmlTypeVec[2]=SPZModalAnalysisData::xpyp;
-//    matIdVec[4]=matIdPMLxpyp;
+    pmlTypeVec.Resize(3);
+    pmlTypeVec[0]=SPZModalAnalysisData::xp;
+    matIdVec[2]=matIdPMLxp;
+    pmlTypeVec[1]=SPZModalAnalysisData::yp;
+    matIdVec[3]=matIdPMLyp;
+    pmlTypeVec[2]=SPZModalAnalysisData::xpyp;
+    matIdVec[4]=matIdPMLxpyp;
 
-    boundTypeVec.Resize(1);
+    boundTypeVec.Resize(2);
     boundTypeVec[0] = SPZModalAnalysisData::PEC;
-    matIdVec[matIdVec.size()-1]=matIdBC;
+    matIdVec[matIdVec.size()-2]=matIdBC;
+    boundTypeVec[1] = symmetry;
+    matIdVec[matIdVec.size()-1]=matIdSymmetry;
 
     gmesh->BuildConnectivity();
 
@@ -1959,14 +2086,13 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
         std::string meshFileName = prefix + "gmesh";
         const size_t strlen = meshFileName.length();
         meshFileName.append(".vtk");
-        std::ofstream outVTK(meshFileName.c_str());
+//        std::ofstream outVTK(meshFileName.c_str());
+//        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, outVTK, true);
+//        outVTK.close();
         meshFileName.replace(strlen, 4, ".txt");
         std::ofstream outTXT(meshFileName.c_str());
-
-        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, outVTK, true);
         gmesh->Print(outTXT);
         outTXT.close();
-        outVTK.close();
     }
 
     return;
