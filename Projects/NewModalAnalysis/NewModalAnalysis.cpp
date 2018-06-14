@@ -63,7 +63,7 @@ CreateStepFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<in
                     const bool &print, const REAL &scale, const int &factor,
                     TPZVec<SPZModalAnalysisData::boundtype> &boundTypeVec,
                     TPZVec<SPZModalAnalysisData::pmltype> &pmlTypeVec, const REAL &realRCore, const REAL &dPML,
-                    const REAL &boundDist, const REAL &outerReffIndex);
+                    const REAL &boundDist, const REAL &outerReffIndex, const int &nLayersPml);
 
 void
 CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec,
@@ -253,10 +253,11 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
                 const REAL dPML = simData.physicalOpts.stepFiberOpts.dPML;
                 const REAL boundDist = simData.physicalOpts.stepFiberOpts.boundDist;
                 const REAL outerMaterialReffIndex = std::sqrt(std::real(simData.physicalOpts.erVec[1]));
+                const int nLayersPML = simData.physicalOpts.stepFiberOpts.nLayersPml;
                 CreateStepFiberMesh(gmesh, simData.pzOpts.meshFile, matIdVec, simData.pzOpts.prefix,
                                     simData.pzOpts.exportGMesh, simData.pzOpts.scaleFactor,
                                     factor, boundTypeVec, pmlTypeVec, realRCore, dPML,
-                                    boundDist, outerMaterialReffIndex);
+                                    boundDist, outerMaterialReffIndex, nLayersPML);
                 break;
             }
             case SPZModalAnalysisData::RectangularWG:{
@@ -879,8 +880,8 @@ CreateStepFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<in
                     const bool &print, const REAL &scale, const int &factor,
                     TPZVec<SPZModalAnalysisData::boundtype> &boundTypeVec,
                     TPZVec<SPZModalAnalysisData::pmltype> &pmlTypeVec, const REAL &realRCore, const REAL &dPML,
-                    const REAL &boundDist, const REAL &outerReffIndex) {
-    const int nDivTCore = factor * 4, nDivRCore = factor * 7, nDivTCladding = factor * 4, nDivPml = factor * 5 + 1;
+                    const REAL &boundDist, const REAL &outerReffIndex, const int &nLayersPml) {
+    const int nDivTCore = factor * 4, nDivRCore = factor * 7, nDivTCladding = factor * 4, nDivPml = factor * nLayersPml + 1;
     //const int nDivTCore = factor * 2, nDivRCore = factor * 3, nDivTCladding = factor * 2, nDivPml = factor * (1+1);
     const int nQuads = 17;
     const int nEdges = 40;

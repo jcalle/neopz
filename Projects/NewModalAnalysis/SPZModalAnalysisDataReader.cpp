@@ -135,6 +135,9 @@ void SPZModalAnalysisDataReader::DeclareParameters() {
                         Patterns::Double(0.),
                         "The module of the IMAGINARY part of "
                         "the s parameters of the PML");
+        prm.declare_entry("Number of layers in the PML", "5",
+                          Patterns::Integer(1),
+                          "The number of layers in the PML will be this value times factor");
     }
     prm.leave_subsection();
 
@@ -488,6 +491,7 @@ void SPZModalAnalysisDataReader::ReadParameters(SPZModalAnalysisData &data) {
             if(data.physicalOpts.stepFiberOpts.hasPML){
                 data.physicalOpts.stepFiberOpts.dPML = prm.get_double("PML length");
                 data.physicalOpts.alphaMax = prm.get_double("PML attenuation constant");
+                data.physicalOpts.stepFiberOpts.nLayersPml = prm.get_integer("Number of layers in the PML");
             }
         }
         prm.leave_subsection();

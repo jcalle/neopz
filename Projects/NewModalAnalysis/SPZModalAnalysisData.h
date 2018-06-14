@@ -31,6 +31,7 @@ struct SPZModalAnalysisData{
     REAL dPML;
     REAL boundDist;
     REAL hasPML;
+    int nLayersPml;
   };
 
   struct SPZHoleyFiberOpts{
