@@ -51,7 +51,14 @@
 void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, const int &factor);
 
 typedef struct QuadrilateralData QuadrilateralData;
+typedef struct EdgeData EdgeData;
 
+TPZGeoMesh* CreateStructuredMesh(const TPZVec<TPZVec<REAL>> &pointsVec, TPZVec<EdgeData> &edgesVec, const TPZFMatrix<int> &quadPointsVec,
+                                 const TPZVec<int> &matIdsQuads, const TPZVec<int> &nDivQsi, const TPZVec<int> &nDivEta,
+                                 const TPZVec<bool> &side1NonLinearVec, const TPZVec<bool> &side2NonLinearVec,
+                                 const TPZVec<bool> &side3NonLinearVec, const TPZVec<bool> &side4NonLinearVec,
+                                 const TPZVec<TPZVec<REAL>> &thetaVec, const TPZVec<TPZVec<REAL> *> &xcRef,
+                                 const TPZVec<int> &matIdBoundVec, const TPZVec<REAL> &boundDistVec, const TPZVec<REAL> &rVec);
 void
 CreateGMeshRectangularWaveguide(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec,
                                 const std::string &prefix, const bool &print, const REAL &scale, const int &factor,
@@ -882,37 +889,15 @@ CreateStepFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<in
                     TPZVec<SPZModalAnalysisData::pmltype> &pmlTypeVec, const REAL &realRCore, const REAL &dPML,
                     const REAL &boundDist, const REAL &outerReffIndex, const int &nLayersPml) {
     const int nDivTCore = factor * 4, nDivRCore = factor * 7, nDivTCladding = factor * 4, nDivPml = factor * nLayersPml + 1;
-    //const int nDivTCore = factor * 2, nDivRCore = factor * 3, nDivTCladding = factor * 2, nDivPml = factor * (1+1);
-    const int nQuads = 17;
-    const int nEdges = 40;
 
-
-
-    ///creates refpattern
-    TPZAutoPointer<TPZRefPattern> refp;
-    char buf[] =
-            "4 3 "
-            "-50 Quad0000111111111 "
-            "-1 -1 0 "
-            "1 -1 0 "
-            "1 1 0 "
-            "-1 1 0 "
-            "3 4 0  1  2  3 "
-            "2 3 0  1  2 "
-            "2 3 0  2  3 ";
-    std::istringstream str(buf);
-    refp = new TPZRefPattern(str);
-    refp->GenerateSideRefPatterns();
-    gRefDBase.InsertRefPattern(refp);
-    if(!refp)
-    {
-        DebugStop();
-    }
     if(std::min<int>({nDivTCore,nDivRCore,nDivTCladding,nDivPml}) < 2 ) {
         std::cout<<"Mesh has not sufficient divisions."<<std::endl;
-        std::cout<<"Minimum is 3."<<std::endl;
+        std::cout<<"Minimum is 2."<<std::endl;
         DebugStop();
     }
+
+    const int nQuads = 17;
+    const int nPoints = 24;
 
     const int matIdCore = 1, matIdCladding = 2, matIdBC= 18;
     const int matIdPMLxp = 10,
@@ -926,118 +911,80 @@ CreateStepFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<in
 
     const REAL rCore = scale * realRCore;//8e-6;
     const REAL lengthPML = dPML * outerReffIndex * 2 * M_PI;
+    const REAL bound = rCore + boundDist * outerReffIndex * 2 * M_PI;
     TPZManVector<REAL,2> xc(2, 0.);
     xc[0] = 0.;
     xc[1] = 0.;
-    const REAL bound = rCore + boundDist * outerReffIndex * 2 * M_PI;
-    TPZManVector<REAL,2> ptCircle_1(2,0.);
-    ptCircle_1[0] = xc[0] + rCore * cos(1*M_PI/4);
-    ptCircle_1[1] = xc[1] + rCore * sin(1*M_PI/4);
-    TPZManVector<REAL,2> ptCircle_2(2,0.);
-    ptCircle_2[0] = xc[0] + rCore * cos(3*M_PI/4);
-    ptCircle_2[1] = xc[1] + rCore * sin(3*M_PI/4);
-    TPZManVector<REAL,2> ptCircle_3(2,0.);
-    ptCircle_3[0] = xc[0] + rCore * cos(5*M_PI/4);
-    ptCircle_3[1] = xc[1] + rCore * sin(5*M_PI/4);
-    TPZManVector<REAL,2> ptCircle_4(2,0.);
-    ptCircle_4[0] = xc[0] + rCore * cos(7*M_PI/4);
-    ptCircle_4[1] = xc[1] + rCore * sin(7*M_PI/4);
-
-    TPZManVector<REAL,2> ptSquare_1(2,0.);
-    ptSquare_1[0] = ptCircle_1[0] / 2.;
-    ptSquare_1[1] = ptCircle_1[1] / 2.;
-    TPZManVector<REAL,2> ptSquare_2(2,0.);
-    ptSquare_2[0] = ptCircle_2[0] / 2.;
-    ptSquare_2[1] = ptCircle_2[1] / 2.;
-    TPZManVector<REAL,2> ptSquare_3(2,0.);
-    ptSquare_3[0] = ptCircle_3[0] / 2.;
-    ptSquare_3[1] = ptCircle_3[1] / 2.;
-    TPZManVector<REAL,2> ptSquare_4(2,0.);
-    ptSquare_4[0] = ptCircle_4[0] / 2.;
-    ptSquare_4[1] = ptCircle_4[1] / 2.;
-
-    TPZManVector<REAL,2> ptBound_1(2,0.);
-    ptBound_1[0] = 1 * bound;
-    ptBound_1[1] = 1 * bound;
-    TPZManVector<REAL,2> ptBound_2(2,0.);
-    ptBound_2[0] = -1 * bound;
-    ptBound_2[1] = 1 * bound;
-    TPZManVector<REAL,2> ptBound_3(2,0.);
-    ptBound_3[0] = -1 * bound;
-    ptBound_3[1] = -1 * bound;
-    TPZManVector<REAL,2> ptBound_4(2,0.);
-    ptBound_4[0] = 1 * bound;
-    ptBound_4[1] = -1 * bound;
-
-    TPZManVector<REAL,2> ptPMLxp_u(2,0.);
-    ptPMLxp_u[0] =  1 * bound + lengthPML;
-    ptPMLxp_u[1] =  1 * bound;
-    TPZManVector<REAL,2> ptPMLxp_l(2,0.);
-    ptPMLxp_l[0] =  1 * bound + lengthPML;
-    ptPMLxp_l[1] = -1 * bound;
-
-    TPZManVector<REAL,2> ptPMLxm_u(2,0.);
-    ptPMLxm_u[0] = -1.*ptPMLxp_u[0];
-    ptPMLxm_u[1] = ptPMLxp_u[1];
-    TPZManVector<REAL,2> ptPMLxm_l(2,0.);
-    ptPMLxm_l[0] = -1.*ptPMLxp_l[0];
-    ptPMLxm_l[1] = ptPMLxp_l[1];
-
-    TPZManVector<REAL,2> ptPMLyp_r(2,0.);
-    ptPMLyp_r[0] = 1 * bound;
-    ptPMLyp_r[1] = 1 * bound + lengthPML;
-    TPZManVector<REAL,2> ptPMLyp_l(2,0.);
-    ptPMLyp_l[0] = -1 * bound;
-    ptPMLyp_l[1] =  1 * bound + lengthPML;
-
-    TPZManVector<REAL,2> ptPMLym_r(2,0.);
-    ptPMLym_r[0] =  1. * ptPMLyp_r[0];
-    ptPMLym_r[1] = -1. * ptPMLyp_r[1];
-    TPZManVector<REAL,2> ptPMLym_l(2,0.);
-    ptPMLym_l[0] =  1. * ptPMLyp_l[0];
-    ptPMLym_l[1] = -1. * ptPMLyp_l[1];
 
 
-    TPZManVector<REAL,2> ptPMLxpyp(2,0.);
-    ptPMLxpyp[0] = (bound + lengthPML);
-    ptPMLxpyp[1] = (bound + lengthPML);
-    TPZManVector<REAL,2> ptPMLxmyp(2,0.);
-    ptPMLxmyp[0] =-(bound + lengthPML);
-    ptPMLxmyp[1] = (bound + lengthPML);
-    TPZManVector<REAL,2> ptPMLxmym(2,0.);
-    ptPMLxmym[0] =-(bound + lengthPML);
-    ptPMLxmym[1] =-(bound + lengthPML);
-    TPZManVector<REAL,2> ptPMLxpym(2,0.);
-    ptPMLxpym[0] = (bound + lengthPML);
-    ptPMLxpym[1] =-(bound + lengthPML);
 
-    auto map_quad_side_arc = [](const TPZVec<REAL> &theta ,const TPZVec<REAL> &xc, const REAL &r, const REAL & s) {
-        TPZVec<REAL> point(2,0.);
-        point[0] = xc[0] + r*cos((theta[1] + s*theta[1] + theta[0] - s*theta[0])/2.);
-        point[1] = xc[1] + r*sin((theta[1] + s*theta[1] + theta[0] - s*theta[0])/2.);
-        return point;
-    };
+    ///all points
+    TPZManVector<TPZVec<REAL>,33> pointsVec(nPoints,TPZVec<REAL>(2,0.));
+    TPZManVector<EdgeData,33> edgesVec(0,EdgeData());
+    //hole 1
+    pointsVec[0][0]= xc[0] + 0.5 * std::cos(M_PI_4)*rCore; pointsVec[0][1]= xc[1] + 0.5 * std::sin(M_PI_4)*rCore;
+    pointsVec[1][0]= xc[0] - 0.5 * std::cos(M_PI_4)*rCore; pointsVec[1][1]= xc[1] + 0.5 * std::sin(M_PI_4)*rCore;
+    pointsVec[2][0]= xc[0] - 0.5 * std::cos(M_PI_4)*rCore; pointsVec[2][1]= xc[1] - 0.5 * std::sin(M_PI_4)*rCore;
+    pointsVec[3][0]= xc[0] + 0.5 * std::cos(M_PI_4)*rCore; pointsVec[3][1]= xc[1] - 0.5 * std::sin(M_PI_4)*rCore;
+
+    pointsVec[4][0]= xc[0] + std::cos(M_PI_4)*rCore; pointsVec[4][1]= xc[1] + std::sin(M_PI_4)*rCore;
+    pointsVec[5][0]= xc[0] - std::cos(M_PI_4)*rCore; pointsVec[5][1]= xc[1] + std::sin(M_PI_4)*rCore;
+    pointsVec[6][0]= xc[0] - std::cos(M_PI_4)*rCore; pointsVec[6][1]= xc[1] - std::sin(M_PI_4)*rCore;
+    pointsVec[7][0]= xc[0] + std::cos(M_PI_4)*rCore; pointsVec[7][1]= xc[1] - std::sin(M_PI_4)*rCore;
 
 
-    //////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // quadrilateral zero - center square                                                                   //
-    // quadrilateral one to four - fiber's core, from the right, counter-clockwise                          //
-    // quadrilateral five to eight - fiber's cladding, from the right, counter-clockwise                    //
-    // quadrilateral nine to twelve - PML regions (excluding corners), from the right, counter-clockwise    //
-    // quadrilateral thirteen to sixteen - PML corners, from the top-right, counter-clockwise               //
-    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //cladding
+    pointsVec[8][0] =  1 * bound; pointsVec[8][1] = -1 * bound;
+    pointsVec[9][0] =  1 * bound; pointsVec[9][1] =  1 * bound;
+    pointsVec[10][0] = -1 * bound; pointsVec[10][1] =  1 * bound;
+    pointsVec[11][0] = -1 * bound; pointsVec[11][1] = -1 * bound;
+    //PML
+    pointsVec[12][0] =  1 * (bound+lengthPML); pointsVec[12][1] = -1 * bound;
+    pointsVec[13][0] =  1 * (bound+lengthPML); pointsVec[13][1] =  1 * bound;
 
-    ////////////////////////////////////////CREATE QUADS///////////////////////////////////////
-    TPZVec<QuadrilateralData *> quadVec(nQuads,nullptr);
+    pointsVec[14][0] =  1 * bound; pointsVec[14][1] =  1 * (bound+lengthPML);
+    pointsVec[15][0] = -1 * bound; pointsVec[15][1] =  1 * (bound+lengthPML);
+
+    pointsVec[16][0] = -1 * (bound+lengthPML); pointsVec[16][1] =  1 * bound;
+    pointsVec[17][0] = -1 * (bound+lengthPML); pointsVec[17][1] = -1 * bound;
+
+    pointsVec[18][0] = -1 * bound; pointsVec[18][1] = -1 * (bound+lengthPML);
+    pointsVec[19][0] = 1 * bound; pointsVec[19][1] = -1 * (bound+lengthPML);
+
+    pointsVec[20][0] =  1 * (bound+lengthPML); pointsVec[20][1] = -1 * (bound+lengthPML);
+    pointsVec[21][0] =  1 * (bound+lengthPML); pointsVec[21][1] =  1 * (bound+lengthPML);
+    pointsVec[22][0] = -1 * (bound+lengthPML); pointsVec[22][1] =  1 * (bound+lengthPML);
+    pointsVec[23][0] = -1 * (bound+lengthPML); pointsVec[23][1] = -1 * (bound+lengthPML);
+
+    TPZFMatrix<int> quadPointsVec(nQuads,4);
+    quadPointsVec(0,0) = 0; quadPointsVec(0,1) = 1; quadPointsVec(0,2) = 2; quadPointsVec(0,3) = 3;
+    quadPointsVec(1,0) = 4; quadPointsVec(1,1) = 0; quadPointsVec(1,2) = 3; quadPointsVec(1,3) = 7;
+    quadPointsVec(2,0) = 4; quadPointsVec(2,1) = 5; quadPointsVec(2,2) = 1; quadPointsVec(2,3) = 0;
+    quadPointsVec(3,0) = 1; quadPointsVec(3,1) = 5; quadPointsVec(3,2) = 6; quadPointsVec(3,3) = 2;
+    quadPointsVec(4,0) = 3; quadPointsVec(4,1) = 2; quadPointsVec(4,2) = 6; quadPointsVec(4,3) = 7;
+
+    quadPointsVec(5,0) = 9; quadPointsVec(5,1) = 4; quadPointsVec(5,2) = 7; quadPointsVec(5,3) = 8;
+    quadPointsVec(6,0) = 9; quadPointsVec(6,1) = 10; quadPointsVec(6,2) = 5; quadPointsVec(6,3) = 4;
+    quadPointsVec(7,0) = 5; quadPointsVec(7,1) = 10; quadPointsVec(7,2) = 11; quadPointsVec(7,3) = 6;
+    quadPointsVec(8,0) = 7; quadPointsVec(8,1) = 6; quadPointsVec(8,2) = 11; quadPointsVec(8,3) = 8;
+
+    quadPointsVec(9,0) = 13; quadPointsVec(9,1) = 9; quadPointsVec(9,2) = 8; quadPointsVec(9,3) = 12;
+    quadPointsVec(10,0) = 14; quadPointsVec(10,1) = 15; quadPointsVec(10,2) = 10; quadPointsVec(10,3) = 9;
+    quadPointsVec(11,0) = 10; quadPointsVec(11,1) = 16; quadPointsVec(11,2) = 17; quadPointsVec(11,3) = 11;
+    quadPointsVec(12,0) = 8; quadPointsVec(12,1) = 11; quadPointsVec(12,2) = 18; quadPointsVec(12,3) = 19;
+
+    quadPointsVec(13,0) = 21; quadPointsVec(13,1) = 14; quadPointsVec(13,2) =  9; quadPointsVec(13,3) = 13;
+    quadPointsVec(14,0) = 15; quadPointsVec(14,1) = 22; quadPointsVec(14,2) = 16; quadPointsVec(14,3) = 10;
+    quadPointsVec(15,0) = 11; quadPointsVec(15,1) = 17; quadPointsVec(15,2) = 23; quadPointsVec(15,3) = 18;
+    quadPointsVec(16,0) = 12; quadPointsVec(16,1) =  8; quadPointsVec(16,2) = 19; quadPointsVec(16,3) = 20;
+
     TPZManVector<int,nQuads> matIdsQuads(nQuads,-1);
     matIdsQuads[0] = matIdCore;
-
     matIdsQuads[1] = matIdCore;    matIdsQuads[2] = matIdCore;
     matIdsQuads[3] = matIdCore;    matIdsQuads[4] = matIdCore;
 
     matIdsQuads[5] = matIdCladding;    matIdsQuads[6] = matIdCladding;
     matIdsQuads[7] = matIdCladding;    matIdsQuads[8] = matIdCladding;
-
     matIdsQuads[9] = matIdPMLxp;    matIdsQuads[10] = matIdPMLyp;
     matIdsQuads[11] = matIdPMLxm;    matIdsQuads[12] = matIdPMLym;
     matIdsQuads[13] = matIdPMLxpyp;    matIdsQuads[14] = matIdPMLxmyp;
@@ -1045,14 +992,13 @@ CreateStepFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<in
 
     TPZManVector<int,nQuads> nDivQsi(nQuads,-1);
     TPZManVector<int,nQuads> nDivEta(nQuads,-1);
-    nDivQsi[0]=nDivRCore;
-    nDivEta[0]=nDivRCore;
-
+    //first hole
+    nDivQsi[0]=nDivRCore;nDivEta[0]=nDivRCore;
     nDivQsi[1]=nDivTCore; nDivEta[1]=nDivRCore;
     nDivQsi[2]=nDivRCore; nDivEta[2]=nDivTCore;
     nDivQsi[3]=nDivTCore; nDivEta[3]=nDivRCore;
     nDivQsi[4]=nDivRCore; nDivEta[4]=nDivTCore;
-
+    //cladding
     nDivQsi[5]=nDivTCladding; nDivEta[5]=nDivRCore;
     nDivQsi[6]=nDivRCore;     nDivEta[6]=nDivTCladding;
     nDivQsi[7]=nDivTCladding; nDivEta[7]=nDivRCore;
@@ -1072,7 +1018,7 @@ CreateStepFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<in
     TPZManVector<bool,nQuads> side2NonLinearVec(nQuads,false);
     TPZManVector<bool,nQuads> side3NonLinearVec(nQuads,false);
     TPZManVector<bool,nQuads> side4NonLinearVec(nQuads,false);
-    //quad 0 is all false
+
     side4NonLinearVec[1] = true;
     side1NonLinearVec[2] = true;
     side2NonLinearVec[3] = true;
@@ -1082,364 +1028,40 @@ CreateStepFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<in
     side3NonLinearVec[6] = true;
     side4NonLinearVec[7] = true;
     side1NonLinearVec[8] = true;
-    //PMLS are all false
-
-    quadVec[0] = new QuadrilateralData(ptSquare_1,ptSquare_2,ptSquare_3,ptSquare_4);
-    quadVec[0]->CreateQuadrilateral(nDivQsi[0],nDivEta[0]);
-
-    TPZVec<REAL> theta(2,0.);
-
-    theta[0] =-1 * M_PI / 4;
-    theta[1] = 1 * M_PI / 4;
-    quadVec[1] = new QuadrilateralData(ptCircle_1,ptSquare_1,ptSquare_4,ptCircle_4);
-    quadVec[1]->mapSide4 = std::bind(map_quad_side_arc,theta, xc, rCore,std::placeholders::_1);
-    quadVec[1]->SetMapsLinearity(side1NonLinearVec[1],side2NonLinearVec[1],side3NonLinearVec[1],side4NonLinearVec[1]);
-    quadVec[1]->CreateQuadrilateral(nDivQsi[1],nDivEta[1]);
-
-    theta[0] = 1 * M_PI / 4;
-    theta[1] = 3 * M_PI / 4;
-    quadVec[2] = new QuadrilateralData(ptCircle_1,ptCircle_2,ptSquare_2,ptSquare_1);
-    quadVec[2]->mapSide1 = std::bind(map_quad_side_arc,theta, xc, rCore,std::placeholders::_1);
-    quadVec[2]->SetMapsLinearity(side1NonLinearVec[2],side2NonLinearVec[2],side3NonLinearVec[2],side4NonLinearVec[2]);
-    quadVec[2]->CreateQuadrilateral(nDivQsi[2],nDivEta[2]);
-
-    theta[0] = 3 * M_PI / 4;
-    theta[1] = 5 * M_PI / 4;
-    quadVec[3] = new QuadrilateralData(ptSquare_2,ptCircle_2,ptCircle_3,ptSquare_3);
-    quadVec[3]->mapSide2 = std::bind(map_quad_side_arc,theta, xc, rCore,std::placeholders::_1);
-    quadVec[3]->SetMapsLinearity(side1NonLinearVec[3],side2NonLinearVec[3],side3NonLinearVec[3],side4NonLinearVec[3]);
-    quadVec[3]->CreateQuadrilateral(nDivQsi[3],nDivEta[3]);
-
-    theta[0] = 5 * M_PI / 4;
-    theta[1] = 7 * M_PI / 4;
-    quadVec[4] = new QuadrilateralData(ptSquare_4, ptSquare_3,ptCircle_3,ptCircle_4);
-    quadVec[4]->mapSide3 = std::bind(map_quad_side_arc,theta, xc, rCore,std::placeholders::_1);
-    quadVec[4]->SetMapsLinearity(side1NonLinearVec[4],side2NonLinearVec[4],side3NonLinearVec[4],side4NonLinearVec[4]);
-    quadVec[4]->CreateQuadrilateral(nDivQsi[4],nDivEta[4]);
-
-    theta[0] = 1 * M_PI / 4;
-    theta[1] =-1 * M_PI / 4;
-    quadVec[5] = new QuadrilateralData(ptBound_1,ptCircle_1,ptCircle_4,ptBound_4);
-    quadVec[5]->mapSide2 = std::bind(map_quad_side_arc,theta, xc, rCore,std::placeholders::_1);
-    quadVec[5]->SetMapsLinearity(side1NonLinearVec[5],side2NonLinearVec[5],side3NonLinearVec[5],side4NonLinearVec[5]);
-    quadVec[5]->CreateQuadrilateral(nDivQsi[5],nDivEta[5]);
-
-    theta[0] = 3 * M_PI / 4;
-    theta[1] = 1 * M_PI / 4;
-    quadVec[6] = new QuadrilateralData(ptBound_1,ptBound_2,ptCircle_2,ptCircle_1);
-    quadVec[6]->mapSide3 = std::bind(map_quad_side_arc,theta, xc, rCore,std::placeholders::_1);
-    quadVec[6]->SetMapsLinearity(side1NonLinearVec[6],side2NonLinearVec[6],side3NonLinearVec[6],side4NonLinearVec[6]);
-    quadVec[6]->CreateQuadrilateral(nDivQsi[6],nDivEta[6]);
-
-    theta[0] = 5 * M_PI / 4;
-    theta[1] = 3 * M_PI / 4;
-    quadVec[7] = new QuadrilateralData(ptCircle_2,ptBound_2,ptBound_3,ptCircle_3);
-    quadVec[7]->mapSide4 = std::bind(map_quad_side_arc,theta, xc, rCore,std::placeholders::_1);
-    quadVec[7]->SetMapsLinearity(side1NonLinearVec[7],side2NonLinearVec[7],side3NonLinearVec[7],side4NonLinearVec[7]);
-    quadVec[7]->CreateQuadrilateral(nDivQsi[7],nDivEta[7]);
-
-    theta[0] = 7 * M_PI / 4;
-    theta[1] = 5 * M_PI / 4;
-    quadVec[8] = new QuadrilateralData(ptCircle_4, ptCircle_3,ptBound_3,ptBound_4);
-    quadVec[8]->mapSide1 = std::bind(map_quad_side_arc,theta, xc, rCore,std::placeholders::_1);
-    quadVec[8]->SetMapsLinearity(side1NonLinearVec[8],side2NonLinearVec[8],side3NonLinearVec[8],side4NonLinearVec[8]);
-    quadVec[8]->CreateQuadrilateral(nDivQsi[8],nDivEta[8]);
 
 
-    quadVec[9] = new QuadrilateralData(ptPMLxp_u,ptBound_1,ptBound_4,ptPMLxp_l);
-    quadVec[9]->CreateQuadrilateral(nDivQsi[9],nDivEta[9]);
+    TPZManVector<TPZVec<REAL>,14> thetaVec(8,TPZVec<REAL>(2,0.));
 
-    quadVec[10] = new QuadrilateralData(ptPMLyp_r,ptPMLyp_l,ptBound_2,ptBound_1);
-    quadVec[10]->CreateQuadrilateral(nDivQsi[10],nDivEta[10]);
+    thetaVec[0][0] =-1 * M_PI/4;thetaVec[0][1] = 1 * M_PI/4;//quad1
+    thetaVec[1][0] = 1 * M_PI/4;thetaVec[1][1] = 3 * M_PI/4;//quad2
+    thetaVec[2][0] = 3 * M_PI/4;thetaVec[2][1] = 5 * M_PI/4;//quad3
+    thetaVec[3][0] = 5 * M_PI/4;thetaVec[3][1] = 7 * M_PI/4;//quad4
 
-    quadVec[11] = new QuadrilateralData(ptBound_2,ptPMLxm_u,ptPMLxm_l,ptBound_3);
-    quadVec[11]->CreateQuadrilateral(nDivQsi[11],nDivEta[11]);
-
-    quadVec[12] = new QuadrilateralData(ptBound_4,ptBound_3,ptPMLym_l,ptPMLym_r);
-    quadVec[12]->CreateQuadrilateral(nDivQsi[12],nDivEta[12]);
-
-    quadVec[13] = new QuadrilateralData(ptPMLxpyp,ptPMLyp_r,ptBound_1,ptPMLxp_u);
-    quadVec[13]->CreateQuadrilateral(nDivQsi[13],nDivEta[13]);
-
-    quadVec[14] = new QuadrilateralData(ptPMLyp_l,ptPMLxmyp,ptPMLxm_u,ptBound_2);
-    quadVec[14]->CreateQuadrilateral(nDivQsi[14],nDivEta[14]);
-
-    quadVec[15] = new QuadrilateralData(ptBound_3,ptPMLxm_l,ptPMLxmym,ptPMLym_l);
-    quadVec[15]->CreateQuadrilateral(nDivQsi[15],nDivEta[15]);
-
-    quadVec[16] = new QuadrilateralData(ptPMLxp_l,ptBound_4,ptPMLym_r,ptPMLxpym);
-    quadVec[16]->CreateQuadrilateral(nDivQsi[16],nDivEta[16]);
-    ////////////////////////////////////////CREATE NODES///////////////////////////////////////
-    ////////////////////////////////////////FOR INTERIOR///////////////////////////////////////
-    ///////////////////////////////////////////POINTS//////////////////////////////////////////
-    long nodeId = 0;
-    gmesh = new TPZGeoMesh;
-    TPZManVector<TPZManVector<long,20>,nQuads> elNodeFaceVecs(nQuads,TPZManVector<long,20>(0,-1));
-
-    for(int el = 0; el < nQuads ; el ++) {
-        const long nNodesOld = gmesh->NodeVec().NElements();
-        const long nNodesEl = (nDivQsi[el]-2)*(nDivEta[el]-2);
-        gmesh->NodeVec().Resize(nNodesOld + nNodesEl);
-        elNodeFaceVecs[el].Resize(nDivEta[el] * nDivQsi[el],-1);
-        //interior nodes only
-        for (int i = 1; i < nDivEta[el] - 1; i++) {
-            for(int j = 1 ; j < nDivQsi[el] - 1; j++){
-                TPZManVector<REAL, 3> node(3, 0.);
-                node[0] = quadVec[el]->facePts(i * nDivQsi[el] + j,0);
-                node[1] = quadVec[el]->facePts(i * nDivQsi[el] + j,1);
-                gmesh->NodeVec()[nodeId].Initialize(node, *gmesh);
-                elNodeFaceVecs[el][i * nDivQsi[el] + j] = nodeId;
-                nodeId++;
-            }
-        }
-    }
-
-    ////////////////////////////////////////CREATE NODES///////////////////////////////////////
-    //////////////////////////////////////////FOR EDGE/////////////////////////////////////////
-    ///////////////////////////////////////////POINTS//////////////////////////////////////////
-    auto sidePos = [](const int side, const int &i, const int &nQsi, const int &nEta, const bool &reverse){
-        const int iP = reverse ? (side%2 ? nQsi -1 - i : nEta -1 - i) : i;
-        switch(side){
-            case 1 : return iP;
-            case 2 : return (iP*nQsi + (nQsi-1));
-            case 3 : return (nQsi - 1 - iP + nQsi * (nEta - 1));
-            case 4 : return (nEta - 1 - iP)*nQsi;
-            default: DebugStop(); return -1;
-        }
-    };
-
-    auto createEdgeNodes = [sidePos,nDivEta,nDivQsi,quadVec,gmesh]
-            (TPZManVector<TPZManVector<long,20>,nQuads> &elNodeFaceVecs, const long &el1, const long &el2,const int &side1, const int &side2, long &nodeId,
-             TPZVec<long> &side1pts, TPZVec<long> &side2pts, const bool &revEl2){
-        const int nPts = side1 % 2 ? nDivQsi[el1] : nDivEta[el1];
-        long nNodesOld = gmesh->NodeVec().NElements();
-        long nNodesEl = nPts;
-        for (int i = 0; i < nPts; i++) {
-            const int posEl1 = sidePos(side1,i,nDivQsi[el1],nDivEta[el1],false);
-            const int posEl2 = sidePos(side2,i,nDivQsi[el2],nDivEta[el2],revEl2);
-            if(elNodeFaceVecs[el1][posEl1] != -1){
-                elNodeFaceVecs[el2][posEl2] = elNodeFaceVecs[el1][posEl1];
-                continue;
-            }
-            if(elNodeFaceVecs[el2][posEl2] != -1){
-                elNodeFaceVecs[el1][posEl1] = elNodeFaceVecs[el2][posEl2];
-                continue;
-            }
-            TPZManVector<REAL, 3> node(3, 0.);
-            node[0] = quadVec[el1]->facePts(posEl1,0);
-            node[1] = quadVec[el1]->facePts(posEl1,1);
-            long nNodesOld = gmesh->NodeVec().NElements();
-            gmesh->NodeVec().Resize(nNodesOld + 1);
-            gmesh->NodeVec()[nodeId].Initialize(node, *gmesh);
-            elNodeFaceVecs[el1][posEl1] = nodeId;
-            elNodeFaceVecs[el2][posEl2] = nodeId;
-            nodeId++;
-        }
-        TPZFMatrix<REAL> *nonLinearPts = nullptr;
-        if(quadVec[el1]->isSide1nonLinear && side1 == 1) { nonLinearPts = &quadVec[el1]->side1IntPts;}
-        else if(quadVec[el1]->isSide2nonLinear && side1 == 2) { nonLinearPts = &quadVec[el1]->side2IntPts;}
-        else if(quadVec[el1]->isSide3nonLinear && side1 == 3) { nonLinearPts = &quadVec[el1]->side3IntPts;}
-        else if(quadVec[el1]->isSide4nonLinear && side1 == 4) { nonLinearPts = &quadVec[el1]->side4IntPts;}
-        long nNonLinPts = 0;
-        if(nonLinearPts){
-            nNonLinPts=nonLinearPts->Rows();
-            side1pts.Resize(nNonLinPts);
-            side2pts.Resize(nNonLinPts);
-            nNodesOld = gmesh->NodeVec().NElements();
-            nNodesEl = nNonLinPts;
-            gmesh->NodeVec().Resize(nNodesOld + nNodesEl);
-        }
-        for (int i = 0; i < nNonLinPts; i++){
-            const int posEl1 = i;
-            const int posEl2 = revEl2? nNonLinPts - 1 - i : i;
-            TPZManVector<REAL, 3> node(3, 0.);
-            node[0] += (*nonLinearPts)(posEl1,0);
-            node[1] += (*nonLinearPts)(posEl1,1);
-            gmesh->NodeVec()[nodeId].Initialize(node, *gmesh);
-            side1pts[posEl1] = nodeId;
-            side2pts[posEl2] = nodeId;
-            nodeId++;
-        }
-    };
-
-    TPZManVector<TPZManVector<long,20>,nQuads> elNodeSide1Vecs(nQuads,TPZManVector<long,20>(0,-1));
-    TPZManVector<TPZManVector<long,20>,nQuads> elNodeSide2Vecs(nQuads,TPZManVector<long,20>(0,-1));
-    TPZManVector<TPZManVector<long,20>,nQuads> elNodeSide3Vecs(nQuads,TPZManVector<long,20>(0,-1));
-    TPZManVector<TPZManVector<long,20>,nQuads> elNodeSide4Vecs(nQuads,TPZManVector<long,20>(0,-1));
-    TPZManVector<long,nEdges> quad1Vec(nEdges,-1);//need to keep track of edges and quads
-    TPZManVector<long,nEdges> side1Vec(nEdges,-1);
-    TPZManVector<long,nEdges> revEl2(nEdges,-1);
-    {
-        TPZManVector<long,nEdges> quad2Vec(nEdges,-1);
-        TPZManVector<long,nEdges> side2Vec(nEdges,-1);
-        quad1Vec[0] = 0; quad2Vec[0] = 2; side1Vec[0] = 1; side2Vec[0] = 3; revEl2[0] = true;
-        quad1Vec[1] = 0; quad2Vec[1] = 3; side1Vec[1] = 2; side2Vec[1] = 4; revEl2[1] = true;
-        quad1Vec[2] = 0; quad2Vec[2] = 4; side1Vec[2] = 3; side2Vec[2] = 1; revEl2[2] = true;
-        quad1Vec[3] = 0; quad2Vec[3] = 1; side1Vec[3] = 4; side2Vec[3] = 2; revEl2[3] = true;
-
-        quad1Vec[4] = 1; quad2Vec[4] = 2; side1Vec[4] = 1; side2Vec[4] = 4; revEl2[4] = true;
-        quad1Vec[5] = 1; quad2Vec[5] = 4; side1Vec[5] = 3; side2Vec[5] = 4; revEl2[5] = true;
-        quad1Vec[6] = 1; quad2Vec[6] = 5; side1Vec[6] = 4; side2Vec[6] = 2; revEl2[6] = true;
-        quad1Vec[7] = 2; quad2Vec[7] = 6; side1Vec[7] = 1; side2Vec[7] = 3; revEl2[7] = true;
-        quad1Vec[8] = 2; quad2Vec[8] = 3; side1Vec[8] = 2; side2Vec[8] = 1; revEl2[8] = true;
-        quad1Vec[9] = 3; quad2Vec[9] = 7; side1Vec[9] = 2; side2Vec[9] = 4; revEl2[9] = true;
-        quad1Vec[10] = 3; quad2Vec[10] = 4; side1Vec[10] = 3; side2Vec[10] = 2; revEl2[10] = true;
-        quad1Vec[11] = 4; quad2Vec[11] = 8; side1Vec[11] = 3; side2Vec[11] = 1; revEl2[11] = true;
-
-        quad1Vec[12] = 5; quad2Vec[12] = 6; side1Vec[12] = 1; side2Vec[12] = 4; revEl2[12] = true;
-        quad1Vec[13] = 5; quad2Vec[13] = 8; side1Vec[13] = 3; side2Vec[13] = 4; revEl2[13] = true;
-        quad1Vec[14] = 5; quad2Vec[14] = 9; side1Vec[14] = 4; side2Vec[14] = 2; revEl2[14] = true;
-        quad1Vec[15] = 6; quad2Vec[15] =10; side1Vec[15] = 1; side2Vec[15] = 3; revEl2[15] = true;
-        quad1Vec[16] = 6; quad2Vec[16] = 7; side1Vec[16] = 2; side2Vec[16] = 1; revEl2[16] = true;
-        quad1Vec[17] = 7; quad2Vec[17] =11; side1Vec[17] = 2; side2Vec[17] = 4; revEl2[17] = true;
-        quad1Vec[18] = 7; quad2Vec[18] = 8; side1Vec[18] = 3; side2Vec[18] = 2; revEl2[18] = true;
-        quad1Vec[19] = 8; quad2Vec[19] =12; side1Vec[19] = 3; side2Vec[19] = 1; revEl2[19] = true;
-
-        quad1Vec[20] = 9; quad2Vec[20] =13; side1Vec[20] = 1; side2Vec[20] = 3; revEl2[20] = true;
-        quad1Vec[21] = 9; quad2Vec[21] =16; side1Vec[21] = 3; side2Vec[21] = 1; revEl2[21] = true;
-        quad1Vec[22] = 9; quad2Vec[22] = 9; side1Vec[22] = 4; side2Vec[22] = 4; revEl2[22] = false;
-        quad1Vec[23] =10; quad2Vec[23] =10; side1Vec[23] = 1; side2Vec[23] = 1; revEl2[23] = false;
-        quad1Vec[24] =10; quad2Vec[24] =14; side1Vec[24] = 2; side2Vec[24] = 4; revEl2[24] = true;
-        quad1Vec[25] =10; quad2Vec[25] =13; side1Vec[25] = 4; side2Vec[25] = 2; revEl2[25] = true;
-        quad1Vec[26] =11; quad2Vec[26] =14; side1Vec[26] = 1; side2Vec[26] = 3; revEl2[26] = true;
-        quad1Vec[27] =11; quad2Vec[27] =11; side1Vec[27] = 2; side2Vec[27] = 2; revEl2[27] = false;
-        quad1Vec[28] =11; quad2Vec[28] =15; side1Vec[28] = 3; side2Vec[28] = 1; revEl2[28] = true;
-        quad1Vec[29] =12; quad2Vec[29] =15; side1Vec[29] = 2; side2Vec[29] = 4; revEl2[29] = true;
-        quad1Vec[30] =12; quad2Vec[30] =12; side1Vec[30] = 3; side2Vec[30] = 3; revEl2[30] = false;
-        quad1Vec[31] =12; quad2Vec[31] =16; side1Vec[31] = 4; side2Vec[31] = 2; revEl2[31] = true;
-
-        quad1Vec[32] =13; quad2Vec[32] =13; side1Vec[32] = 1; side2Vec[32] = 1; revEl2[32] = false;
-        quad1Vec[33] =13; quad2Vec[33] =13; side1Vec[33] = 4; side2Vec[33] = 4; revEl2[33] = false;
-        quad1Vec[34] =14; quad2Vec[34] =14; side1Vec[34] = 1; side2Vec[34] = 1; revEl2[34] = false;
-        quad1Vec[35] =14; quad2Vec[35] =14; side1Vec[35] = 2; side2Vec[35] = 2; revEl2[35] = false;
-        quad1Vec[36] =15; quad2Vec[36] =15; side1Vec[36] = 2; side2Vec[36] = 2; revEl2[36] = false;
-        quad1Vec[37] =15; quad2Vec[37] =15; side1Vec[37] = 3; side2Vec[37] = 3; revEl2[37] = false;
-        quad1Vec[38] =16; quad2Vec[38] =16; side1Vec[38] = 3; side2Vec[38] = 3; revEl2[38] = false;
-        quad1Vec[39] =16; quad2Vec[39] =16; side1Vec[39] = 4; side2Vec[39] = 4; revEl2[39] = false;
-        for(int i = 0; i < nEdges; i++){
-            TPZVec<long> *side1pts = nullptr;
-            TPZVec<long> *side2pts = nullptr;
-            switch(side1Vec[i]){
-                case 1: side1pts = & elNodeSide1Vecs[quad1Vec[i]]; break;
-                case 2: side1pts = & elNodeSide2Vecs[quad1Vec[i]]; break;
-                case 3: side1pts = & elNodeSide3Vecs[quad1Vec[i]]; break;
-                case 4: side1pts = & elNodeSide4Vecs[quad1Vec[i]]; break;
-            }
-
-            switch(side2Vec[i]){
-                case 1: side2pts = & elNodeSide1Vecs[quad2Vec[i]]; break;
-                case 2: side2pts = & elNodeSide2Vecs[quad2Vec[i]]; break;
-                case 3: side2pts = & elNodeSide3Vecs[quad2Vec[i]]; break;
-                case 4: side2pts = & elNodeSide4Vecs[quad2Vec[i]]; break;
-            }
-
-            createEdgeNodes(elNodeFaceVecs,quad1Vec[i], quad2Vec[i],side1Vec[i],side2Vec[i],nodeId,
-                            *side1pts, *side2pts, revEl2[i]);
-        }
-    }
-//    for(int i = 0; i < elNodeFaceVecs.size(); i++){
-//        std::cout<<"element "<<i<<std::endl;
-//        for(int j = 0; j < elNodeFaceVecs[i].size(); j++){
-//            std::cout<<elNodeFaceVecs[i][j]<<"\t";
-//        }
-//        std::cout<<std::endl;
-//    }
-    for(int quad = 0; quad < nQuads ; quad ++) {
-        for (int i = 0; i < nDivEta[quad] - 1; i++) {
-            for(int j = 0 ; j < nDivQsi[quad] - 1; j++){
-
-                const int node0=i * nDivQsi[quad] + j;//Lower left vertex
-                const int node1=i * nDivQsi[quad] + j + 1;//Lower right vertex
-                const int node2=(i+1) * nDivQsi[quad] + j + 1;//Upper right vertex
-                const int node3=(i+1) * nDivQsi[quad] + j;//Upper left vertex
-
-                TPZManVector<long, 3> nodesIdVec(4, 0.);
-
-                const int matId = matIdsQuads[quad];
-                nodesIdVec[0] = elNodeFaceVecs[quad][node0];
-                nodesIdVec[1] = elNodeFaceVecs[quad][node1];
-                nodesIdVec[2] = elNodeFaceVecs[quad][node2];
-                nodesIdVec[3] = elNodeFaceVecs[quad][node3];
-                if(nodesIdVec[0] == -1 || nodesIdVec[1] == -1 || nodesIdVec[2] == -1 || nodesIdVec[3] == -1){
-                    DebugStop();
-                }
-                if((i == 0 && quadVec[quad]->isSide1nonLinear) ||
-                   (j == nDivQsi[quad] - 2 && quadVec[quad]->isSide2nonLinear) ||
-                   (i == nDivEta[quad] - 2 && quadVec[quad]->isSide3nonLinear) ||
-                   (j == 0 && quadVec[quad]->isSide4nonLinear)){
-                    TPZGeoElRefPattern< pzgeom::TPZGeoBlend<pzgeom::TPZGeoQuad> >  * quadEl =
-                            new TPZGeoElRefPattern< pzgeom::TPZGeoBlend<pzgeom::TPZGeoQuad> >  (nodesIdVec,matId,*gmesh);
-                    quadEl->SetRefPattern(refp);
-                }
-                else{
-                    TPZGeoElRefPattern< pzgeom::TPZGeoQuad >  * quadEl =
-                            new TPZGeoElRefPattern< pzgeom::TPZGeoQuad >  (nodesIdVec,matId,*gmesh);
-                    quadEl->SetRefPattern(refp);
-                }
-            }
-        }
-    }
-
-    for(int edge = 0; edge < nEdges ; edge ++) {
-        const int quad = quad1Vec[edge];
-        const int side = side1Vec[edge];
-        if(revEl2[edge] == false){//boundary edge
-            const int nArcs = side % 2 ? nDivQsi[quad] -1 : nDivEta[quad] - 1;
-            for (int i = 0; i < nArcs; i++) {
-                TPZManVector<long, 3> nodesIdVec(2, 0.);
-                const int vertex1 = sidePos(side,i,nDivQsi[quad],nDivEta[quad],false);
-                const int vertex2 = sidePos(side,i + 1,nDivQsi[quad],nDivEta[quad],false);
+    thetaVec[4][0] = 1 * M_PI/4;thetaVec[4][1] =-1 * M_PI/4;//quad5
+    thetaVec[5][0] = 3 * M_PI/4;thetaVec[5][1] = 1 * M_PI/4;//quad6
+    thetaVec[6][0] = 5 * M_PI/4;thetaVec[6][1] = 3 * M_PI/4;//quad7
+    thetaVec[7][0] = 7 * M_PI/4;thetaVec[7][1] = 5 * M_PI/4;//quad8
 
 
-                nodesIdVec[0] = elNodeFaceVecs[quad][vertex1];
-                nodesIdVec[1] = elNodeFaceVecs[quad][vertex2];
-                if(nodesIdVec[0] == -1 || nodesIdVec[1] == -1){
-                    DebugStop();
-                }
-                TPZGeoElRefPattern< pzgeom::TPZGeoLinear > *arc =
-                        new TPZGeoElRefPattern< pzgeom::TPZGeoLinear > (nodesIdVec,matIdBC,*gmesh);
-            }
-            continue;
-        }
+    TPZVec<TPZVec<REAL>*> xcRef(8,&xc);
 
-        TPZVec<long> *intPointsCoord = nullptr;
-        switch(side){
-            case 1:
-                if(quadVec[quad]->isSide1nonLinear == false) continue;
-                intPointsCoord = &(elNodeSide1Vecs[quad]);
-                break;
-            case 2:
-                if(quadVec[quad]->isSide2nonLinear == false) continue;
-                intPointsCoord = &(elNodeSide2Vecs[quad]);
-                break;
-            case 3:
-                if(quadVec[quad]->isSide3nonLinear == false) continue;
-                intPointsCoord = &(elNodeSide3Vecs[quad]);
-                break;
-            case 4:
-                if(quadVec[quad]->isSide4nonLinear == false) continue;
-                intPointsCoord = &(elNodeSide4Vecs[quad]);
-                break;
-        }
+    TPZVec<int> matIdBoundVec(4,-1);
+    matIdBoundVec[0] = matIdBC;//low
+    matIdBoundVec[1] = matIdBC;//down
+    matIdBoundVec[2] = matIdBC;//up
+    matIdBoundVec[3] = matIdBC;//left
 
-        const int nArcs = side % 2 ? nDivQsi[quad] -1 : nDivEta[quad] - 1;
-        //auto sidePos = [](const int side, const int &i, const int &nQsi, const int &nEta, const bool &reverse){
-        for (int i = 0; i < nArcs; i++) {
-            TPZManVector<long, 3> nodesIdVec(3, 0.);
-            const int vertex1 = sidePos(side,i,nDivQsi[quad],nDivEta[quad],false);
-            const int vertex2 = sidePos(side,i + 1,nDivQsi[quad],nDivEta[quad],false);
+    TPZVec<REAL> boundDistVec(4,-1);
+    boundDistVec[0] = 0.;//low
+    boundDistVec[1] = bound+lengthPML;//down
+    boundDistVec[2] = bound+lengthPML;//up
+    boundDistVec[3] = 0.;//left
 
+    TPZVec<REAL> rVec(14,rCore);
 
-            nodesIdVec[0] = elNodeFaceVecs[quad][vertex1];
-            nodesIdVec[1] = elNodeFaceVecs[quad][vertex2];
-            nodesIdVec[2] =(*intPointsCoord)[i];//mid-point
-            if(nodesIdVec[0] == -1 || nodesIdVec[1] == -1 || nodesIdVec[2] == -1){
-                DebugStop();
-            }
-            TPZGeoElRefPattern< pzgeom::TPZArc3D > *arc =
-                    new TPZGeoElRefPattern< pzgeom::TPZArc3D > (nodesIdVec,-24,*gmesh);//random material id
-        }
-    }
+    gmesh = CreateStructuredMesh(pointsVec, edgesVec, quadPointsVec, matIdsQuads, nDivQsi,
+                                 nDivEta, side1NonLinearVec, side2NonLinearVec, side3NonLinearVec, side4NonLinearVec,
+                                 thetaVec, xcRef, matIdBoundVec, boundDistVec, rVec);
     matIdVec.Resize(11);
     matIdVec[0]=matIdCore;
     matIdVec[1]=matIdCladding;
@@ -1494,12 +1116,356 @@ CreateStepFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<in
     return;
 }
 
+TPZGeoMesh *
+CreateStructuredMesh(const TPZVec<TPZVec<REAL>> &pointsVec, TPZVec<EdgeData> &edgesVec, const TPZFMatrix<int> &quadPointsVec,
+                     const TPZVec<int> &matIdsQuads, const TPZVec<int> &nDivQsi, const TPZVec<int> &nDivEta,
+                     const TPZVec<bool> &side1NonLinearVec, const TPZVec<bool> &side2NonLinearVec,
+                     const TPZVec<bool> &side3NonLinearVec, const TPZVec<bool> &side4NonLinearVec,
+                     const TPZVec<TPZVec<REAL>> &thetaVec, const TPZVec<TPZVec<REAL> *> &xcRef,
+                     const TPZVec<int> &matIdBoundVec, const TPZVec<REAL> &boundDistVec, const TPZVec<REAL> &rVec) {
+
+        auto map_quad_side_arc = [](const TPZVec<REAL> &theta ,const TPZVec<REAL> &xc, const REAL &r, const REAL & s) {
+            TPZVec<REAL> point(2,0.);
+            point[0] = xc[0] + r*cos((theta[1] + s*theta[1] + theta[0] - s*theta[0])/2.);
+            point[1] = xc[1] + r*sin((theta[1] + s*theta[1] + theta[0] - s*theta[0])/2.);
+            return point;
+        };
+        TPZGeoMesh *gmesh;
+        const int nQuads = side1NonLinearVec.size();
+
+        TPZVec<QuadrilateralData *> quadVec(nQuads, nullptr);
+        int iNonLinear = 0;
+        for (int iQuad = 0; iQuad < nQuads; iQuad++) {
+            quadVec[iQuad] = new QuadrilateralData(quadPointsVec.GetVal(iQuad, 0), quadPointsVec.GetVal(iQuad, 1),
+                                                   quadPointsVec.GetVal(iQuad, 2), quadPointsVec.GetVal(iQuad, 3),
+                                                   pointsVec[quadPointsVec.GetVal(iQuad, 0)],
+                                                   pointsVec[quadPointsVec.GetVal(iQuad, 1)],
+                                                   pointsVec[quadPointsVec.GetVal(iQuad, 2)],
+                                                   pointsVec[quadPointsVec.GetVal(iQuad, 3)]);
+            if (side1NonLinearVec[iQuad]) {
+                TPZVec<REAL> &xc = *(xcRef[iNonLinear]);
+                quadVec[iQuad]->mapSide1 = std::__1::bind(map_quad_side_arc, thetaVec[iNonLinear], xc, rVec[iNonLinear],
+                                                          std::__1::placeholders::_1);
+                iNonLinear++;
+            } else if (side2NonLinearVec[iQuad]) {
+                TPZVec<REAL> &xc = *(xcRef[iNonLinear]);
+                quadVec[iQuad]->mapSide2 = std::__1::bind(map_quad_side_arc, thetaVec[iNonLinear], xc, rVec[iNonLinear],
+                                                          std::__1::placeholders::_1);
+                iNonLinear++;
+            } else if (side3NonLinearVec[iQuad]) {
+                TPZVec<REAL> &xc = *(xcRef[iNonLinear]);
+                quadVec[iQuad]->mapSide3 = std::__1::bind(map_quad_side_arc, thetaVec[iNonLinear], xc, rVec[iNonLinear],
+                                                          std::__1::placeholders::_1);
+                iNonLinear++;
+            } else if (side4NonLinearVec[iQuad]) {
+                TPZVec<REAL> &xc = *(xcRef[iNonLinear]);
+                quadVec[iQuad]->mapSide4 = std::__1::bind(map_quad_side_arc, thetaVec[iNonLinear], xc, rVec[iNonLinear],
+                                                          std::__1::placeholders::_1);
+                iNonLinear++;
+            }
+            quadVec[iQuad]->SetMapsLinearity(side1NonLinearVec[iQuad], side2NonLinearVec[iQuad],
+                                             side3NonLinearVec[iQuad], side4NonLinearVec[iQuad],
+                                             iQuad, edgesVec);
+            quadVec[iQuad]->CreateQuadrilateral(nDivQsi[iQuad], nDivEta[iQuad]);
+        }
+
+        ////////////////////////////////////////CREATE NODES///////////////////////////////////////
+        ////////////////////////////////////////FOR INTERIOR///////////////////////////////////////
+        ///////////////////////////////////////////POINTS//////////////////////////////////////////
+        long nodeId = 0;
+        gmesh = new TPZGeoMesh;
+        TPZVec<TPZVec<long>> elNodeFaceVecs(nQuads, TPZVec<long>(0, -1));
+
+        for (int el = 0; el < nQuads; el++) {
+            const long nNodesOld = gmesh->NodeVec().NElements();
+            const long nNodesEl = (nDivQsi[el] - 2) * (nDivEta[el] - 2);
+            gmesh->NodeVec().Resize(nNodesOld + nNodesEl);
+            elNodeFaceVecs[el].Resize(nDivEta[el] * nDivQsi[el], -1);
+            //interior nodes only
+            for (int i = 1; i < nDivEta[el] - 1; i++) {
+                for (int j = 1; j < nDivQsi[el] - 1; j++) {
+                    TPZManVector<REAL, 3> node(3, 0.);
+                    node[0] = quadVec[el]->facePts(i * nDivQsi[el] + j, 0);
+                    node[1] = quadVec[el]->facePts(i * nDivQsi[el] + j, 1);
+                    gmesh->NodeVec()[nodeId].Initialize(node, *gmesh);
+                    elNodeFaceVecs[el][i * nDivQsi[el] + j] = nodeId;
+                    nodeId++;
+                }
+            }
+        }
+
+//    std::cout<<"NUMBER OF EDGES "<<edgesVec.size()<<std::endl;
+//    for(int iEdge = 0; iEdge < edgesVec.size(); iEdge++){
+//        std::cout<<"Edge "<<iEdge<<std::setfill(' ');;
+//        std::cout<<"\tquad1:"<<std::setw(2)<<edgesVec[iEdge].quad1<<"\tquad2:"<<std::setw(2)<<edgesVec[iEdge].quad2;
+//        std::cout<<"\tNon-linear mapped:"<<edgesVec[iEdge].isNonLinearMapped;
+//        std::cout<<"\tBoundary:"<<edgesVec[iEdge].amIboundaryEdge<<std::endl;
+//    }
+        const int nEdges = edgesVec.size();
+        ////////////////////////////////////////CREATE NODES///////////////////////////////////////
+        //////////////////////////////////////////FOR EDGE/////////////////////////////////////////
+        ///////////////////////////////////////////POINTS//////////////////////////////////////////
+        auto sidePos = [](const int side, const int &i, const int &nQsi, const int &nEta, const bool &reverse) {
+            const int iP = reverse ? (side % 2 ? nQsi - 1 - i : nEta - 1 - i) : i;
+            switch (side) {
+                case 1 :
+                    return iP;
+                case 2 :
+                    return (iP * nQsi + (nQsi - 1));
+                case 3 :
+                    return (nQsi - 1 - iP + nQsi * (nEta - 1));
+                case 4 :
+                    return (nEta - 1 - iP) * nQsi;
+                default:
+                    DebugStop();
+                    return -1;
+            }
+        };
+
+        auto createEdgeNodes = [sidePos, nDivEta, nDivQsi, quadVec, gmesh]
+                (TPZVec<TPZVec<long>> &elNodeFaceVecs, const long &el1, const long &el2,
+                 const int &side1, const int &side2, long &nodeId,
+                 TPZVec<long> &side1pts, TPZVec<long> &side2pts, const bool &revEl2) {
+            const int nPts = side1 % 2 ? nDivQsi[el1] : nDivEta[el1];
+            long nNodesOld = gmesh->NodeVec().NElements();
+            long nNodesEl = nPts;
+            for (int i = 0; i < nPts; i++) {
+                const int posEl1 = sidePos(side1, i, nDivQsi[el1], nDivEta[el1], false);
+                const int posEl2 = sidePos(side2, i, nDivQsi[el2], nDivEta[el2], revEl2);
+                if (elNodeFaceVecs[el1][posEl1] != -1) {
+                    elNodeFaceVecs[el2][posEl2] = elNodeFaceVecs[el1][posEl1];
+                    continue;
+                }
+                if (elNodeFaceVecs[el2][posEl2] != -1) {
+                    elNodeFaceVecs[el1][posEl1] = elNodeFaceVecs[el2][posEl2];
+                    continue;
+                }
+                TPZManVector<REAL, 3> node(3, 0.);
+                node[0] = quadVec[el1]->facePts(posEl1, 0);
+                node[1] = quadVec[el1]->facePts(posEl1, 1);
+                long nNodesOld = gmesh->NodeVec().NElements();
+                gmesh->NodeVec().Resize(nNodesOld + 1);
+                gmesh->NodeVec()[nodeId].Initialize(node, *gmesh);
+                elNodeFaceVecs[el1][posEl1] = nodeId;
+                elNodeFaceVecs[el2][posEl2] = nodeId;
+                nodeId++;
+            }
+            TPZFMatrix<REAL> *nonLinearPts = nullptr;
+            if (quadVec[el1]->isSide1nonLinear && side1 == 1) { nonLinearPts = &quadVec[el1]->side1IntPts; }
+            else if (quadVec[el1]->isSide2nonLinear && side1 == 2) { nonLinearPts = &quadVec[el1]->side2IntPts; }
+            else if (quadVec[el1]->isSide3nonLinear && side1 == 3) { nonLinearPts = &quadVec[el1]->side3IntPts; }
+            else if (quadVec[el1]->isSide4nonLinear && side1 == 4) { nonLinearPts = &quadVec[el1]->side4IntPts; }
+            long nNonLinPts = 0;
+            if (nonLinearPts) {
+                nNonLinPts = nonLinearPts->Rows();
+                side1pts.Resize(nNonLinPts);
+                side2pts.Resize(nNonLinPts);
+                nNodesOld = gmesh->NodeVec().NElements();
+                nNodesEl = nNonLinPts;
+                gmesh->NodeVec().Resize(nNodesOld + nNodesEl);
+            }
+            for (int i = 0; i < nNonLinPts; i++) {
+                const int posEl1 = i;
+                const int posEl2 = revEl2 ? nNonLinPts - 1 - i : i;
+                TPZManVector<REAL, 3> node(3, 0.);
+                node[0] += (*nonLinearPts)(posEl1, 0);
+                node[1] += (*nonLinearPts)(posEl1, 1);
+                gmesh->NodeVec()[nodeId].Initialize(node, *gmesh);
+                side1pts[posEl1] = nodeId;
+                side2pts[posEl2] = nodeId;
+                nodeId++;
+            }
+        };
+
+        TPZVec<TPZVec<long>> elNodeSide1Vecs(nQuads, TPZVec<long>(0, -1));
+        TPZVec<TPZVec<long>> elNodeSide2Vecs(nQuads, TPZVec<long>(0, -1));
+        TPZVec<TPZVec<long>> elNodeSide3Vecs(nQuads, TPZVec<long>(0, -1));
+        TPZVec<TPZVec<long>> elNodeSide4Vecs(nQuads, TPZVec<long>(0, -1));
+        for (int i = 0; i < nEdges; i++) {
+            TPZVec<long> *side1pts = nullptr;
+            TPZVec<long> *side2pts = nullptr;
+            int quad1 = edgesVec[i].quad1, quad2 = edgesVec[i].quad2,
+                    side1 = edgesVec[i].side1, side2 = edgesVec[i].side2;
+            bool revEl = !(edgesVec[i].amIboundaryEdge);
+
+            switch (side1) {
+                case 1:
+                    side1pts = &elNodeSide1Vecs[quad1];
+                    break;
+                case 2:
+                    side1pts = &elNodeSide2Vecs[quad1];
+                    break;
+                case 3:
+                    side1pts = &elNodeSide3Vecs[quad1];
+                    break;
+                case 4:
+                    side1pts = &elNodeSide4Vecs[quad1];
+                    break;
+            }
+
+            switch (side2) {
+                case 1:
+                    side2pts = &elNodeSide1Vecs[quad2];
+                    break;
+                case 2:
+                    side2pts = &elNodeSide2Vecs[quad2];
+                    break;
+                case 3:
+                    side2pts = &elNodeSide3Vecs[quad2];
+                    break;
+                case 4:
+                    side2pts = &elNodeSide4Vecs[quad2];
+                    break;
+            }
+            createEdgeNodes(elNodeFaceVecs, quad1, quad2, side1, side2, nodeId,
+                            *side1pts, *side2pts, revEl);
+        }
+
+///creates refpattern
+        TPZAutoPointer<TPZRefPattern> refp;
+        char buf[] =
+                "4 3 "
+                "-50 Quad0000111111111 "
+                "-1 -1 0 "
+                "1 -1 0 "
+                "1 1 0 "
+                "-1 1 0 "
+                "3 4 0  1  2  3 "
+                "2 3 0  1  2 "
+                "2 3 0  2  3 ";
+        std::__1::istringstream str(buf);
+        refp = new TPZRefPattern(str);
+        refp->GenerateSideRefPatterns();
+        gRefDBase.InsertRefPattern(refp);
+        if (!refp) {
+            DebugStop();
+        }
+        for (int quad = 0; quad < nQuads; quad++) {
+            for (int i = 0; i < nDivEta[quad] - 1; i++) {
+                for (int j = 0; j < nDivQsi[quad] - 1; j++) {
+
+                    const int node0 = i * nDivQsi[quad] + j;//Lower left vertex
+                    const int node1 = i * nDivQsi[quad] + j + 1;//Lower right vertex
+                    const int node2 = (i + 1) * nDivQsi[quad] + j + 1;//Upper right vertex
+                    const int node3 = (i + 1) * nDivQsi[quad] + j;//Upper left vertex
+
+                    TPZManVector<long, 4> nodesIdVec(4, -1);
+
+                    const int matId = matIdsQuads[quad];
+                    nodesIdVec[0] = elNodeFaceVecs[quad][node0];
+                    nodesIdVec[1] = elNodeFaceVecs[quad][node1];
+                    nodesIdVec[2] = elNodeFaceVecs[quad][node2];
+                    nodesIdVec[3] = elNodeFaceVecs[quad][node3];
+                    if (nodesIdVec[0] == -1 || nodesIdVec[1] == -1 || nodesIdVec[2] == -1 || nodesIdVec[3] == -1) {
+                        DebugStop();
+                    }
+                    if ((i == 0 && quadVec[quad]->isSide1nonLinear) ||
+                        (j == nDivQsi[quad] - 2 && quadVec[quad]->isSide2nonLinear) ||
+                        (i == nDivEta[quad] - 2 && quadVec[quad]->isSide3nonLinear) ||
+                        (j == 0 && quadVec[quad]->isSide4nonLinear)) {
+                        TPZGeoElRefPattern<pzgeom::TPZGeoBlend<pzgeom::TPZGeoQuad> > *quadEl =
+                                new TPZGeoElRefPattern<pzgeom::TPZGeoBlend<pzgeom::TPZGeoQuad> >(nodesIdVec, matId,
+                                                                                                 *gmesh);
+                        quadEl->SetRefPattern(refp);
+                    } else {
+                        TPZGeoElRefPattern<pzgeom::TPZGeoQuad> *quadEl =
+                                new TPZGeoElRefPattern<pzgeom::TPZGeoQuad>(nodesIdVec, matId, *gmesh);
+                        quadEl->SetRefPattern(refp);
+                    }
+                }
+            }
+        }
+
+        for (int edge = 0; edge < nEdges; edge++) {
+            int quad = edgesVec[edge].quad1, side = edgesVec[edge].side1;
+            if (edgesVec[edge].amIboundaryEdge) {//boundary edge
+                const int nArcs = side % 2 ? nDivQsi[quad] - 1 : nDivEta[quad] - 1;
+                TPZVec<REAL> &pt1 = pointsVec[edgesVec[edge].coord1];
+                TPZVec<REAL> &pt2 = pointsVec[edgesVec[edge].coord2];
+                REAL tol = 1e-08;
+                int matId = -666;
+                if (std::__1::abs(pt1[1] - pt2[1]) < tol) {//horizontal edge
+                    if (std::__1::abs(pt1[1] - boundDistVec[2]) < tol) {
+                        matId = matIdBoundVec[2];
+                    } else {
+                        matId = matIdBoundVec[0];
+                    }
+                } else if (std::__1::abs(pt1[0] - pt2[0]) < tol) {//vertical edge
+                    if (std::__1::abs(pt1[0] - boundDistVec[1]) < tol) {
+                        matId = matIdBoundVec[1];
+                    } else {
+                        matId = matIdBoundVec[3];
+                    }
+                } else {
+                    DebugStop();
+                }
+                for (int i = 0; i < nArcs; i++) {
+                    TPZManVector<long, 3> nodesIdVec(2, 0.);
+                    const int vertex1 = sidePos(side, i, nDivQsi[quad], nDivEta[quad], false);
+                    const int vertex2 = sidePos(side, i + 1, nDivQsi[quad], nDivEta[quad], false);
+
+
+                    nodesIdVec[0] = elNodeFaceVecs[quad][vertex1];
+                    nodesIdVec[1] = elNodeFaceVecs[quad][vertex2];
+                    if (nodesIdVec[0] == -1 || nodesIdVec[1] == -1) {
+                        DebugStop();
+                    }
+
+                    TPZGeoElRefPattern<pzgeom::TPZGeoLinear> *arc =
+                            new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, matId, *gmesh);
+                }
+                continue;
+            }
+
+            TPZVec<long> *intPointsCoord = nullptr;
+            switch (side) {
+                case 1:
+                    if (quadVec[quad]->isSide1nonLinear == false) continue;
+                    intPointsCoord = &(elNodeSide1Vecs[quad]);
+                    break;
+                case 2:
+                    if (quadVec[quad]->isSide2nonLinear == false) continue;
+                    intPointsCoord = &(elNodeSide2Vecs[quad]);
+                    break;
+                case 3:
+                    if (quadVec[quad]->isSide3nonLinear == false) continue;
+                    intPointsCoord = &(elNodeSide3Vecs[quad]);
+                    break;
+                case 4:
+                    if (quadVec[quad]->isSide4nonLinear == false) continue;
+                    intPointsCoord = &(elNodeSide4Vecs[quad]);
+                    break;
+            }
+
+            const int nArcs = side % 2 ? nDivQsi[quad] - 1 : nDivEta[quad] - 1;
+            //auto sidePos = [](const int side, const int &i, const int &nQsi, const int &nEta, const bool &reverse){
+            for (int i = 0; i < nArcs; i++) {
+                TPZManVector<long, 3> nodesIdVec(3, 0.);
+                const int vertex1 = sidePos(side, i, nDivQsi[quad], nDivEta[quad], false);
+                const int vertex2 = sidePos(side, i + 1, nDivQsi[quad], nDivEta[quad], false);
+
+
+                nodesIdVec[0] = elNodeFaceVecs[quad][vertex1];
+                nodesIdVec[1] = elNodeFaceVecs[quad][vertex2];
+                nodesIdVec[2] = (*intPointsCoord)[i];//mid-point
+                if (nodesIdVec[0] == -1 || nodesIdVec[1] == -1 || nodesIdVec[2] == -1) {
+                    DebugStop();
+                }
+                TPZGeoElRefPattern<pzgeom::TPZArc3D> *arc =
+                        new TPZGeoElRefPattern<pzgeom::TPZArc3D>(nodesIdVec, -24, *gmesh);//random material id
+            }
+        }
+
+    return gmesh;
+    }
+
 void
 CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec,
                      const std::string &prefix, const bool &print, const REAL &scale, const int &factor,
                      TPZVec<SPZModalAnalysisData::boundtype> &boundTypeVec,
                      TPZVec<SPZModalAnalysisData::pmltype> &pmlTypeVec, const REAL &dPML, const REAL &boundDist,
                      SPZModalAnalysisData::boundtype symmetry) {
+
     //SPZModalAnalysisData::boundtype symmetry;
     const int nDivTHole = factor * 2 + 1, nDivRHole = factor * 4 + 1,
             nDivCladding1 = factor * 6 + 1, nDivCladding2 = factor * 4,nDivCladding3 = factor * 2,
@@ -1534,7 +1500,7 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
 
 
     ///all points
-    TPZManVector<TPZManVector<REAL,2>,33> pointsVec(nPoints,TPZManVector<REAL,2>(2,0.));
+    TPZManVector<TPZVec<REAL>,33> pointsVec(nPoints,TPZVec<REAL>(2,0.));
     TPZManVector<EdgeData,33> edgesVec(0,EdgeData());
     //hole 1
     pointsVec[0][0]= xc1[0] + 0.5 * std::cos(M_PI_4)*rCore; pointsVec[0][1]= xc1[1] + 0.5 * std::sin(M_PI_4)*rCore;
@@ -1594,12 +1560,6 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
     pointsVec[41][0]= bound + lengthPML; pointsVec[41][1]= pointsVec[6][1];
     pointsVec[42][0]= bound + lengthPML; pointsVec[42][1]= pointsVec[12][1];
     pointsVec[43][0]= bound + lengthPML; pointsVec[43][1]= pointsVec[14][1];
-    auto map_quad_side_arc = [](const TPZVec<REAL> &theta ,const TPZVec<REAL> &xc, const REAL &r, const REAL & s) {
-        TPZVec<REAL> point(2,0.);
-        point[0] = xc[0] + r*cos((theta[1] + s*theta[1] + theta[0] - s*theta[0])/2.);
-        point[1] = xc[1] + r*sin((theta[1] + s*theta[1] + theta[0] - s*theta[0])/2.);
-        return point;
-    };
 
     TPZFMatrix<int> quadPointsVec(nQuads,4);
     quadPointsVec(0,0) = 0; quadPointsVec(0,1) = 1; quadPointsVec(0,2) = 2; quadPointsVec(0,3) = 3;
@@ -1645,7 +1605,6 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     ////////////////////////////////////////CREATE QUADS///////////////////////////////////////
-    TPZVec<QuadrilateralData *> quadVec(nQuads,nullptr);
     TPZManVector<int,nQuads> matIdsQuads(nQuads,-1);
     matIdsQuads[0] = matIdHole;
     matIdsQuads[1] = matIdHole;    matIdsQuads[2] = matIdHole;
@@ -1732,328 +1691,53 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
     side2NonLinearVec[17] = true;
     side3NonLinearVec[20] = true;
 
-    {
-        TPZManVector<TPZManVector<REAL,2>,14> thetaVec(14,TPZManVector<REAL,2>(2,0.));
 
-        thetaVec[0][0] = 1 * M_PI/4;thetaVec[0][1] = 3 * M_PI/4;//quad1
-        thetaVec[1][0] = 3 * M_PI/4;thetaVec[1][1] = 5 * M_PI/4;//quad2
-        thetaVec[2][0] = 7 * M_PI/4;thetaVec[2][1] = 9 * M_PI/4;//quad3
-        thetaVec[3][0] = 5 * M_PI/4;thetaVec[3][1] = 7 * M_PI/4;//quad4
+    TPZManVector<TPZVec<REAL>,14> thetaVec(14,TPZVec<REAL>(2,0.));
 
-        thetaVec[4][0] = 1 * M_PI/4;thetaVec[4][1] = 3 * M_PI/4;//quad6
-        thetaVec[5][0] = 3 * M_PI/4;thetaVec[5][1] = 4 * M_PI/4;//quad7
-        thetaVec[6][0] = 0 * M_PI/4;thetaVec[6][1] = 1 * M_PI/4;//quad8
+    thetaVec[0][0] = 1 * M_PI/4;thetaVec[0][1] = 3 * M_PI/4;//quad1
+    thetaVec[1][0] = 3 * M_PI/4;thetaVec[1][1] = 5 * M_PI/4;//quad2
+    thetaVec[2][0] = 7 * M_PI/4;thetaVec[2][1] = 9 * M_PI/4;//quad3
+    thetaVec[3][0] = 5 * M_PI/4;thetaVec[3][1] = 7 * M_PI/4;//quad4
 
-        thetaVec[7][0] = 4 * M_PI/4;thetaVec[7][1] = 3 * M_PI/4;//quad10
-        thetaVec[8][0] = 1 * M_PI/4;thetaVec[8][1] = 0 * M_PI/4;//quad11
-        thetaVec[9][0] = 7 * M_PI/4;thetaVec[9][1] = 5 * M_PI/4;//quad13
-        thetaVec[10][0] = 3 * M_PI/4;thetaVec[10][1] = 1 * M_PI/4;//quad14
-        thetaVec[11][0] = 5 * M_PI/4;thetaVec[11][1] = 3 * M_PI/4;//quad16
-        thetaVec[12][0] = 9 * M_PI/4;thetaVec[12][1] = 7 * M_PI/4;//quad17
-        thetaVec[13][0] = 3 * M_PI/4;thetaVec[13][1] = 1 * M_PI/4;//quad20
+    thetaVec[4][0] = 1 * M_PI/4;thetaVec[4][1] = 3 * M_PI/4;//quad6
+    thetaVec[5][0] = 3 * M_PI/4;thetaVec[5][1] = 4 * M_PI/4;//quad7
+    thetaVec[6][0] = 0 * M_PI/4;thetaVec[6][1] = 1 * M_PI/4;//quad8
 
-
-        TPZVec<TPZVec<REAL>*> xcRef(14,&xc1);
-        xcRef[4] = &xc2;
-        xcRef[5] = &xc2;
-        xcRef[6] = &xc2;
-        xcRef[7] = &xc2;
-        xcRef[8] = &xc2;
-        xcRef[10] = &xc2;
-        int iNonLinear = 0;
-        for(int iQuad = 0; iQuad < nQuads; iQuad++){
-            quadVec[iQuad] = new QuadrilateralData(quadPointsVec(iQuad,0),quadPointsVec(iQuad,1),
-                                                   quadPointsVec(iQuad,2),quadPointsVec(iQuad,3),
-                                                   pointsVec[quadPointsVec(iQuad,0)],pointsVec[quadPointsVec(iQuad,1)],
-                                                   pointsVec[quadPointsVec(iQuad,2)],pointsVec[quadPointsVec(iQuad,3)]);
-            if(side1NonLinearVec[iQuad]){
-                TPZVec<REAL> &xc = *(xcRef[iNonLinear]);
-                quadVec[iQuad]->mapSide1 = std::bind(map_quad_side_arc,thetaVec[iNonLinear], xc, rCore,std::placeholders::_1);
-                iNonLinear++;
-            } else if(side2NonLinearVec[iQuad]){
-                TPZVec<REAL> &xc = *(xcRef[iNonLinear]);
-                quadVec[iQuad]->mapSide2 = std::bind(map_quad_side_arc,thetaVec[iNonLinear], xc, rCore,std::placeholders::_1);
-                iNonLinear++;
-            } else if(side3NonLinearVec[iQuad]){
-                TPZVec<REAL> &xc = *(xcRef[iNonLinear]);
-                quadVec[iQuad]->mapSide3 = std::bind(map_quad_side_arc,thetaVec[iNonLinear], xc, rCore,std::placeholders::_1);
-                iNonLinear++;
-            } else if(side4NonLinearVec[iQuad]){
-                TPZVec<REAL> &xc = *(xcRef[iNonLinear]);
-                quadVec[iQuad]->mapSide4 = std::bind(map_quad_side_arc,thetaVec[iNonLinear], xc, rCore,std::placeholders::_1);
-                iNonLinear++;
-            }
-            quadVec[iQuad]->SetMapsLinearity(side1NonLinearVec[iQuad],side2NonLinearVec[iQuad],side3NonLinearVec[iQuad],side4NonLinearVec[iQuad],
-            iQuad,edgesVec);
-            quadVec[iQuad]->CreateQuadrilateral(nDivQsi[iQuad],nDivEta[iQuad]);
-        }
-    }
-
-    ////////////////////////////////////////CREATE NODES///////////////////////////////////////
-    ////////////////////////////////////////FOR INTERIOR///////////////////////////////////////
-    ///////////////////////////////////////////POINTS//////////////////////////////////////////
-    long nodeId = 0;
-    gmesh = new TPZGeoMesh;
-    TPZManVector<TPZManVector<long,20>,nQuads> elNodeFaceVecs(nQuads,TPZManVector<long,20>(0,-1));
-
-    for(int el = 0; el < nQuads ; el ++) {
-        const long nNodesOld = gmesh->NodeVec().NElements();
-        const long nNodesEl = (nDivQsi[el]-2)*(nDivEta[el]-2);
-        gmesh->NodeVec().Resize(nNodesOld + nNodesEl);
-        elNodeFaceVecs[el].Resize(nDivEta[el] * nDivQsi[el],-1);
-        //interior nodes only
-        for (int i = 1; i < nDivEta[el] - 1; i++) {
-            for(int j = 1 ; j < nDivQsi[el] - 1; j++){
-                TPZManVector<REAL, 3> node(3, 0.);
-                node[0] = quadVec[el]->facePts(i * nDivQsi[el] + j,0);
-                node[1] = quadVec[el]->facePts(i * nDivQsi[el] + j,1);
-                gmesh->NodeVec()[nodeId].Initialize(node, *gmesh);
-                elNodeFaceVecs[el][i * nDivQsi[el] + j] = nodeId;
-                nodeId++;
-            }
-        }
-    }
-
-//    std::cout<<"NUMBER OF EDGES "<<edgesVec.size()<<std::endl;
-//    for(int iEdge = 0; iEdge < edgesVec.size(); iEdge++){
-//        std::cout<<"Edge "<<iEdge<<std::setfill(' ');;
-//        std::cout<<"\tquad1:"<<std::setw(2)<<edgesVec[iEdge].quad1<<"\tquad2:"<<std::setw(2)<<edgesVec[iEdge].quad2;
-//        std::cout<<"\tNon-linear mapped:"<<edgesVec[iEdge].isNonLinearMapped;
-//        std::cout<<"\tBoundary:"<<edgesVec[iEdge].amIboundaryEdge<<std::endl;
-//    }
-    const int nEdges = edgesVec.size();
-    ////////////////////////////////////////CREATE NODES///////////////////////////////////////
-    //////////////////////////////////////////FOR EDGE/////////////////////////////////////////
-    ///////////////////////////////////////////POINTS//////////////////////////////////////////
-    auto sidePos = [](const int side, const int &i, const int &nQsi, const int &nEta, const bool &reverse){
-        const int iP = reverse ? (side%2 ? nQsi -1 - i : nEta -1 - i) : i;
-        switch(side){
-            case 1 : return iP;
-            case 2 : return (iP*nQsi + (nQsi-1));
-            case 3 : return (nQsi - 1 - iP + nQsi * (nEta - 1));
-            case 4 : return (nEta - 1 - iP)*nQsi;
-            default: DebugStop(); return -1;
-        }
-    };
-
-    auto createEdgeNodes = [sidePos,nDivEta,nDivQsi,quadVec,gmesh]
-            (TPZManVector<TPZManVector<long,20>,nQuads> &elNodeFaceVecs, const long &el1, const long &el2,const int &side1, const int &side2, long &nodeId,
-             TPZVec<long> &side1pts, TPZVec<long> &side2pts, const bool &revEl2){
-        const int nPts = side1 % 2 ? nDivQsi[el1] : nDivEta[el1];
-        long nNodesOld = gmesh->NodeVec().NElements();
-        long nNodesEl = nPts;
-        for (int i = 0; i < nPts; i++) {
-            const int posEl1 = sidePos(side1,i,nDivQsi[el1],nDivEta[el1],false);
-            const int posEl2 = sidePos(side2,i,nDivQsi[el2],nDivEta[el2],revEl2);
-            if(elNodeFaceVecs[el1][posEl1] != -1){
-                elNodeFaceVecs[el2][posEl2] = elNodeFaceVecs[el1][posEl1];
-                continue;
-            }
-            if(elNodeFaceVecs[el2][posEl2] != -1){
-                elNodeFaceVecs[el1][posEl1] = elNodeFaceVecs[el2][posEl2];
-                continue;
-            }
-            TPZManVector<REAL, 3> node(3, 0.);
-            node[0] = quadVec[el1]->facePts(posEl1,0);
-            node[1] = quadVec[el1]->facePts(posEl1,1);
-            long nNodesOld = gmesh->NodeVec().NElements();
-            gmesh->NodeVec().Resize(nNodesOld + 1);
-            gmesh->NodeVec()[nodeId].Initialize(node, *gmesh);
-            elNodeFaceVecs[el1][posEl1] = nodeId;
-            elNodeFaceVecs[el2][posEl2] = nodeId;
-            nodeId++;
-        }
-        TPZFMatrix<REAL> *nonLinearPts = nullptr;
-        if(quadVec[el1]->isSide1nonLinear && side1 == 1) { nonLinearPts = &quadVec[el1]->side1IntPts;}
-        else if(quadVec[el1]->isSide2nonLinear && side1 == 2) { nonLinearPts = &quadVec[el1]->side2IntPts;}
-        else if(quadVec[el1]->isSide3nonLinear && side1 == 3) { nonLinearPts = &quadVec[el1]->side3IntPts;}
-        else if(quadVec[el1]->isSide4nonLinear && side1 == 4) { nonLinearPts = &quadVec[el1]->side4IntPts;}
-        long nNonLinPts = 0;
-        if(nonLinearPts){
-            nNonLinPts=nonLinearPts->Rows();
-            side1pts.Resize(nNonLinPts);
-            side2pts.Resize(nNonLinPts);
-            nNodesOld = gmesh->NodeVec().NElements();
-            nNodesEl = nNonLinPts;
-            gmesh->NodeVec().Resize(nNodesOld + nNodesEl);
-        }
-        for (int i = 0; i < nNonLinPts; i++){
-            const int posEl1 = i;
-            const int posEl2 = revEl2? nNonLinPts - 1 - i : i;
-            TPZManVector<REAL, 3> node(3, 0.);
-            node[0] += (*nonLinearPts)(posEl1,0);
-            node[1] += (*nonLinearPts)(posEl1,1);
-            gmesh->NodeVec()[nodeId].Initialize(node, *gmesh);
-            side1pts[posEl1] = nodeId;
-            side2pts[posEl2] = nodeId;
-            nodeId++;
-        }
-    };
-
-    TPZManVector<TPZManVector<long,20>,nQuads> elNodeSide1Vecs(nQuads,TPZManVector<long,20>(0,-1));
-    TPZManVector<TPZManVector<long,20>,nQuads> elNodeSide2Vecs(nQuads,TPZManVector<long,20>(0,-1));
-    TPZManVector<TPZManVector<long,20>,nQuads> elNodeSide3Vecs(nQuads,TPZManVector<long,20>(0,-1));
-    TPZManVector<TPZManVector<long,20>,nQuads> elNodeSide4Vecs(nQuads,TPZManVector<long,20>(0,-1));
-    for(int i = 0; i < nEdges; i++){
-        TPZVec<long> *side1pts = nullptr;
-        TPZVec<long> *side2pts = nullptr;
-        int quad1 = edgesVec[i].quad1, quad2 = edgesVec[i].quad2,
-                side1 = edgesVec[i].side1, side2 = edgesVec[i].side2;
-        bool revEl = !(edgesVec[i].amIboundaryEdge);
-
-        switch(side1){
-            case 1: side1pts = & elNodeSide1Vecs[quad1]; break;
-            case 2: side1pts = & elNodeSide2Vecs[quad1]; break;
-            case 3: side1pts = & elNodeSide3Vecs[quad1]; break;
-            case 4: side1pts = & elNodeSide4Vecs[quad1]; break;
-        }
-
-        switch(side2){
-            case 1: side2pts = & elNodeSide1Vecs[quad2]; break;
-            case 2: side2pts = & elNodeSide2Vecs[quad2]; break;
-            case 3: side2pts = & elNodeSide3Vecs[quad2]; break;
-            case 4: side2pts = & elNodeSide4Vecs[quad2]; break;
-        }
-        createEdgeNodes(elNodeFaceVecs,quad1,quad2,side1,side2,nodeId,
-                        *side1pts, *side2pts, revEl);
-    }
-
-///creates refpattern
-    TPZAutoPointer<TPZRefPattern> refp;
-    char buf[] =
-            "4 3 "
-            "-50 Quad0000111111111 "
-            "-1 -1 0 "
-            "1 -1 0 "
-            "1 1 0 "
-            "-1 1 0 "
-            "3 4 0  1  2  3 "
-            "2 3 0  1  2 "
-            "2 3 0  2  3 ";
-    std::istringstream str(buf);
-    refp = new TPZRefPattern(str);
-    refp->GenerateSideRefPatterns();
-    gRefDBase.InsertRefPattern(refp);
-    if(!refp)
-    {
-        DebugStop();
-    }
-    for(int quad = 0; quad < nQuads ; quad ++) {
-        for (int i = 0; i < nDivEta[quad] - 1; i++) {
-            for(int j = 0 ; j < nDivQsi[quad] - 1; j++){
-
-                const int node0=i * nDivQsi[quad] + j;//Lower left vertex
-                const int node1=i * nDivQsi[quad] + j + 1;//Lower right vertex
-                const int node2=(i+1) * nDivQsi[quad] + j + 1;//Upper right vertex
-                const int node3=(i+1) * nDivQsi[quad] + j;//Upper left vertex
-
-                TPZManVector<long, 4> nodesIdVec(4, -1);
-
-                const int matId = matIdsQuads[quad];
-                nodesIdVec[0] = elNodeFaceVecs[quad][node0];
-                nodesIdVec[1] = elNodeFaceVecs[quad][node1];
-                nodesIdVec[2] = elNodeFaceVecs[quad][node2];
-                nodesIdVec[3] = elNodeFaceVecs[quad][node3];
-                if(nodesIdVec[0] == -1 || nodesIdVec[1] == -1 || nodesIdVec[2] == -1 || nodesIdVec[3] == -1){
-                    DebugStop();
-                }
-                if((i == 0 && quadVec[quad]->isSide1nonLinear) ||
-                   (j == nDivQsi[quad] - 2 && quadVec[quad]->isSide2nonLinear) ||
-                   (i == nDivEta[quad] - 2 && quadVec[quad]->isSide3nonLinear) ||
-                   (j == 0 && quadVec[quad]->isSide4nonLinear)){
-                    TPZGeoElRefPattern< pzgeom::TPZGeoBlend<pzgeom::TPZGeoQuad> >  * quadEl =
-                            new TPZGeoElRefPattern< pzgeom::TPZGeoBlend<pzgeom::TPZGeoQuad> >  (nodesIdVec,matId,*gmesh);
-                    quadEl->SetRefPattern(refp);
-                }
-                else{
-                    TPZGeoElRefPattern< pzgeom::TPZGeoQuad >  * quadEl =
-                            new TPZGeoElRefPattern< pzgeom::TPZGeoQuad >  (nodesIdVec,matId,*gmesh);
-                    quadEl->SetRefPattern(refp);
-                }
-            }
-        }
-    }
-
-    for(int edge = 0; edge < nEdges ; edge ++) {
-        int quad = edgesVec[edge].quad1, side = edgesVec[edge].side1;
-        if(edgesVec[edge].amIboundaryEdge){//boundary edge
-            const int nArcs = side % 2 ? nDivQsi[quad] -1 : nDivEta[quad] - 1;
-            TPZVec<REAL> &pt1 = pointsVec[edgesVec[edge].coord1];
-            TPZVec<REAL> &pt2 = pointsVec[edgesVec[edge].coord2];
-            REAL tol = 1e-08;
-            int matId = -666;
-            if(std::abs(pt1[1]-pt2[1]) < tol){//horizontal edge
-                if(std::abs(pt1[1] - (bound+lengthPML)) < tol){
-                    matId = matIdBC;
-                }else{
-                    matId = matIdSymmetry;
-                }
-            }
-            else if(std::abs(pt1[0]-pt2[0]) < tol){//vertical edge
-                if(std::abs(pt1[0] - (bound+lengthPML)) < tol){
-                    matId = matIdBC;
-                }else{
-                    matId = matIdSymmetry;
-                }
-            }else{
-                DebugStop();
-            }
-            for (int i = 0; i < nArcs; i++) {
-                TPZManVector<long, 3> nodesIdVec(2, 0.);
-                const int vertex1 = sidePos(side,i,nDivQsi[quad],nDivEta[quad],false);
-                const int vertex2 = sidePos(side,i + 1,nDivQsi[quad],nDivEta[quad],false);
+    thetaVec[7][0] = 4 * M_PI/4;thetaVec[7][1] = 3 * M_PI/4;//quad10
+    thetaVec[8][0] = 1 * M_PI/4;thetaVec[8][1] = 0 * M_PI/4;//quad11
+    thetaVec[9][0] = 7 * M_PI/4;thetaVec[9][1] = 5 * M_PI/4;//quad13
+    thetaVec[10][0] = 3 * M_PI/4;thetaVec[10][1] = 1 * M_PI/4;//quad14
+    thetaVec[11][0] = 5 * M_PI/4;thetaVec[11][1] = 3 * M_PI/4;//quad16
+    thetaVec[12][0] = 9 * M_PI/4;thetaVec[12][1] = 7 * M_PI/4;//quad17
+    thetaVec[13][0] = 3 * M_PI/4;thetaVec[13][1] = 1 * M_PI/4;//quad20
 
 
-                nodesIdVec[0] = elNodeFaceVecs[quad][vertex1];
-                nodesIdVec[1] = elNodeFaceVecs[quad][vertex2];
-                if(nodesIdVec[0] == -1 || nodesIdVec[1] == -1){
-                    DebugStop();
-                }
+    TPZVec<TPZVec<REAL>*> xcRef(14,&xc1);
+    xcRef[4] = &xc2;
+    xcRef[5] = &xc2;
+    xcRef[6] = &xc2;
+    xcRef[7] = &xc2;
+    xcRef[8] = &xc2;
+    xcRef[10] = &xc2;
 
-                TPZGeoElRefPattern< pzgeom::TPZGeoLinear > *arc =
-                        new TPZGeoElRefPattern< pzgeom::TPZGeoLinear > (nodesIdVec,matId,*gmesh);
-            }
-            continue;
-        }
+    TPZVec<int> matIdBoundVec(4,-1);
+    matIdBoundVec[0] = matIdSymmetry;//low
+    matIdBoundVec[1] = matIdBC;//down
+    matIdBoundVec[2] = matIdBC;//up
+    matIdBoundVec[3] = matIdSymmetry;//left
 
-        TPZVec<long> *intPointsCoord = nullptr;
-        switch(side){
-            case 1:
-                if(quadVec[quad]->isSide1nonLinear == false) continue;
-                intPointsCoord = &(elNodeSide1Vecs[quad]);
-                break;
-            case 2:
-                if(quadVec[quad]->isSide2nonLinear == false) continue;
-                intPointsCoord = &(elNodeSide2Vecs[quad]);
-                break;
-            case 3:
-                if(quadVec[quad]->isSide3nonLinear == false) continue;
-                intPointsCoord = &(elNodeSide3Vecs[quad]);
-                break;
-            case 4:
-                if(quadVec[quad]->isSide4nonLinear == false) continue;
-                intPointsCoord = &(elNodeSide4Vecs[quad]);
-                break;
-        }
+    TPZVec<REAL> boundDistVec(4,-1);
+    boundDistVec[0] = 0.;//low
+    boundDistVec[1] = bound+lengthPML;//down
+    boundDistVec[2] = bound+lengthPML;//up
+    boundDistVec[3] = 0.;//left
 
-        const int nArcs = side % 2 ? nDivQsi[quad] -1 : nDivEta[quad] - 1;
-        //auto sidePos = [](const int side, const int &i, const int &nQsi, const int &nEta, const bool &reverse){
-        for (int i = 0; i < nArcs; i++) {
-            TPZManVector<long, 3> nodesIdVec(3, 0.);
-            const int vertex1 = sidePos(side,i,nDivQsi[quad],nDivEta[quad],false);
-            const int vertex2 = sidePos(side,i + 1,nDivQsi[quad],nDivEta[quad],false);
+    TPZVec<REAL> rVec(14,rCore);
 
+    gmesh = CreateStructuredMesh(pointsVec, edgesVec, quadPointsVec, matIdsQuads, nDivQsi,
+                         nDivEta, side1NonLinearVec, side2NonLinearVec, side3NonLinearVec, side4NonLinearVec,
+                         thetaVec, xcRef, matIdBoundVec, boundDistVec, rVec);
 
-            nodesIdVec[0] = elNodeFaceVecs[quad][vertex1];
-            nodesIdVec[1] = elNodeFaceVecs[quad][vertex2];
-            nodesIdVec[2] =(*intPointsCoord)[i];//mid-point
-            if(nodesIdVec[0] == -1 || nodesIdVec[1] == -1 || nodesIdVec[2] == -1){
-                DebugStop();
-            }
-            TPZGeoElRefPattern< pzgeom::TPZArc3D > *arc =
-                    new TPZGeoElRefPattern< pzgeom::TPZArc3D > (nodesIdVec,-24,*gmesh);//random material id
-        }
-    }
     matIdVec.Resize(7);
     matIdVec[0]=matIdHole;
     matIdVec[1]=matIdCladding;
