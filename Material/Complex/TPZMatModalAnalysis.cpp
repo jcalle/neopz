@@ -336,13 +336,22 @@ void TPZMatModalAnalysis::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL we
     switch ( bc.Type() )
     {
         case 0:
-            if(this->fAssembling == B || this->fAssembling == A){
+            if(this->fAssembling == A){
                 for(int i = 0 ; i<nshape ; i++)
                 {
                     for(int j=0;j<nshape;j++)
                     {
                         const STATE stiff = phiH1(i,0) * phiH1(j,0) * BIG ;
                         ek(firstH1+i,firstH1+j) += stiff*weight;
+                    }
+                }
+                nshape = nHCurlFunctions;
+                for(int i = 0 ; i<nshape ; i++)
+                {
+                    for(int j=0;j<nshape;j++)
+                    {
+                        const STATE stiff = phiHCurl(i,0) * phiHCurl(j,0) * BIG ;
+                        ek(firstHCurl+i,firstHCurl+j) += stiff*weight;
                     }
                 }
             }
