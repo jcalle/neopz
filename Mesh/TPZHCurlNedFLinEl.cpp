@@ -80,6 +80,7 @@ TPZHCurlNedFLinEl::~TPZHCurlNedFLinEl() {}
 
 TPZHCurlNedFLinEl *TPZHCurlNedFLinEl::Clone(TPZCompMesh &mesh) const {
     DebugStop();
+    return nullptr;
 }
 
 TPZHCurlNedFLinEl *
@@ -87,6 +88,7 @@ TPZHCurlNedFLinEl::ClonePatchEl(TPZCompMesh &mesh,
                                 std::map<long, long> &gl2lcConMap,
                                 std::map<long, long> &gl2lcElMap) const {
     DebugStop();
+    return nullptr;
 }
 
 int TPZHCurlNedFLinEl::Dimension() const { return TPZShapeLinear::Dimension; }
@@ -132,8 +134,49 @@ int TPZHCurlNedFLinEl::NConnectShapeF(int con, int order) const {
 
 void TPZHCurlNedFLinEl::SideShapeFunction(int side, TPZVec<REAL> &point,
                                           TPZFMatrix<REAL> &phi,
-                                          TPZFMatrix<REAL> &curlPhiHat) {
-    DebugStop();
+                                          TPZFMatrix<REAL> &curlPhi) {
+    int nc = TPZShapeLinear::NContainedSides(side);
+    int nn = TPZShapeLinear::NSideNodes(side);
+    nc -= nn;//nedelec elements of the 1st kind dont have
+    // connects associated to sides with dim == 0
+    TPZManVector<long,27> id(nn);
+    TPZManVector<int,27> order(nc);
+    TPZManVector<int,27> nShapeF(nc);
+    int n,c;
+    TPZGeoEl *ref = Reference();
+    for (n=0;n<nn;n++){
+        int nodloc = TPZShapeLinear::SideNodeLocId(side,n);
+        id [n] = ref->NodePtr(nodloc)->Id();
+    }
+    for (c=0;c<nc;c++){
+        int conloc = SideConnectLocId(c,side);
+        order[c] = Connect(conloc).Order();
+        nShapeF[c] = NConnectShapeF(conloc, order[c]);
+    }
+    //calculate jacobian for Piola mapping
+    TPZGeoElSide gelside = TPZGeoElSide(this->Reference(),side);
+    int dim = this->Reference()->SideDimension(side);
+    TPZFNMatrix<9,REAL> jac(dim,dim),jacinv(dim,dim),axes(dim,3);
+    REAL detjac;
+    gelside.Jacobian(point, jac, axes, detjac, jacinv);
+    TPZFMatrix<REAL> phiHat(phi);
+    TPZFMatrix<REAL> curlPhiHat(curlPhi);
+    TPZHCurlNedFLinEl::CalcShape(point,phiHat,curlPhiHat,order,nShapeF);
+    const int firstSide = TPZShapeLinear::NSides - TPZShapeLinear::NFaces - 1;
+    int iPhi = 0;
+    for (int iCon = 0; iCon < order.size(); iCon++) {
+        const int sideIt =
+                iCon + TPZShapeLinear::NSides -
+                TPZShapeLinear::NumSides(TPZShapeLinear::Dimension - 1) - 1;
+        const int orient =
+                sideIt == firstSide + 3 ? 1 : fSideOrient;
+        const int nShapeConnect = nShapeF[iCon];
+        for (int iPhiAux = 0; iPhiAux < nShapeConnect; iPhiAux++) {
+            const int funcOrient = (iPhiAux % 2)*orient + ((iPhiAux+1) % 2)*1;
+            phi(iPhi, 0) = funcOrient * jacinv.GetVal(0, 0) * phiHat.GetVal(iPhi, 0);
+            iPhi++;
+        }
+    }
 }
 
 void TPZHCurlNedFLinEl::SetIntegrationRule(int ord) {
@@ -236,6 +279,7 @@ void TPZHCurlNedFLinEl::SetSideOrder(int side, int order) {
 
 TPZTransform<> TPZHCurlNedFLinEl::TransformSideToElement(int side) {
     DebugStop();
+    return TPZTransform<>(2);//silence warning only
 }
 
 void TPZHCurlNedFLinEl::Shape(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi,

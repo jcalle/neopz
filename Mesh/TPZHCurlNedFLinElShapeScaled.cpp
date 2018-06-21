@@ -30,21 +30,21 @@ void TPZHCurlNedFLinEl::CalcShape(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi,
                              // elements for now.
     const int pOrder = order[0];
     int currentFuncPos = lastFuncPos;
-
+    const REAL x = (1. + qsi[0])/2;
     switch (pOrder) {
     case 5:
-        phi(currentFuncPos, 0) = 1 - 20 * qsi[0] + 90 * pow(qsi[0], 2) -
-                                 140 * pow(qsi[0], 3) + 70 * pow(qsi[0], 4);
+        phi(currentFuncPos, 0) = 1 - 20 * x + 90 * pow(x, 2) -
+                                 140 * pow(x, 3) + 70 * pow(x, 4);
         currentFuncPos--;
     case 4:
         phi(currentFuncPos, 0) =
-            -1 + 12 * qsi[0] - 30 * pow(qsi[0], 2) + 20 * pow(qsi[0], 3);
+            -1 + 12 * x - 30 * pow(x, 2) + 20 * pow(x, 3);
         currentFuncPos--;
     case 3:
-        phi(currentFuncPos, 0) = 1 - 6 * qsi[0] + 6 * pow(qsi[0], 2);
+        phi(currentFuncPos, 0) = 1 - 6 * x + 6 * pow(x, 2);
         currentFuncPos--;
     case 2:
-        phi(currentFuncPos, 0) = -1 + 2 * qsi[0];
+        phi(currentFuncPos, 0) = -1 + 2 * x;
         currentFuncPos--;
     case 1:
         phi(currentFuncPos, 0) = 1;

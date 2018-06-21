@@ -76,6 +76,7 @@ TPZHCurlNedFTriEl::~TPZHCurlNedFTriEl() {}
 TPZHCurlNedFTriEl *TPZHCurlNedFTriEl::Clone(TPZCompMesh &mesh) const {
 	std::cout << __PRETTY_FUNCTION__ << " Please implement me!"<<std::endl;
 	DebugStop();
+	return nullptr;
 }
 
 TPZHCurlNedFTriEl *
@@ -84,6 +85,7 @@ TPZHCurlNedFTriEl::ClonePatchEl(TPZCompMesh &mesh,
                                 std::map<long, long> &gl2lcElMap) const {
 	std::cout << __PRETTY_FUNCTION__ << " Please implement me!"<<std::endl;
     DebugStop();
+    return nullptr;
 }
 
 int TPZHCurlNedFTriEl::Dimension() const{ return TPZShapeTriang::Dimension; }
@@ -201,38 +203,16 @@ void TPZHCurlNedFTriEl::SideShapeFunction(int side, TPZVec<REAL> &point,
     gelside.Jacobian(point, jac, axes, detjac, jacinv);
     TPZFMatrix<REAL> phiHat(phi);
     TPZFMatrix<REAL> curlPhiHat(curlPhi);
-    if(side<3 || side>6) PZError << "TPZHCurlNedFTriEl::SideShape. Bad paramenter side.\n";
-    else if(side==6) {
-        TPZHCurlNedFTriEl::CalcShape(point,phiHat,curlPhiHat,order,nShapeF);
-        const int firstSide = TPZShapeTriang::NSides - TPZShapeTriang::NFaces - 1;
-        int iPhi = 0;
-        for (int iCon = 0; iCon < order.size(); iCon++) {
-            const int sideIt =
-                iCon + TPZShapeTriang::NSides -
-                TPZShapeTriang::NumSides(TPZShapeTriang::Dimension - 1) - 1;
-            const int orient =
-                sideIt == firstSide + 3 ? 1 : fSideOrient[sideIt - firstSide];
-            const int nShapeConnect = nShapeF[iCon];
-            for (int iPhiAux = 0; iPhiAux < nShapeConnect; iPhiAux++) {
-                const int funcOrient = (iPhiAux % 2)*1 + ((iPhiAux+1) % 2)*orient;
-                phi(iPhi, 0) = funcOrient *( jacinv.GetVal(0, 0) * phiHat.GetVal(iPhi, 0) +
-                                             jacinv.GetVal(1, 0) * phiHat.GetVal(iPhi, 1));
-                phi(iPhi, 1) = funcOrient *( jacinv.GetVal(0, 1) * phiHat.GetVal(iPhi, 0) +
-                                             jacinv.GetVal(1, 1) * phiHat.GetVal(iPhi, 1));
-                curlPhi(0, iPhi) = funcOrient * curlPhiHat.GetVal(0, iPhi) / detjac;
-                iPhi++;
-            }
-        }
+    if(side<3 || side>5) PZError << "TPZHCurlNedFTriEl::SideShape. Bad parameter side.\n";
+
+    TPZHCurlNedFLinEl::CalcShape(point,phiHat,curlPhiHat,order,nShapeF);
+    const int firstSide = TPZShapeTriang::NSides - TPZShapeTriang::NFaces - 1;
+    const int sideOrient = fSideOrient[side - firstSide];
+    for (int iPhi = 0; iPhi < phi.Rows(); iPhi++) {
+        const int funcOrient = (iPhi % 2)*sideOrient + ((iPhi+1) % 2)*1;
+        phi(iPhi, 0) = funcOrient * jacinv.GetVal(0, 0) * phiHat.GetVal(iPhi, 0);
     }
-    else {
-        TPZHCurlNedFLinEl::CalcShape(point,phiHat,curlPhiHat,order,nShapeF);
-        const int firstSide = TPZShapeTriang::NSides - TPZShapeTriang::NFaces - 1;
-        const int sideOrient = fSideOrient[side - firstSide];
-        for (int iPhi = 0; iPhi < phi.Rows(); iPhi++) {
-            const int funcOrient = (iPhi % 2)*1 + ((iPhi+1) % 2)*sideOrient;
-            phi(iPhi, 0) = funcOrient * jacinv.GetVal(0, 0) * phiHat.GetVal(iPhi, 0);
-        }
-    }
+
 }
 
 void TPZHCurlNedFTriEl::SetIntegrationRule(int ord) {
@@ -360,6 +340,7 @@ void TPZHCurlNedFTriEl::SetSideOrder(int side, int order) {
 TPZTransform<> TPZHCurlNedFTriEl::TransformSideToElement(int side) {
 	std::cout << __PRETTY_FUNCTION__ << " Please implement me!"<<std::endl;
     DebugStop();
+    return TPZTransform<>(1);//silences warning only
 }
 
 void TPZHCurlNedFTriEl::ComputeShape(TPZVec<REAL> &intpoint, TPZVec<REAL> &X,
