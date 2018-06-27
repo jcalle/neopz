@@ -82,7 +82,7 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
 void
 ReadGMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec, const std::string &prefix, const bool &print, const REAL &scale = 1.);
 
-void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrder, TPZVec<int> &matIdVec,
+void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrder, const TPZVec<int> &matIdVec,
                  TPZVec<STATE> &urVec, TPZVec<STATE> &erVec, REAL f0, bool isCutOff, const std::string &prefix,
                  const bool &print, const REAL &scale, const REAL &alphaMax,
                  TPZVec<SPZModalAnalysisData::boundtype> &boundTypeVec,
@@ -339,7 +339,6 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
     solver.SetKrylovOptions(simData.solverOpts.eps_krylov_locking,simData.solverOpts.eps_krylov_restart);
     solver.SetEPSDimensions(simData.solverOpts.eps_nev, simData.solverOpts.eps_ncv, simData.solverOpts.eps_mpd);
     solver.SetVerbose(simData.solverOpts.eps_verbose);
-    solver.SetAbsoluteValue(simData.pzOpts.absVal);
     an.SetSolver(solver);
 
     if(simData.pzOpts.exportGMesh){
@@ -437,10 +436,16 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
         TPZFMatrix<SPZAlwaysComplex<STATE>::type> currentEigenvector(neq,1);
         TPZFMatrix<SPZAlwaysComplex<STATE>::type> scatteredEigen(neqOriginal,1);
         for (int iSol = 0; iSol < eigenValues.size(); iSol++) {
+            const STATE currentKz = eigenValues[iSol];
             for(int j = 0; j < eigenVectors.Rows(); j++){
-                currentEigenvector(j,0) = simData.pzOpts.absVal ?
-                                          std::abs(eigenVectors.GetVal(j,iSol)) :
-                                          std::real(eigenVectors.GetVal(j,iSol));
+                currentEigenvector(j,0) = eigenVectors.GetVal(j,iSol);
+            }
+            for(int iMat = 0; iMat < matIdVec.size(); iMat++){
+                TPZMatModalAnalysis *matPointer =
+                        dynamic_cast<TPZMatModalAnalysis *>(cmesh->FindMaterial(matIdVec[iMat]));
+                if(!matPointer) continue;
+                matPointer->SetKz(currentKz);
+                matPointer->SetPrintFieldRealPart(!simData.pzOpts.absVal);
             }
             strmtrx->EquationFilter().Scatter(currentEigenvector, scatteredEigen);
             an.LoadSolution(scatteredEigen);
@@ -1819,7 +1824,7 @@ ReadGMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdV
     return;
 }
 
-void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrder, TPZVec<int> &matIdVec,
+void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrder, const TPZVec<int> &matIdVec,
                  TPZVec<STATE> &urVec, TPZVec<STATE> &erVec, REAL f0, bool isCutOff, const std::string &prefix,
                  const bool &print, const REAL &scale, const REAL &alphaMax,
                  TPZVec<SPZModalAnalysisData::boundtype> &boundTypeVec,

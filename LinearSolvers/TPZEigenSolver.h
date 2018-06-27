@@ -81,16 +81,7 @@ public:
 
   virtual void SetAsGeneralised(bool isGeneralised);
 
-  bool IsAbsoluteValue() const;
-
-  virtual void SetAbsoluteValue(bool isAbsoluteValue);
-
 protected:
-  /**
-   * @brief Whether to display the absolute value(true) or the real part
-   * of the eigenvectors over the computational mesh
-   */
-  bool fShowAbsoluteValue;
   /** @brief Whether to solve the eigenvalue problem
    *   is generalised (Ax=uBx) or not (Ax=ux)*/
   bool fIsGeneralised;

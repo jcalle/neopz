@@ -31,12 +31,21 @@ protected:
     const STATE fEr;
     const REAL fScaleFactor;
     REAL fLambda;
+    STATE kz;
+    bool fPrintFieldRealPart;
     const int h1meshindex = 1;
     const int hcurlmeshindex = 0;
     bool isTesting;
     
 public:
-    
+    bool IsPrintFieldRealPart() const;
+
+    void SetPrintFieldRealPart(bool printFieldRealPart);
+
+    const STATE &GetKz() const;
+
+    void SetKz(const STATE &kz);
+
     TPZMatModalAnalysis(int id, REAL lambda, const STATE &ur, const STATE &er, const REAL &scale = 1.);
     
     TPZMatModalAnalysis(int id);

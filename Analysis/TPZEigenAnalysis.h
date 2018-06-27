@@ -38,8 +38,8 @@ public:
     TPZManVector<SPZAlwaysComplex<STATE>::type> GetEigenvalues() const;
 protected:
     template<class TVar>
-    void TransferEigenVector(const TPZFMatrix<typename SPZAlwaysComplex<TVar>::type> &matrix, TPZFMatrix<TVar> &tpzfMatrix,
-                             const unsigned int &i, const bool isAbsVal);
+    void TransferEigenVector(const TPZFMatrix<typename SPZAlwaysComplex<TVar>::type> &matrix,
+                                 TPZFMatrix<TVar> &tpzfMatrix, const unsigned int &i);
     /**
      * @brief Pointer to the Eigen solver
      */

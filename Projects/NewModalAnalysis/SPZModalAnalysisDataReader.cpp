@@ -390,15 +390,15 @@ void SPZModalAnalysisDataReader::ReadParameters(SPZModalAnalysisData &data) {
       auto val = prm.get("Which NeoPZ mesh");
         if(val == "Step Fiber"){
           data.pzOpts.pzCase = SPZModalAnalysisData::StepFiber;
-          data.pzOpts.meshFile = path + "stepFiberPzMesh";
+          data.pzOpts.meshFile = "stepFiberPzMesh";
         }
         else if(val == "Rectangular Waveguide"){
           data.pzOpts.pzCase = SPZModalAnalysisData::RectangularWG;
-          data.pzOpts.meshFile = path + "rectangularWGPzMesh";
+          data.pzOpts.meshFile = "rectangularWGPzMesh";
         }
         else if(val == "Holey Fiber"){
             data.pzOpts.pzCase = SPZModalAnalysisData::HoleyFiber;
-            data.pzOpts.meshFile = path + "holeyFiberPzMesh";
+            data.pzOpts.meshFile = "holeyFiberPzMesh";
         } else{
             DebugStop();
         }
@@ -526,8 +526,8 @@ void SPZModalAnalysisDataReader::ReadParameters(SPZModalAnalysisData &data) {
     if(data.pzOpts.usingNeoPzMesh == false){
         prm.enter_subsection("GMSH Mesh Options");
         {
-            data.pzOpts.meshFile = path + prm.get("Mesh file");//anything
-            std::string &str = data.pzOpts.meshFile;
+            data.pzOpts.meshFile = prm.get("Mesh file");//anything
+            std::string str = path + data.pzOpts.meshFile;
             data.pzOpts.externGenMesh = false;
             while(str.size() == 0 || str.substr(str.size()-4,4) != ".geo" || !FileExists(str)){
                 if(str.substr(str.size()-4,4) == ".msh"){
@@ -538,6 +538,7 @@ void SPZModalAnalysisDataReader::ReadParameters(SPZModalAnalysisData &data) {
                 }
                 std::cout<<"Input a valid mesh file: "<<std::endl;
                 std::cin >> data.pzOpts.meshFile;
+                str = path + data.pzOpts.meshFile;
                 if(str.size() == 0 || str.substr(str.size()-4,4) != ".geo" || !FileExists(str)){
                     if(str.substr(str.size()-4,4) == ".msh"){
                         if(FileExists(str)){
@@ -625,8 +626,8 @@ void SPZModalAnalysisDataReader::ReadParameters(SPZModalAnalysisData &data) {
       data.pzOpts.exportCMesh = prm.get_bool("Export compmesh");//bool
       data.pzOpts.exportGMesh = prm.get_bool("Export geomesh");//bool
       data.pzOpts.exportEigen = prm.get_bool("Export eigenvalues");//bool
-      data.pzOpts.prefix = data.pzOpts.meshFile.substr(0, data.pzOpts.meshFile.size() - 4);
-      data.pzOpts.prefix += prm.get("Prefix");//anything
+      data.pzOpts.prefix = path + prm.get("Prefix");//anything
+      data.pzOpts.prefix += data.pzOpts.meshFile.substr(0, data.pzOpts.meshFile.size() - 4);
       data.pzOpts.genVTK = prm.get_bool("VTK");//bool
       data.pzOpts.vtkRes = prm.get_integer("VTK resolution");//integer
       data.pzOpts.absVal = prm.get("VTK Abs|Re") == "Abs" ? true : false;//selection

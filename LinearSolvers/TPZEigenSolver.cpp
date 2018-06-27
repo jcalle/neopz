@@ -8,13 +8,12 @@
 #include "pzysmp.h"
 
 template<typename TVar>
-TPZEigenSolver<TVar>::TPZEigenSolver() : fIsGeneralised(false), fShowAbsoluteValue(false){
+TPZEigenSolver<TVar>::TPZEigenSolver() : fIsGeneralised(false){
 }
 
 template<typename TVar>
 TPZEigenSolver<TVar>::TPZEigenSolver(const TPZEigenSolver &copy) {
   fIsGeneralised = copy.fIsGeneralised;
-  fShowAbsoluteValue = copy.fShowAbsoluteValue;
   fEigenvalues = copy.fEigenvalues;
   fEigenvectors = copy.fEigenvectors;
   fMatrixA = copy.fMatrixA;
@@ -80,16 +79,6 @@ void TPZEigenSolver<TVar>::SetAsGeneralised(bool isGeneralised) {
 template<typename TVar>
 bool TPZEigenSolver<TVar>::IsGeneralised() const {
   return fIsGeneralised;
-}
-
-template<typename TVar>
-void TPZEigenSolver<TVar>::SetAbsoluteValue(bool isAbsoluteValue){
-  fShowAbsoluteValue = isAbsoluteValue;
-}
-
-template<typename TVar>
-bool TPZEigenSolver<TVar>::IsAbsoluteValue() const{
-  return fShowAbsoluteValue;
 }
 
 template class TPZEigenSolver< std::complex<float> >;

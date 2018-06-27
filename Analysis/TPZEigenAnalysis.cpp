@@ -78,9 +78,9 @@ void TPZEigenAnalysis::Assemble()
 
 template <class TVar>
 void TPZEigenAnalysis::TransferEigenVector(const TPZFMatrix<typename SPZAlwaysComplex<TVar>::type> &originalSol,
-                                           TPZFMatrix<TVar> &newSol, const unsigned int &i, const bool isAbsVal) {
+                                           TPZFMatrix<TVar> &newSol, const unsigned int &i) {
   for (int j = 0; j < originalSol.Rows(); ++j) {
-    newSol(j,0) = isAbsVal ? std::abs(originalSol.GetVal(j,i)) : std::real(originalSol.GetVal(j,i));
+    newSol(j,0) = originalSol.GetVal(j,i);
   }
 }
 
@@ -110,19 +110,17 @@ void TPZEigenAnalysis::Solve() {
         fEigenvectors.Redim(numeq,1);
         fSolver->Solve(fEigenvalues, fEigenvectors);
         for (int i = 0; i < fEigenvalues.size(); ++i) {
-            TransferEigenVector(fEigenvectors,fSolution,i, fSolver->IsAbsoluteValue());
+            TransferEigenVector(fEigenvectors, fSolution, i);
         }
     }
     else
     {
         fEigenvalues.Resize(nReducedEq);
         fEigenvectors.Redim(nReducedEq,1);
-        //@TODO:THINK ABOUT EQUATION FILTER
-        //fStructMatrix->EquationFilter().Gather(delu,fSolution);
         fSolver->Solve(fEigenvalues, fEigenvectors);
         TPZFMatrix<STATE> sol(nReducedEq,1);
         for (int i = 0; i < fEigenvalues.size(); ++i) {
-            TransferEigenVector(fEigenvectors,sol,i, fSolver->IsAbsoluteValue());
+            TransferEigenVector(fEigenvectors, sol, i);
         }
         fStructMatrix->EquationFilter().Scatter(sol,fSolution);
     }

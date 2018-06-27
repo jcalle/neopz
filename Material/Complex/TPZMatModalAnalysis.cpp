@@ -15,6 +15,7 @@ TPZMatModalAnalysis::TPZMatModalAnalysis(int id, REAL lambda, const STATE &ur, c
                                         const REAL &scale) :
 TPZVecL2(id), fUr(ur), fEr(er), fScaleFactor(scale)
 {
+    kz = -1;
     isTesting = false;
     fAssembling = NDefined;
     fLambda = lambda;
@@ -23,6 +24,7 @@ TPZVecL2(id), fUr(ur), fEr(er), fScaleFactor(scale)
 TPZMatModalAnalysis::TPZMatModalAnalysis(int id) : TPZVecL2(id), fUr(1.0),
 fEr(1.0) , fScaleFactor(1.)
 {
+    kz = -1;
     isTesting = false;
     fAssembling = NDefined;
     fLambda = 1.55e-9;
@@ -32,6 +34,7 @@ fEr(1.0) , fScaleFactor(1.)
 TPZMatModalAnalysis::TPZMatModalAnalysis() : TPZVecL2(), fUr(1.0),
 fEr(1.0) , fScaleFactor(1.)
 {
+    kz = -1;
     isTesting = false;
     fAssembling = NDefined;
     fLambda=1.55e-9;
@@ -41,6 +44,7 @@ fEr(1.0) , fScaleFactor(1.)
 TPZMatModalAnalysis::TPZMatModalAnalysis(const TPZMatModalAnalysis &mat) : TPZVecL2(mat), fUr(mat.fUr),
 fEr(mat.fEr), fScaleFactor(mat.fScaleFactor)
 {
+    kz = mat.kz;
     isTesting = false;
     fAssembling = NDefined;
     fLambda = mat.fLambda;
@@ -424,6 +428,15 @@ void TPZMatModalAnalysis::Solution(TPZVec<TPZMaterialData> &datavec, int var, TP
 	
 	et = datavec[ hcurlmeshindex ].sol[0];
     ez = datavec[ h1meshindex ].sol[0];
+
+    for (int i = 0; i < et.size(); ++i) {
+        et[i] /= kz;
+        et[i] = fPrintFieldRealPart ? std::real(et[i]) : std::abs(et[i]);
+    }
+    for (int i = 0; i < ez.size(); ++i) {
+        ez[i] *= imaginary;
+        ez[i] = fPrintFieldRealPart ? std::real(ez[i]) : std::abs(ez[i]);
+    }
     switch (var) {
         case 0:{//et
             Solout = et;
@@ -456,6 +469,22 @@ int TPZMatModalAnalysis::IntegrationRuleOrder(TPZVec<int> &elPMaxOrder) const
     const int integrationorder = 2*pmax;
 
     return  integrationorder;
+}
+
+const STATE &TPZMatModalAnalysis::GetKz() const {
+    return kz;
+}
+
+void TPZMatModalAnalysis::SetKz(const STATE &kz) {
+    TPZMatModalAnalysis::kz = kz;
+}
+
+bool TPZMatModalAnalysis::IsPrintFieldRealPart() const {
+    return fPrintFieldRealPart;
+}
+
+void TPZMatModalAnalysis::SetPrintFieldRealPart(bool printFieldRealPart) {
+    TPZMatModalAnalysis::fPrintFieldRealPart = printFieldRealPart;
 }
 
 
