@@ -78,10 +78,6 @@ int TPZSlepcEPSHandler<TVar>::SolveGeneralisedEigenProblem(TPZMatrix<TVar> &A, T
 *******************/
 template<class TVar>
 int TPZSlepcEPSHandler<TVar>::SolveGeneralisedEigenProblem(TPZFYsmpMatrix<TVar> &A, TPZFYsmpMatrix< TVar > &B , TPZVec < typename SPZAlwaysComplex<TVar>::type > &w, TPZFMatrix < typename SPZAlwaysComplex<TVar>::type > &eigenVectors){
-  /*****************************
-   *  INITIALIZE STRUCTURES
-   *****************************/
-  SlepcInitialize((int *)0, (char ***)0, (const char*)0,(const char*)0 );
 
 
   /*****************************

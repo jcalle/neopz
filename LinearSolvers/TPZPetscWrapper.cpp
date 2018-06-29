@@ -12,6 +12,7 @@
 TPZPetscWrapper::TPZPetscWrapper() {
   static bool firstTimeHere = true;
   if(firstTimeHere){
+    firstTimeHere = false;
     #ifdef USING_SLEPC
     SlepcInitialize((int *)0, (char ***)0, (const char*)0,(const char*)0 );
     #else
