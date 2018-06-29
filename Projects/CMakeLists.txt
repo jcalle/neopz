@@ -110,6 +110,7 @@ ENABLE_TESTING()
 			add_subdirectory(ModalAnalysis)
 			endif()
 			if(USING_BOOST)#ParameterHandler class needs boost
+				add_subdirectory(AcousticsFourierAnalysis)
 				if(USING_SLEPC)
 					add_subdirectory(NewModalAnalysis)
 				endif()
