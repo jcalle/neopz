@@ -526,8 +526,8 @@ void SPZModalAnalysisDataReader::ReadParameters(SPZModalAnalysisData &data) {
     if(data.pzOpts.usingNeoPzMesh == false){
         prm.enter_subsection("GMSH Mesh Options");
         {
-            data.pzOpts.meshFile = prm.get("Mesh file");//anything
-            std::string str = path + data.pzOpts.meshFile;
+            data.pzOpts.meshFile = path + prm.get("Mesh file");//anything
+            std::string str = data.pzOpts.meshFile;
             data.pzOpts.externGenMesh = false;
             while(str.size() == 0 || str.substr(str.size()-4,4) != ".geo" || !FileExists(str)){
                 if(str.substr(str.size()-4,4) == ".msh"){
