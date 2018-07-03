@@ -893,7 +893,7 @@ CreateStepFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<in
                     TPZVec<SPZModalAnalysisData::boundtype> &boundTypeVec,
                     TPZVec<SPZModalAnalysisData::pmltype> &pmlTypeVec, const REAL &realRCore, const REAL &dPML,
                     const REAL &boundDist, const REAL &outerReffIndex, const int &nLayersPml) {
-    const int nDivTCore = factor * 4, nDivRCore = factor * 7, nDivTCladding = factor * 4, nDivPml = factor * nLayersPml + 1;
+    const int nDivTCore = factor * 2, nDivRCore = factor * 5, nDivTCladding = factor * 4, nDivPml = factor * nLayersPml + 1;
 
     if(std::min<int>({nDivTCore,nDivRCore,nDivTCladding,nDivPml}) < 2 ) {
         std::cout<<"Mesh has not sufficient divisions."<<std::endl;
@@ -927,10 +927,10 @@ CreateStepFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<in
     TPZManVector<TPZVec<REAL>,33> pointsVec(nPoints,TPZVec<REAL>(2,0.));
     TPZManVector<EdgeData,33> edgesVec(0,EdgeData());
     //hole 1
-    pointsVec[0][0]= xc[0] + 0.5 * std::cos(M_PI_4)*rCore; pointsVec[0][1]= xc[1] + 0.5 * std::sin(M_PI_4)*rCore;
-    pointsVec[1][0]= xc[0] - 0.5 * std::cos(M_PI_4)*rCore; pointsVec[1][1]= xc[1] + 0.5 * std::sin(M_PI_4)*rCore;
-    pointsVec[2][0]= xc[0] - 0.5 * std::cos(M_PI_4)*rCore; pointsVec[2][1]= xc[1] - 0.5 * std::sin(M_PI_4)*rCore;
-    pointsVec[3][0]= xc[0] + 0.5 * std::cos(M_PI_4)*rCore; pointsVec[3][1]= xc[1] - 0.5 * std::sin(M_PI_4)*rCore;
+    pointsVec[0][0]= xc[0] + M_SQRT1_2 * std::cos(M_PI_4)*rCore; pointsVec[0][1]= xc[1] + M_SQRT1_2 * std::sin(M_PI_4)*rCore;
+    pointsVec[1][0]= xc[0] - M_SQRT1_2 * std::cos(M_PI_4)*rCore; pointsVec[1][1]= xc[1] + M_SQRT1_2 * std::sin(M_PI_4)*rCore;
+    pointsVec[2][0]= xc[0] - M_SQRT1_2 * std::cos(M_PI_4)*rCore; pointsVec[2][1]= xc[1] - M_SQRT1_2 * std::sin(M_PI_4)*rCore;
+    pointsVec[3][0]= xc[0] + M_SQRT1_2 * std::cos(M_PI_4)*rCore; pointsVec[3][1]= xc[1] - M_SQRT1_2 * std::sin(M_PI_4)*rCore;
 
     pointsVec[4][0]= xc[0] + std::cos(M_PI_4)*rCore; pointsVec[4][1]= xc[1] + std::sin(M_PI_4)*rCore;
     pointsVec[5][0]= xc[0] - std::cos(M_PI_4)*rCore; pointsVec[5][1]= xc[1] + std::sin(M_PI_4)*rCore;
@@ -1107,15 +1107,11 @@ CreateStepFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<in
     if(print){
         std::string meshFileName = prefix + "gmesh";
         const size_t strlen = meshFileName.length();
-        meshFileName.append(".vtk");
-        std::ofstream outVTK(meshFileName.c_str());
         meshFileName.replace(strlen, 4, ".txt");
         std::ofstream outTXT(meshFileName.c_str());
 
-        //TPZVTKGeoMesh::PrintGMeshVTK(gmesh, outVTK, true);
         gmesh->Print(outTXT);
         outTXT.close();
-        outVTK.close();
     }
 
     return;
