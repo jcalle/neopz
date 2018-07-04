@@ -627,7 +627,10 @@ void SPZModalAnalysisDataReader::ReadParameters(SPZModalAnalysisData &data) {
       data.pzOpts.exportGMesh = prm.get_bool("Export geomesh");//bool
       data.pzOpts.exportEigen = prm.get_bool("Export eigenvalues");//bool
       data.pzOpts.prefix = path + prm.get("Prefix");//anything
-      data.pzOpts.prefix += data.pzOpts.meshFile.substr(0, data.pzOpts.meshFile.size() - 4);
+      std::size_t found = data.pzOpts.meshFile.find_last_of("/\\");
+      std::size_t startPos = found ? found +1 : 0;
+      std::size_t meshNameLength = data.pzOpts.meshFile.size() - 4 - startPos;
+      data.pzOpts.prefix += data.pzOpts.meshFile.substr(startPos, meshNameLength);
       data.pzOpts.genVTK = prm.get_bool("VTK");//bool
       data.pzOpts.vtkRes = prm.get_integer("VTK resolution");//integer
       data.pzOpts.absVal = prm.get("VTK Abs|Re") == "Abs" ? true : false;//selection
