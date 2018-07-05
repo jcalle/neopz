@@ -24,6 +24,11 @@ TPZHCurlNedFTriEl::TPZHCurlNedFTriEl(TPZCompMesh &mesh, TPZGeoEl *geoEl,
       fSideOrient(TPZShapeTriang::NFaces, 1) {
     geoEl->SetReference(this);
 
+    const int firstside = TPZShapeTriang::NSides - TPZShapeTriang::NFaces - 1;
+    for (int side = firstside; side < TPZShapeTriang::NSides - 1; side++) {
+        fSideOrient[side - firstside] =
+                this->Reference()->NormalOrientation(side);
+    }
     TPZStack<int> facesides;
 
     TPZShapeTriang::LowerDimensionSides(TPZShapeTriang::NSides - 1, facesides,
@@ -38,12 +43,6 @@ TPZHCurlNedFTriEl::TPZHCurlNedFTriEl(TPZCompMesh &mesh, TPZGeoEl *geoEl,
     }
 
     AdjustIntegrationRule();
-
-    const int firstside = TPZShapeTriang::NSides - TPZShapeTriang::NFaces - 1;
-    for (int side = firstside; side < TPZShapeTriang::NSides - 1; side++) {
-        fSideOrient[side - firstside] =
-            this->Reference()->NormalOrientation(side);
-    }
 }
 
 TPZHCurlNedFTriEl::TPZHCurlNedFTriEl(TPZCompMesh &mesh,
@@ -207,9 +206,11 @@ void TPZHCurlNedFTriEl::SideShapeFunction(int side, TPZVec<REAL> &point,
 
     TPZHCurlNedFLinEl::CalcShape(point,phiHat,curlPhiHat,order,nShapeF);
     const int firstSide = TPZShapeTriang::NSides - TPZShapeTriang::NFaces - 1;
-    const int sideOrient = fSideOrient[side - firstSide];
+    const int orient =
+            side == firstSide + 3 ? 1 : fSideOrient[side - firstSide];
+    //const int funcOrient = (iPhiAux % 2)*1 + ((iPhiAux+1) % 2)*orient;
     for (int iPhi = 0; iPhi < phi.Rows(); iPhi++) {
-        const int funcOrient = (iPhi % 2)*sideOrient + ((iPhi+1) % 2)*1;
+        const int funcOrient = (iPhi % 2)*orient + ((iPhi+1) % 2)*1;
         phi(iPhi, 0) = funcOrient * jacinv.GetVal(0, 0) * phiHat.GetVal(iPhi, 0);
     }
 
