@@ -456,6 +456,10 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
     }
     gmesh->SetReference(nullptr);
     for (int k = 0; k < meshVec.size(); ++k) {
+        for(int icon = 0; icon < meshVec[k]->NConnects(); icon++){
+            TPZConnect &con = meshVec[k]->ConnectVec()[icon];
+            con.RemoveDepend();
+        }
         meshVec[k]->SetReference(nullptr);
         delete meshVec[k];
         meshVec[k] = nullptr;
@@ -841,7 +845,24 @@ void CreateGMeshRectangularWaveguide(TPZGeoMesh *&gmesh, const std::string mshFi
     gengrid->SetBC(gmesh, llCoord, lrCoord, bc0);
 
     gmesh->BuildConnectivity();
-
+    bool refine = true;
+    if(refine){
+        const REAL margin = 0.2 * wDomain * scale;
+        TPZVec<REAL> qsiPos(2,0.25);
+        TPZVec<REAL> xPos;
+        TPZVec<TPZGeoEl *>sons;
+        int nel = gmesh->NElements();
+        for(int iel =0 ; iel< nel; iel++){
+            TPZGeoEl *geo = gmesh->Element(iel);
+            geo->X(qsiPos,xPos);
+            if(std::abs(xPos[0]-wDomain*scale/2) < margin){
+                if(!geo->Father()){
+                    geo->Divide(sons);
+                    nel = gmesh->NElements();
+                }
+            }
+        }
+    }
     if(usingSymmetry && symmetryType == SPZModalAnalysisData::PMC){
         matIdVec.Resize(3);
     }else{
