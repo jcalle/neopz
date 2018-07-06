@@ -32,6 +32,7 @@
 #include "pzl2projection.h"
 #include "pzfstrmatrix.h"
 #include "pzbuildmultiphysicsmesh.h"
+#include "tpzgeoelrefpattern.h"
 #include "boost/date_time/posix_time/posix_time.hpp"
 #ifdef USING_SLEPC
 #include <TPZSlepcEPSHandler.h>
@@ -58,7 +59,8 @@ TPZGeoMesh* CreateStructuredMesh(const TPZVec<TPZVec<REAL>> &pointsVec, TPZVec<E
                                  const TPZVec<bool> &side1NonLinearVec, const TPZVec<bool> &side2NonLinearVec,
                                  const TPZVec<bool> &side3NonLinearVec, const TPZVec<bool> &side4NonLinearVec,
                                  const TPZVec<TPZVec<REAL>> &thetaVec, const TPZVec<TPZVec<REAL> *> &xcRef,
-                                 const TPZVec<int> &matIdBoundVec, const TPZVec<REAL> &boundDistVec, const TPZVec<REAL> &rVec);
+                                 const TPZVec<int> &matIdBoundVec, const TPZVec<REAL> &boundDistVec,
+                                 const TPZVec<REAL> &rVec, const bool nonLinearMapping = true);
 void
 CreateGMeshRectangularWaveguide(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec,
                                 const std::string &prefix, const bool &print, const REAL &scale, const int &factor,
@@ -1118,21 +1120,61 @@ CreateStepFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<in
     TPZVec<TPZGeoEl *> sons;
     //refpatquadtri.rpt
     long nel = gmesh->NElements();
+
+    bool refine = false;
+    if(refine){
+        TPZRefPatternDataBase db;
+        db.InitializeUniformRefPattern(EQuadrilateral);
+        const REAL margin = 0.4 * rCore;
+        TPZVec<REAL> qsiPos(2,0);
+        TPZVec<REAL> xPos;
+        TPZVec<TPZGeoEl *>sons;
+        int nel = gmesh->NElements();
+        for(int iel =0 ; iel< nel; iel++){
+            TPZGeoElRefPattern<pzgeom::TPZGeoQuad> *geo = dynamic_cast<TPZGeoElRefPattern<pzgeom::TPZGeoQuad> *> (gmesh->Element(iel));
+            if(!geo) continue;
+            geo->X(qsiPos,xPos);
+            const REAL dist = sqrt((xPos[0]-xc[0])*(xPos[0]-xc[0])+(xPos[1]-xc[1])*(xPos[1]-xc[1]));
+            if(std::abs(rCore - dist) < margin){
+                if(geo->Type() == EQuadrilateral && geo->HasSubElement() == 0){
+                    if(!geo->Father()){
+                        auto oldref = geo->GetRefPattern();
+                        auto uniformref = db.GetUniformRefPattern(EQuadrilateral);
+                        geo->SetRefPattern(uniformref);
+                        geo->Divide(sons);
+                        //geo->SetRefPattern(oldref);
+                        for(int i = 0; i < sons.size(); i++){
+                            sons[i]->SetRefPattern(oldref);
+                        }
+                        nel = gmesh->NElements();
+                    }
+                }
+            }
+        }
+    }
+    gmesh->BuildConnectivity();
+
     for (long iel = 0; iel < nel; iel++) {
         TPZGeoEl *gelQuad = gmesh->ElementVec()[iel];
-        if(gelQuad->Type() == EQuadrilateral){
+        if(gelQuad->Type() == EQuadrilateral && gelQuad->HasSubElement() == 0){
             gelQuad->Divide(sons); nel = gmesh->NElements(); continue;
         }
     }
 
+    gmesh->BuildConnectivity();
+
     if(print){
         std::string meshFileName = prefix + "gmesh";
         const size_t strlen = meshFileName.length();
+        meshFileName.append(".vtk");
+        std::ofstream outVTK(meshFileName.c_str());
         meshFileName.replace(strlen, 4, ".txt");
         std::ofstream outTXT(meshFileName.c_str());
 
+        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, outVTK, true);
         gmesh->Print(outTXT);
         outTXT.close();
+        outVTK.close();
     }
 
     return;
@@ -1144,7 +1186,8 @@ CreateStructuredMesh(const TPZVec<TPZVec<REAL>> &pointsVec, TPZVec<EdgeData> &ed
                      const TPZVec<bool> &side1NonLinearVec, const TPZVec<bool> &side2NonLinearVec,
                      const TPZVec<bool> &side3NonLinearVec, const TPZVec<bool> &side4NonLinearVec,
                      const TPZVec<TPZVec<REAL>> &thetaVec, const TPZVec<TPZVec<REAL> *> &xcRef,
-                     const TPZVec<int> &matIdBoundVec, const TPZVec<REAL> &boundDistVec, const TPZVec<REAL> &rVec) {
+                     const TPZVec<int> &matIdBoundVec, const TPZVec<REAL> &boundDistVec, const TPZVec<REAL> &rVec,
+                     const bool nonLinearMapping) {
 
         auto map_quad_side_arc = [](const TPZVec<REAL> &theta ,const TPZVec<REAL> &xc, const REAL &r, const REAL & s) {
             TPZVec<REAL> point(2,0.);
@@ -1461,6 +1504,7 @@ CreateStructuredMesh(const TPZVec<TPZVec<REAL>> &pointsVec, TPZVec<EdgeData> &ed
 
             const int nArcs = side % 2 ? nDivQsi[quad] - 1 : nDivEta[quad] - 1;
             //auto sidePos = [](const int side, const int &i, const int &nQsi, const int &nEta, const bool &reverse){
+            if(nonLinearMapping == false) continue;
             for (int i = 0; i < nArcs; i++) {
                 TPZManVector<long, 3> nodesIdVec(3, 0.);
                 const int vertex1 = sidePos(side, i, nDivQsi[quad], nDivEta[quad], false);

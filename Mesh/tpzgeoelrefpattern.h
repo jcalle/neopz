@@ -513,11 +513,12 @@ void TPZGeoElRefPattern<TGeo>::SetRefPattern (TPZAutoPointer<TPZRefPattern> refp
 	}
 #endif
 	
-	if(fRefPattern == refpat)
-	{
-		return;
-	}
-	else if(this->HasSubElement())
+//	if(fRefPattern == refpat) ///AQUIFRAN
+//	{
+//		return;
+//	}
+//	else
+	if(this->HasSubElement())
 	{
 		LOGPZ_ERROR ( loggerrefpattern, "\nTrying to set an refPattern to geoEl that is already refined!\nThis try was skipped!\n\n" );
 		std::cout << "Trying to set an refPattern to geoEl that is already refined!\nThis try was skipped!\n\n";
