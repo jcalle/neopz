@@ -847,7 +847,7 @@ void CreateGMeshRectangularWaveguide(TPZGeoMesh *&gmesh, const std::string mshFi
     gengrid->SetBC(gmesh, llCoord, lrCoord, bc0);
 
     gmesh->BuildConnectivity();
-    bool refine = true;
+    bool refine = false;
     if(refine){
         const REAL margin = 0.2 * wDomain * scale;
         TPZVec<REAL> qsiPos(2,0.25);
