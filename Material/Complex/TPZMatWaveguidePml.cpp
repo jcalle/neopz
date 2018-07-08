@@ -206,6 +206,11 @@ void TPZMatWaveguidePml::Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZ
             Solout[1] = fEr * sy;
             break;
         }
+        case 3:{//pOrder
+            Solout.Resize(1);
+            Solout[0] = datavec[0].p;
+            break;
+        }
         default:
             DebugStop();
             break;

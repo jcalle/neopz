@@ -386,6 +386,7 @@ int TPZMatModalAnalysis::VariableIndex(const std::string &name)
     if( strcmp(name.c_str(), "Et") == 0) return 0;
     if( strcmp(name.c_str(), "Ez") == 0) return 1;
     if( strcmp(name.c_str(), "Material") == 0) return 2;
+    if( strcmp(name.c_str(), "POrder") == 0) return 3;
     DebugStop();
     return 1;
 }
@@ -404,6 +405,8 @@ int TPZMatModalAnalysis::NSolutionVariables(int var)
             return 1;
         case 2://material
             return 2;
+        case 3://pOrder
+            return 1;
         default:
             DebugStop();
             break;
@@ -451,6 +454,11 @@ void TPZMatModalAnalysis::Solution(TPZVec<TPZMaterialData> &datavec, int var, TP
             Solout.Resize(2);
             Solout[0] = fEr;
             Solout[1] = fEr;
+            break;
+        }
+        case 3:{//pOrder
+            Solout.Resize(1);
+            Solout[0] = datavec[0].p;
             break;
         }
         default:
