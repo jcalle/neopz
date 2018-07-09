@@ -253,7 +253,7 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
     TPZVec<int> matIdVec;
     TPZVec<SPZModalAnalysisData::boundtype> boundTypeVec(0);
     TPZVec<SPZModalAnalysisData::pmltype> pmlTypeVec(0);
-    bool refineH = false;
+    bool refineH = true;
     bool refineP = true;
     TPZVec<std::function<bool (const TPZVec<REAL> &)>> refineRulesH(0,nullptr);
     TPZVec<std::function<bool (const TPZVec<REAL> &)>> refineRulesP(0,nullptr);
@@ -279,11 +279,11 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
                 }
                 if(refineH==true){
                     auto firstRuleHFiberH = [bDist](const TPZVec<REAL> &xPos) {
-                        return (sqrt(xPos[0]*xPos[0]+xPos[1]*xPos[1])<0.7*bDist);
-                    };
-                    auto secondRuleHFiberH = [bDist](const TPZVec<REAL> &xPos) {
                         return (sqrt(xPos[0]*xPos[0]+xPos[1]*xPos[1])<0.5*bDist);
                     };
+//                    auto secondRuleHFiberH = [bDist](const TPZVec<REAL> &xPos) {
+//                        return (xPos[0]>bDist) || (xPos[1]>bDist);
+//                    };
                     refineRulesH.Resize(1);
                     refineRulesH[0]=firstRuleHFiberH;
                 }
@@ -1493,6 +1493,7 @@ CreateStructuredMesh(const TPZVec<TPZVec<REAL>> &pointsVec, TPZVec<EdgeData> &ed
         }
 
         for (int edge = 0; edge < nEdges; edge++) {
+            auto refpArc = gRefDBase.GetUniformRefPattern(EOned);
             int quad = edgesVec[edge].quad1, side = edgesVec[edge].side1;
             if (edgesVec[edge].amIboundaryEdge) {//boundary edge
                 const int nArcs = side % 2 ? nDivQsi[quad] - 1 : nDivEta[quad] - 1;
@@ -1529,6 +1530,7 @@ CreateStructuredMesh(const TPZVec<TPZVec<REAL>> &pointsVec, TPZVec<EdgeData> &ed
 
                     TPZGeoElRefPattern<pzgeom::TPZGeoLinear> *arc =
                             new TPZGeoElRefPattern<pzgeom::TPZGeoLinear>(nodesIdVec, matId, *gmesh);
+                    arc->SetRefPattern(refpArc);
                 }
                 continue;
             }
@@ -1570,7 +1572,6 @@ CreateStructuredMesh(const TPZVec<TPZVec<REAL>> &pointsVec, TPZVec<EdgeData> &ed
                 }
                 TPZGeoElRefPattern<pzgeom::TPZArc3D> *arc =
                         new TPZGeoElRefPattern<pzgeom::TPZArc3D>(nodesIdVec, -24, *gmesh);//random material id
-                auto refpArc = gRefDBase.GetUniformRefPattern(EOned);
                 arc->SetRefPattern(refpArc);
             }
         }
@@ -1920,9 +1921,9 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
                 thisTimeRefined = nextTimeRefined;
             }
         }
+        gmesh->ResetConnectivities();
+        gmesh->BuildConnectivity();
     }
-
-    gmesh->BuildConnectivity();
 
     long nel = gmesh->NElements();
     for (long iel = 0; iel < nel; iel++) {
@@ -1931,7 +1932,8 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
             gelQuad->Divide(sons); nel = gmesh->NElements(); continue;
         }
     }
-
+    gmesh->ResetConnectivities();
+    gmesh->BuildConnectivity();
     if(print){
         std::string meshFileName = prefix + "gmesh";
         const size_t strlen = meshFileName.length();
@@ -2023,6 +2025,18 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
         std::cout << " boundaries in the mesh." << std::endl;
         DebugStop();
     }
+
+    std::set<int> set;
+    for (int i = 0; i < volMatIdVec.size(); ++i) {
+        set.insert(volMatIdVec[i]);
+    }
+    for (int i = 0; i < pmlMatIdVec.size(); ++i) {
+        set.insert(pmlMatIdVec[i]);
+    }
+    for (int i = 0; i < boundMatIdVec.size(); ++i) {
+        set.insert(boundMatIdVec[i]);
+    }
+
     const int outerMaterialPos = volMatIdVec.size() - 1;
     TPZCompMesh *cmeshH1 = new TPZCompMesh(gmesh);
     cmeshH1->SetDefaultOrder(pOrder); // seta ordem polimonial de aproximacao
@@ -2050,11 +2064,11 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
         bcond = matH1->CreateBC(matH1, boundMatIdVec[i], boundTypeVec[i], val1, val2);
         cmeshH1->InsertMaterialObject(bcond);
     }
-    cmeshH1->AutoBuild();
+
+    cmeshH1->SetAllCreateFunctionsContinuous();
+    cmeshH1->AutoBuild(set);
     cmeshH1->CleanUpUnconnectedNodes();
 
-
-    cmeshH1->CleanUpUnconnectedNodes();
     TPZCompMesh *cmeshHCurl = new TPZCompMesh(gmesh);
     cmeshHCurl->SetDefaultOrder(pOrder); // seta ordem polimonial de aproximacao
     cmeshHCurl->SetDimModel(dim);        // seta dimensao do modelo
@@ -2077,10 +2091,7 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
     }
 
     cmeshHCurl->SetAllCreateFunctionsHCurl(); // define espaco de aproximacao
-
-    cmeshHCurl->AutoBuild();
-
-
+    cmeshHCurl->AutoBuild(set);
     cmeshHCurl->CleanUpUnconnectedNodes();
 
     TPZCompMesh *cmeshMF = new TPZCompMesh(gmesh);
@@ -2198,16 +2209,6 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
         bcond = matMultiPhysics[0]->CreateBC(matMultiPhysics[0], boundMatIdVec[i], boundTypeVec[i], val1, val2);
         cmeshMF->InsertMaterialObject(bcond);
     }
-    std::set<int> set;
-    for (int i = 0; i < volMatIdVec.size(); ++i) {
-        set.insert(volMatIdVec[i]);
-    }
-    for (int i = 0; i < pmlMatIdVec.size(); ++i) {
-        set.insert(pmlMatIdVec[i]);
-    }
-    for (int i = 0; i < boundMatIdVec.size(); ++i) {
-        set.insert(boundMatIdVec[i]);
-    }
 
     cmeshMF->SetDimModel(dim);
     cmeshMF->SetAllCreateFunctionsMultiphysicElem();
@@ -2241,9 +2242,9 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
                 }
                 TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (cel);
                 actualPOrder = actualPOrder <1 ? 1 : actualPOrder;
-                intel->PRefine(actualPOrder);
+                if(pOrder != actualPOrder && !intel->HasDependency()) intel->PRefine(actualPOrder);
             }
-
+            meshVec[iMesh]->ExpandSolution();
         }
     }
 
