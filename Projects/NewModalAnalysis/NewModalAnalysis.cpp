@@ -82,7 +82,9 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
                      TPZVec<SPZModalAnalysisData::boundtype> &boundTypeVec,
                      TPZVec<SPZModalAnalysisData::pmltype> &pmlTypeVec, const REAL &dPML, const REAL &boundDist,
                      SPZModalAnalysisData::boundtype symmetryX, SPZModalAnalysisData::boundtype symmetryY,
-                     bool refine=false);
+                     bool refine=false,
+                     TPZVec<std::function<bool (const TPZVec<REAL> &)>> refineRules =
+                             TPZVec<std::function<bool (const TPZVec<REAL> &)>>(0,nullptr));
 
 void
 ReadGMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec, const std::string &prefix, const bool &print, const REAL &scale = 1.);
@@ -92,7 +94,8 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
                  const bool &print, const REAL &scale, const REAL &alphaMax,
                  TPZVec<SPZModalAnalysisData::boundtype> &boundTypeVec,
                  TPZVec<SPZModalAnalysisData::pmltype> &pmlTypeVec, bool refineP = false,
-                 TPZVec<std::function<bool (const TPZVec<REAL> &)>> refineRules = TPZVec<std::function<bool (const TPZVec<REAL> &)>>(0,nullptr));
+                 TPZVec<std::function<bool (const TPZVec<REAL> &)>> refineRules =
+                         TPZVec<std::function<bool (const TPZVec<REAL> &)>>(0,nullptr));
 
 void FilterBoundaryEquations(TPZVec<TPZCompMesh *> cmeshMF,
                              TPZVec<long> &activeEquations, int &neq,
@@ -252,17 +255,8 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
     TPZVec<SPZModalAnalysisData::pmltype> pmlTypeVec(0);
     bool refineH = false;
     bool refineP = true;
-    TPZVec<std::function<bool (const TPZVec<REAL> &)>> refineRules;
-    REAL bDist = simData.physicalOpts.holeyFiberOpts.boundDist *simData.pzOpts.scaleFactor;
-    auto firstRuleHFiber = [bDist](const TPZVec<REAL> &xPos) {
-        return (sqrt(xPos[0]*xPos[0]+xPos[1]*xPos[1])<0.8*bDist);
-    };
-    auto secondRuleHFiber = [bDist](const TPZVec<REAL> &xPos) {
-        return (sqrt(xPos[0]*xPos[0]+xPos[1]*xPos[1])<0.6*bDist);
-    };
-    auto thirdRuleHFiber = [bDist](const TPZVec<REAL> &xPos) {
-        return (sqrt(xPos[0]*xPos[0]+xPos[1]*xPos[1])<0.4*bDist);
-    };
+    TPZVec<std::function<bool (const TPZVec<REAL> &)>> refineRulesH(0,nullptr);
+    TPZVec<std::function<bool (const TPZVec<REAL> &)>> refineRulesP(0,nullptr);
     if(simData.pzOpts.usingNeoPzMesh){
         switch(simData.pzOpts.pzCase){
             case SPZModalAnalysisData::HoleyFiber:{
@@ -270,15 +264,33 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
                 const REAL boundDist = simData.physicalOpts.holeyFiberOpts.boundDist;
                 const SPZModalAnalysisData::boundtype symmetryX = simData.physicalOpts.holeyFiberOpts.symmetry;
                 const SPZModalAnalysisData::boundtype symmetryY = simData.physicalOpts.holeyFiberOpts.symmetry;
+                REAL bDist = simData.physicalOpts.holeyFiberOpts.boundDist *simData.pzOpts.scaleFactor;
+                if(refineP == true){
+                    auto firstRuleHFiberP = [bDist](const TPZVec<REAL> &xPos) {
+                        return (sqrt(xPos[0]*xPos[0]+xPos[1]*xPos[1])<0.8*bDist);
+                    };
+                    auto secondRuleHFiberP = [bDist](const TPZVec<REAL> &xPos) {
+                        return (sqrt(xPos[0]*xPos[0]+xPos[1]*xPos[1])<0.6*bDist);
+                    };
+
+                    refineRulesP.Resize(2);
+                    refineRulesP[0]=firstRuleHFiberP;
+                    refineRulesP[1]=secondRuleHFiberP;
+                }
+                if(refineH==true){
+                    auto firstRuleHFiberH = [bDist](const TPZVec<REAL> &xPos) {
+                        return (sqrt(xPos[0]*xPos[0]+xPos[1]*xPos[1])<0.7*bDist);
+                    };
+                    auto secondRuleHFiberH = [bDist](const TPZVec<REAL> &xPos) {
+                        return (sqrt(xPos[0]*xPos[0]+xPos[1]*xPos[1])<0.5*bDist);
+                    };
+                    refineRulesH.Resize(1);
+                    refineRulesH[0]=firstRuleHFiberH;
+                }
                 CreateHoleyFiberMesh(gmesh, simData.pzOpts.meshFile, matIdVec, simData.pzOpts.prefix,
                                      simData.pzOpts.exportGMesh, simData.pzOpts.scaleFactor,
-                                     factor, boundTypeVec, pmlTypeVec, dPML, boundDist, symmetryX, symmetryY, refineH);
-                if(refineP == true){
-                    refineRules.Resize(3);
-                    refineRules[0]= firstRuleHFiber;
-                    refineRules[1]=secondRuleHFiber;
-                    refineRules[2]=thirdRuleHFiber;
-                }
+                                     factor, boundTypeVec, pmlTypeVec, dPML, boundDist, symmetryX, symmetryY,
+                                     refineH, refineRulesH);
                 break;
             }
             case SPZModalAnalysisData::StepFiber:{
@@ -338,7 +350,7 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
     CreateCMesh(meshVec, gmesh, simData.pzOpts.pOrder, matIdVec, simData.physicalOpts.urVec, simData.physicalOpts.erVec,
                 simData.physicalOpts.lambda, simData.physicalOpts.isCutOff, simData.pzOpts.prefix,
                 simData.pzOpts.exportCMesh, simData.pzOpts.scaleFactor, simData.physicalOpts.alphaMax, boundTypeVec,
-                pmlTypeVec, reallyRefineP, refineRules); // funcao para criar a malha computacional
+                pmlTypeVec, reallyRefineP, refineRulesP); // funcao para criar a malha computacional
     boost::posix_time::ptime t2_c =
         boost::posix_time::microsec_clock::local_time();
     std::cout<<"Created! "<<t2_c-t1_c<<std::endl;
@@ -1571,7 +1583,8 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
                      const std::string &prefix, const bool &print, const REAL &scale, const int &factor,
                      TPZVec<SPZModalAnalysisData::boundtype> &boundTypeVec,
                      TPZVec<SPZModalAnalysisData::pmltype> &pmlTypeVec, const REAL &dPML, const REAL &boundDist,
-                     SPZModalAnalysisData::boundtype symmetryX, SPZModalAnalysisData::boundtype symmetryY, bool refine) {
+                     SPZModalAnalysisData::boundtype symmetryX, SPZModalAnalysisData::boundtype symmetryY, bool refine,
+                     TPZVec<std::function<bool (const TPZVec<REAL> &)>> refineRules) {
     //SPZModalAnalysisData::boundtype symmetry;
     const int nDivTHole = factor * 2 + 1, nDivRHole = factor * 4 + 1,
             nDivCladding1 = factor * 6 + 1, nDivCladding2 = factor * 4,nDivCladding3 = factor * 2,
@@ -1867,45 +1880,44 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
 
     TPZVec<TPZGeoEl *> sons;
 
+
     if(refine){
         gRefDBase.InitializeUniformRefPattern(EQuadrilateral);
-        const REAL margin = 1.1*(xc2[0] + rCore);
-        TPZVec<REAL> qsiPos(2,0);
-        TPZVec<REAL> xPos;
+        auto uniformref = gRefDBase.GetUniformRefPattern(EQuadrilateral);
         int nel = gmesh->NElements();
-        for(int iel =0 ; iel< nel; iel++){
-//            TPZGeoElRefPattern<pzgeom::TPZGeoQuad> *geoNBlend =
-//                    dynamic_cast<TPZGeoElRefPattern<pzgeom::TPZGeoQuad> *> (gmesh->Element(iel));
+        for(int i = 0; i< nel; i++){
+            TPZGeoEl * gel = gmesh->Element(i);
             TPZGeoElRefPattern<pzgeom::TPZGeoBlend<pzgeom::TPZGeoQuad>> *geoBlend =
-                    dynamic_cast<TPZGeoElRefPattern<pzgeom::TPZGeoBlend<pzgeom::TPZGeoQuad>> *> (gmesh->Element(iel));
-//            if(!geoNBlend) continue;
-            TPZGeoEl *geo = (gmesh->Element(iel));
-            geo->X(qsiPos,xPos);
-            const REAL dist0 = sqrt((xPos[0])*(xPos[0])+(xPos[1])*(xPos[1]));
-            bool cond0 = (dist0 < margin) && (geo->MaterialId() == matIdCladding);
-            const REAL dist1 = sqrt((xPos[0]-xc1[0])*(xPos[0]-xc1[0])+(xPos[1]-xc1[1])*(xPos[1]-xc1[1]));
-            bool cond1 = (dist1 > 0.8 * rCore) && (geo->MaterialId() == matIdHole);
-            const REAL dist2 = sqrt((xPos[0]-xc2[0])*(xPos[0]-xc2[0])+(xPos[1]-xc2[1])*(xPos[1]-xc2[1]));
-            bool cond2 = (dist0 > 0.8 * rCore) && (geo->MaterialId() == matIdHole);
-            bool cond3 = (geo->MaterialId() == -24);
-
-            if(cond0 && !geoBlend){
-                if(geo->HasSubElement() == 0 && !geo->Father()){
+                    dynamic_cast<TPZGeoElRefPattern<pzgeom::TPZGeoBlend<pzgeom::TPZGeoQuad>> *> (gmesh->Element(i));
+            bool condMat = (gel->MaterialId() == matIdCladding);
+            if(geoBlend || !condMat || gel->Type() == EOned) continue;
+            TPZVec<REAL> qsiPos(2,0.);
+            TPZVec<REAL> xPos;
+            gel->X(qsiPos,xPos);
+            int nRefines = 0;
+            for(int iRule = 0; iRule < refineRules.size(); iRule++){
+                nRefines = refineRules[iRule](xPos) ? nRefines+1 : nRefines;
+            }
+            auto oldref = gel->GetRefPattern();
+            TPZVec<TPZGeoEl *> thisTimeRefined(1,gel);
+            for(int refLevel = 0; refLevel < nRefines; refLevel ++){
+                TPZVec<TPZGeoEl *> nextTimeRefined(0,nullptr);
+                for(int iRef = 0; iRef < thisTimeRefined.size(); iRef++){
+                    TPZGeoEl *geo = thisTimeRefined[iRef];
+                    geo->X(qsiPos,xPos);
+                    bool shouldRefine = refineRules[refLevel](xPos);
+                    if(!shouldRefine) continue;
                     auto oldref = geo->GetRefPattern();
-                    if(cond3){
-                        auto uniformref = gRefDBase.GetUniformRefPattern(EOned);
-                        geo->SetRefPattern(uniformref);
-                    }
-                    else{
-                        auto uniformref = gRefDBase.GetUniformRefPattern(EQuadrilateral);
-                        geo->SetRefPattern(uniformref);
-                    }
+                    geo->SetRefPattern(uniformref);
                     geo->Divide(sons);
+                    const int oldSize = nextTimeRefined.size();
+                    nextTimeRefined.Resize(oldSize+sons.size());
                     for(int i = 0; i < sons.size(); i++){
                         sons[i]->SetRefPattern(oldref);
+                        nextTimeRefined[oldSize+i] = sons[i];
                     }
-                    nel = gmesh->NElements();
                 }
+                thisTimeRefined = nextTimeRefined;
             }
         }
     }
@@ -1980,35 +1992,35 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
                  TPZVec<std::function<bool (const TPZVec<REAL> &)>> refineRules) {
     const int dim = 2;
 
-    TPZManVector<int,8> volMatIdVec(matIdVec.size()-boundTypeVec.size()-pmlTypeVec.size());
-    for(int i = 0; i< volMatIdVec.size(); i++){
-      volMatIdVec[i] = matIdVec[i];
+    TPZManVector<int, 8> volMatIdVec(matIdVec.size() - boundTypeVec.size() - pmlTypeVec.size());
+    for (int i = 0; i < volMatIdVec.size(); i++) {
+        volMatIdVec[i] = matIdVec[i];
     }
-    TPZManVector<int,8>pmlMatIdVec(pmlTypeVec.size());
-    for(int i = 0; i< pmlMatIdVec.size(); i++){
-        pmlMatIdVec[i] = matIdVec[volMatIdVec.size()+i];
+    TPZManVector<int, 8> pmlMatIdVec(pmlTypeVec.size());
+    for (int i = 0; i < pmlMatIdVec.size(); i++) {
+        pmlMatIdVec[i] = matIdVec[volMatIdVec.size() + i];
     }
-    TPZManVector<int,8>boundMatIdVec(boundTypeVec.size());
-    for(int i = 0; i< boundMatIdVec.size(); i++){
-        boundMatIdVec[i] = matIdVec[volMatIdVec.size()+pmlMatIdVec.size()+i];
+    TPZManVector<int, 8> boundMatIdVec(boundTypeVec.size());
+    for (int i = 0; i < boundMatIdVec.size(); i++) {
+        boundMatIdVec[i] = matIdVec[volMatIdVec.size() + pmlMatIdVec.size() + i];
     }
 
-    if(volMatIdVec.size() !=urVec.size()){
-        std::cout<<"The number of materials is not consistent with the mesh materials."<<std::endl;
-        std::cout<<"The number of materials is "<<urVec.size()<<" and there are "<<volMatIdVec.size();
-        std::cout<<" mesh materials."<<std::endl;
+    if (volMatIdVec.size() != urVec.size()) {
+        std::cout << "The number of materials is not consistent with the mesh materials." << std::endl;
+        std::cout << "The number of materials is " << urVec.size() << " and there are " << volMatIdVec.size();
+        std::cout << " mesh materials." << std::endl;
         DebugStop();
     }
-    if(pmlMatIdVec.size() != pmlTypeVec.size()){
-        std::cout<<"The number of PML types is not consistent with the mesh PMLs."<<std::endl;
-        std::cout<<"The number of PML types is "<<pmlTypeVec.size()<<" and there are "<<pmlMatIdVec.size();
-        std::cout<<" PMLs in the mesh."<<std::endl;
+    if (pmlMatIdVec.size() != pmlTypeVec.size()) {
+        std::cout << "The number of PML types is not consistent with the mesh PMLs." << std::endl;
+        std::cout << "The number of PML types is " << pmlTypeVec.size() << " and there are " << pmlMatIdVec.size();
+        std::cout << " PMLs in the mesh." << std::endl;
         DebugStop();
     }
-    if(boundMatIdVec.size() != boundTypeVec.size()){
-        std::cout<<"The number of Boundary Conditions types is not consistent with the mesh."<<std::endl;
-        std::cout<<"The number of BC types is "<<boundTypeVec.size()<<" and there are "<<boundMatIdVec.size();
-        std::cout<<" boundaries in the mesh."<<std::endl;
+    if (boundMatIdVec.size() != boundTypeVec.size()) {
+        std::cout << "The number of Boundary Conditions types is not consistent with the mesh." << std::endl;
+        std::cout << "The number of BC types is " << boundTypeVec.size() << " and there are " << boundMatIdVec.size();
+        std::cout << " boundaries in the mesh." << std::endl;
         DebugStop();
     }
     const int outerMaterialPos = volMatIdVec.size() - 1;
@@ -2034,35 +2046,14 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
     /// electrical and magnetic conductor boundary conditions
     TPZFNMatrix<1, STATE> val1(1, 1, 0.), val2(1, 1, 0.);
     TPZBndCond *bcond = nullptr;
-    for(int i = 0; i < boundMatIdVec.size(); i++){
+    for (int i = 0; i < boundMatIdVec.size(); i++) {
         bcond = matH1->CreateBC(matH1, boundMatIdVec[i], boundTypeVec[i], val1, val2);
         cmeshH1->InsertMaterialObject(bcond);
     }
     cmeshH1->AutoBuild();
     cmeshH1->CleanUpUnconnectedNodes();
 
-    if(refineP){
-        for(int i = 0; i< cmeshH1->NElements(); i++){
-            TPZCompEl * cel = cmeshH1->Element(i);
-            TPZGeoEl * gel = cel->Reference();
-            if(gel->Type() == EOned) continue;
-            while(gel->Father()){
-                gel = gel->Father();
-            }
-            TPZVec<REAL> qsiPos(2,0.);
-            TPZVec<REAL> xPos;
-            gel->X(qsiPos,xPos);
-            int pOrder = 2;
-            for(int iRule = 0; iRule < refineRules.size(); iRule++){
-                bool res = refineRules[iRule](xPos);
-                if(res) pOrder ++;
-                else break;
-            }
-            TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (cel);
-            intel->PRefine(pOrder);
-        }
 
-    }
     cmeshH1->CleanUpUnconnectedNodes();
     TPZCompMesh *cmeshHCurl = new TPZCompMesh(gmesh);
     cmeshHCurl->SetDefaultOrder(pOrder); // seta ordem polimonial de aproximacao
@@ -2080,7 +2071,7 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
         cmeshHCurl->InsertMaterialObject(matHCurl);
     }
 
-    for(int i = 0; i < boundMatIdVec.size(); i++){
+    for (int i = 0; i < boundMatIdVec.size(); i++) {
         bcond = matHCurl->CreateBC(matHCurl, boundMatIdVec[i], boundTypeVec[i], val1, val2);
         cmeshHCurl->InsertMaterialObject(bcond);
     }
@@ -2089,66 +2080,44 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
 
     cmeshHCurl->AutoBuild();
 
-    if(refineP){
-        for(int i = 0; i< cmeshHCurl->NElements(); i++){
-            TPZCompEl * cel = cmeshHCurl->Element(i);
-            TPZGeoEl * gel = cel->Reference();
-            if(gel->Type() == EOned) continue;
-            while(gel->Father()){
-                gel = gel->Father();
-            }
-            TPZVec<REAL> qsiPos(2,0.);
-            TPZVec<REAL> xPos;
-            gel->X(qsiPos,xPos);
-            int pOrder = 2;
-            for(int iRule = 0; iRule < refineRules.size(); iRule++){
-                bool res = refineRules[iRule](xPos);
-                if(res) pOrder ++;
-                else break;
-            }
-            TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (cel);
-            intel->PRefine(pOrder);
-        }
-
-    }
 
     cmeshHCurl->CleanUpUnconnectedNodes();
 
     TPZCompMesh *cmeshMF = new TPZCompMesh(gmesh);
-    TPZManVector<TPZMatModalAnalysis *,8> matMultiPhysics( volMatIdVec.size() + pmlMatIdVec.size() );
+    TPZManVector<TPZMatModalAnalysis *, 8> matMultiPhysics(volMatIdVec.size() + pmlMatIdVec.size());
 
     if (isCutOff) {
         for (int i = 0; i < volMatIdVec.size(); ++i) {
-            matMultiPhysics[i] = new TPZMatWaveguideCutOffAnalysis(volMatIdVec[i], f0, urVec[i], erVec[i], 1./scale);
+            matMultiPhysics[i] = new TPZMatWaveguideCutOffAnalysis(volMatIdVec[i], f0, urVec[i], erVec[i], 1. / scale);
             cmeshMF->InsertMaterialObject(matMultiPhysics[i]);
         }
     } else {
         for (int i = 0; i < volMatIdVec.size(); ++i) {
-            matMultiPhysics[i] = new TPZMatModalAnalysis(volMatIdVec[i], f0, urVec[i], erVec[i], 1./scale);
+            matMultiPhysics[i] = new TPZMatModalAnalysis(volMatIdVec[i], f0, urVec[i], erVec[i], 1. / scale);
             cmeshMF->InsertMaterialObject(matMultiPhysics[i]);
         }
     }
-    for(int i = 0; i < pmlMatIdVec.size(); i++){
-        REAL xMax =-1e20,xMin = 1e20,yMax =-1e20,yMin =1e20;
-        TPZGeoMesh * gmesh = cmeshMF->Reference();
+    for (int i = 0; i < pmlMatIdVec.size(); i++) {
+        REAL xMax = -1e20, xMin = 1e20, yMax = -1e20, yMin = 1e20;
+        TPZGeoMesh *gmesh = cmeshMF->Reference();
         for (int iel = 0; iel < gmesh->NElements(); ++iel) {
             TPZGeoEl *geo = gmesh->Element(iel);
-            if(geo->MaterialId() == pmlMatIdVec[i]){
+            if (geo->MaterialId() == pmlMatIdVec[i]) {
                 for (int iNode = 0; iNode < geo->NCornerNodes(); ++iNode) {
-                    TPZManVector<REAL,3> co(3);
+                    TPZManVector<REAL, 3> co(3);
                     geo->Node(iNode).GetCoordinates(co);
-                    const REAL & xP = co[0];
-                    const REAL & yP = co[1];
-                    if( xP > xMax ){
+                    const REAL &xP = co[0];
+                    const REAL &yP = co[1];
+                    if (xP > xMax) {
                         xMax = xP;
                     }
-                    if( xP < xMin ){
+                    if (xP < xMin) {
                         xMin = xP;
                     }
-                    if( yP > yMax ){
+                    if (yP > yMax) {
                         yMax = yP;
                     }
-                    if( yP < yMin ){
+                    if (yP < yMin) {
                         yMin = yP;
                     }
                 }
@@ -2156,45 +2125,61 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
         }
         bool attx, atty;
         REAL xBegin, yBegin, d;
-        switch(pmlTypeVec[i]){
+        switch (pmlTypeVec[i]) {
             case SPZModalAnalysisData::xp:
-                attx = true; atty = false;
-                xBegin = xMin; yBegin = -1;
+                attx = true;
+                atty = false;
+                xBegin = xMin;
+                yBegin = -1;
                 d = xMax - xMin;
                 break;
             case SPZModalAnalysisData::yp:
-                attx = false; atty = true;
-                xBegin = -1; yBegin = yMin;
+                attx = false;
+                atty = true;
+                xBegin = -1;
+                yBegin = yMin;
                 d = yMax - yMin;
                 break;
             case SPZModalAnalysisData::xm:
-                attx = true; atty = false;
-                xBegin = xMax; yBegin = -1;
+                attx = true;
+                atty = false;
+                xBegin = xMax;
+                yBegin = -1;
                 d = xMax - xMin;
                 break;
             case SPZModalAnalysisData::ym:
-                attx = false; atty = true;
-                xBegin = -1; yBegin = yMax;
+                attx = false;
+                atty = true;
+                xBegin = -1;
+                yBegin = yMax;
                 d = yMax - yMin;
                 break;
             case SPZModalAnalysisData::xpyp:
-                attx = true; atty = true;
-                xBegin = xMin; yBegin = yMin;
+                attx = true;
+                atty = true;
+                xBegin = xMin;
+                yBegin = yMin;
                 d = xMax - xMin;
                 break;
             case SPZModalAnalysisData::xmyp:
-                attx = true; atty = true;
-                xBegin = xMax; yBegin = yMin;
+                attx = true;
+                atty = true;
+                xBegin = xMax;
+                yBegin = yMin;
                 d = xMax - xMin;
                 break;
             case SPZModalAnalysisData::xmym:
-                attx = true; atty = true;
-                xBegin = xMax; yBegin = yMax;
+                attx = true;
+                atty = true;
+                xBegin = xMax;
+                yBegin = yMax;
                 d = xMax - xMin;
                 break;
             case SPZModalAnalysisData::xpym:
-                attx = true; atty = true;
-                xBegin = xMin; yBegin = yMax;
+                attx = true;
+                atty = true;
+                xBegin = xMin;
+                yBegin = yMax;
                 d = xMax - xMin;
                 break;
         }
@@ -2202,14 +2187,14 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
         matMultiPhysics[volMatIdVec.size() + i] =
                 new TPZMatWaveguidePml(pmlMatIdVec[i],
                                        *matMultiPhysics[outerMaterialPos],
-                                       attx,xBegin,
-                                       atty,yBegin,
-                                       alphaMax,d);
+                                       attx, xBegin,
+                                       atty, yBegin,
+                                       alphaMax, d);
         cmeshMF->InsertMaterialObject(matMultiPhysics[volMatIdVec.size() + i]);
     }
 
 
-    for(int i = 0; i < boundMatIdVec.size(); i++){
+    for (int i = 0; i < boundMatIdVec.size(); i++) {
         bcond = matMultiPhysics[0]->CreateBC(matMultiPhysics[0], boundMatIdVec[i], boundTypeVec[i], val1, val2);
         cmeshMF->InsertMaterialObject(bcond);
     }
@@ -2233,6 +2218,34 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
     TPZVec<TPZCompMesh *> meshVec(2);
     meshVec[matMultiPhysics[0]->H1Index()] = cmeshH1;
     meshVec[matMultiPhysics[0]->HCurlIndex()] = cmeshHCurl;
+
+    if (refineP) {
+        for(int iMesh = 0; iMesh < meshVec.size(); iMesh++){
+            for (int i = 0; i < meshVec[iMesh]->NElements(); i++) {
+                TPZCompEl *cel = meshVec[iMesh]->Element(i);
+                TPZGeoEl *gel = cel->Reference();
+                if (gel->Type() == EOned) continue;
+                if (gel->Father()) {
+                    do{
+                        gel = gel->Father();
+                    }
+                    while (gel->Father() && gel->Father()->Type() != EQuadrilateral);
+                }
+                TPZVec<REAL> qsiPos(2, 0.);
+                TPZVec<REAL> xPos;
+                gel->X(qsiPos, xPos);
+                int pOrder = 5;
+                for (int iRule = 0; iRule < refineRules.size(); iRule++) {
+                    bool res = refineRules[iRule](xPos);
+                    if (!res) pOrder--;
+                }
+                TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (cel);
+                pOrder = pOrder <1 ? 1 : pOrder;
+                intel->PRefine(pOrder);
+            }
+
+        }
+    }
 
     TPZBuildMultiphysicsMesh::AddElements(meshVec, cmeshMF);
     TPZBuildMultiphysicsMesh::AddConnects(meshVec, cmeshMF);
