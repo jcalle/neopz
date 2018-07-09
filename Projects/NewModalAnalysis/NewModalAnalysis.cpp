@@ -2234,14 +2234,14 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
                 TPZVec<REAL> qsiPos(2, 0.);
                 TPZVec<REAL> xPos;
                 gel->X(qsiPos, xPos);
-                int pOrder = 5;
+                int actualPOrder = pOrder;
                 for (int iRule = 0; iRule < refineRules.size(); iRule++) {
                     bool res = refineRules[iRule](xPos);
-                    if (!res) pOrder--;
+                    if (!res) actualPOrder--;
                 }
                 TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *> (cel);
-                pOrder = pOrder <1 ? 1 : pOrder;
-                intel->PRefine(pOrder);
+                actualPOrder = actualPOrder <1 ? 1 : actualPOrder;
+                intel->PRefine(actualPOrder);
             }
 
         }
