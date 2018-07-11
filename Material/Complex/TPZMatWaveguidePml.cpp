@@ -208,7 +208,12 @@ void TPZMatWaveguidePml::Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZ
         }
         case 3:{//pOrder
             Solout.Resize(1);
-            Solout[0] = datavec[0].p;
+            Solout[0] = datavec[h1meshindex].p;
+            break;
+        }
+        case 4:{//pOrder
+            Solout.Resize(1);
+            Solout[0] = datavec[hcurlmeshindex].p;
             break;
         }
         default:

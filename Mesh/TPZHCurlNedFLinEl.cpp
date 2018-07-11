@@ -200,7 +200,12 @@ TPZIntPoints &TPZHCurlNedFLinEl::GetIntegrationRule() {
     }
 }
 
-void TPZHCurlNedFLinEl::SetPreferredOrder(int order) { DebugStop(); }
+void TPZHCurlNedFLinEl::SetPreferredOrder(int order) {
+#ifdef PZDEBUG
+    if(order<1) DebugStop();
+#endif
+    this->fPreferredOrder = order;
+}
 
 void TPZHCurlNedFLinEl::GetInterpolationOrder(TPZVec<int> &ord) { DebugStop(); }
 
