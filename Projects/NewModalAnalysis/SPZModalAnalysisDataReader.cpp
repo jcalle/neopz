@@ -393,6 +393,7 @@ void SPZModalAnalysisDataReader::ReadParameters(SPZModalAnalysisData &data) {
   {
     data.pzOpts.usingNeoPzMesh = prm.get_bool("Using NeoPZ mesh");
     if(data.pzOpts.usingNeoPzMesh){
+      data.pzOpts.externGenMesh = false;
       auto val = prm.get("Which NeoPZ mesh");
         if(val == "Step Fiber"){
           data.pzOpts.pzCase = SPZModalAnalysisData::StepFiber;
@@ -414,17 +415,17 @@ void SPZModalAnalysisDataReader::ReadParameters(SPZModalAnalysisData &data) {
     data.pzOpts.nThreads = (int) prm.get_integer("Number of threads");//integer
     data.pzOpts.pOrder = (int) prm.get_integer("Polynomial order");//integer
     data.pzOpts.pSteps  = prm.get_integer("Number of iterations(p)");
-    if(!data.pzOpts.externGenMesh){
-        std::string rawVec = prm.get("Factor");
-        const std::vector<std::string> split_list =
-                Utilities::split_string_list(rawVec, ",");
-        data.pzOpts.hSteps = split_list.size();
-        data.pzOpts.factorVec.Resize(data.pzOpts.hSteps);
-        for (int i = 0; i < split_list.size() ; i++){
-            const std::string & string = split_list[i];
-            data.pzOpts.factorVec[i] = (int)Utilities::string_to_int(string);
-        }
+
+    std::string rawVec = prm.get("Factor");
+    const std::vector<std::string> split_list =
+            Utilities::split_string_list(rawVec, ",");
+    data.pzOpts.hSteps = split_list.size();
+    data.pzOpts.factorVec.Resize(data.pzOpts.hSteps);
+    for (int i = 0; i < split_list.size() ; i++){
+        const std::string & string = split_list[i];
+        data.pzOpts.factorVec[i] = (int)Utilities::string_to_int(string);
     }
+
   }
   prm.leave_subsection();
 
