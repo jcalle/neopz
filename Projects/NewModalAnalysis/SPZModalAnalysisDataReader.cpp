@@ -181,8 +181,14 @@ void SPZModalAnalysisDataReader::DeclareParameters() {
                           Patterns::Double(0.),
                           "The module of the IMAGINARY part of "
                           "the s parameters of the PML");
-        prm.declare_entry("Symmetry type","PMC",Patterns::Selection("PEC|PMC"),
-                          "If symmetry is being used, the boundary condition that will be applied.");
+        prm.declare_entry("Symmetry type(X Axis)","PMC",Patterns::Selection("PEC|PMC"),
+                          "The boundary condition that will be applied to the X axis.");
+        prm.declare_entry("Symmetry type(Y Axis)","PMC",Patterns::Selection("PEC|PMC"),
+                          "The boundary condition that will be applied to the Y axis.");
+        prm.declare_entry("Refine H","false",Patterns::Bool(),
+                          "Whether to perform h-refinement");
+        prm.declare_entry("Refine P","false",Patterns::Bool(),
+                          "Whether to perform h-refinement");
     }
     prm.leave_subsection();
     prm.enter_subsection("GMSH Mesh Options");
@@ -517,9 +523,14 @@ void SPZModalAnalysisDataReader::ReadParameters(SPZModalAnalysisData &data) {
             data.physicalOpts.holeyFiberOpts.boundDist = prm.get_double("Boundary distance");
             data.physicalOpts.holeyFiberOpts.dPML = prm.get_double("PML length");
             data.physicalOpts.alphaMax = prm.get_double("PML attenuation constant");
-            std::string symType = prm.get("Symmetry type");
-            data.physicalOpts.holeyFiberOpts.symmetry =
+            std::string symType = prm.get("Symmetry type(X Axis)");
+            data.physicalOpts.holeyFiberOpts.symmetryX =
                     symType == std::string("PEC") ? SPZModalAnalysisData::PEC : SPZModalAnalysisData::PMC ;
+            symType = prm.get("Symmetry type(Y Axis)");
+            data.physicalOpts.holeyFiberOpts.symmetryY =
+                    symType == std::string("PEC") ? SPZModalAnalysisData::PEC : SPZModalAnalysisData::PMC ;
+            data.physicalOpts.holeyFiberOpts.refineH = prm.get_bool("Refine H");
+            data.physicalOpts.holeyFiberOpts.refineP = prm.get_bool("Refine P");
         }
         prm.leave_subsection();
     }

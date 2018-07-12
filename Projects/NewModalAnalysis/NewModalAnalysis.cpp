@@ -253,17 +253,20 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
     TPZVec<int> matIdVec;
     TPZVec<SPZModalAnalysisData::boundtype> boundTypeVec(0);
     TPZVec<SPZModalAnalysisData::pmltype> pmlTypeVec(0);
-    bool refineH = true;
-    bool refineP = true;
+    bool refineH = false;
+    bool refineP = false;
     TPZVec<std::function<bool (const TPZVec<REAL> &)>> refineRulesH(0,nullptr);
     TPZVec<std::function<bool (const TPZVec<REAL> &)>> refineRulesP(0,nullptr);
     if(simData.pzOpts.usingNeoPzMesh){
         switch(simData.pzOpts.pzCase){
+
             case SPZModalAnalysisData::HoleyFiber:{
+                refineH = simData.physicalOpts.holeyFiberOpts.refineH;
+                refineP = simData.physicalOpts.holeyFiberOpts.refineP;
                 const REAL dPML = simData.physicalOpts.holeyFiberOpts.dPML;
                 const REAL boundDist = simData.physicalOpts.holeyFiberOpts.boundDist;
-                const SPZModalAnalysisData::boundtype symmetryX = simData.physicalOpts.holeyFiberOpts.symmetry;
-                const SPZModalAnalysisData::boundtype symmetryY = simData.physicalOpts.holeyFiberOpts.symmetry;
+                const SPZModalAnalysisData::boundtype symmetryX = simData.physicalOpts.holeyFiberOpts.symmetryX;
+                const SPZModalAnalysisData::boundtype symmetryY = simData.physicalOpts.holeyFiberOpts.symmetryY;
 
                 const REAL rCore = simData.pzOpts.scaleFactor * 2.5e-6;
                 const REAL Lambda = simData.pzOpts.scaleFactor * 6.75e-6;
@@ -324,34 +327,34 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
 
                     auto firstRuleHFiberH = [xc1,xc2,rCore,bDist](const TPZVec<REAL> &xPos) {
                         return (
-                                sqrt(xPos[0]*xPos[0]+xPos[1]*xPos[1])<0.55*bDist
-                                &&
-                                sqrt((xPos[0] - xc1[0]) * (xPos[0] - xc1[0]) +
-                                     (xPos[1] - xc1[1]) * (xPos[1] - xc1[1])) > 0.8* rCore
-                                &&
-                                sqrt((xPos[0] - xc2[0]) * (xPos[0] - xc2[0]) +
-                                     (xPos[1] - xc2[1]) * (xPos[1] - xc2[1])) > 0.8* rCore
+                                sqrt(xPos[0]*xPos[0]+xPos[1]*xPos[1])<0.5*bDist
+//                                &&
+//                                sqrt((xPos[0] - xc1[0]) * (xPos[0] - xc1[0]) +
+//                                     (xPos[1] - xc1[1]) * (xPos[1] - xc1[1])) > 0.7* rCore
+//                                &&
+//                                sqrt((xPos[0] - xc2[0]) * (xPos[0] - xc2[0]) +
+//                                     (xPos[1] - xc2[1]) * (xPos[1] - xc2[1])) > 0.7* rCore
                         );
                     };
-                    auto secondRuleHFiberH = [xc1,xc2,rCore,bDist](const TPZVec<REAL> &xPos) {
-                        return (
-                                sqrt(xPos[0]*xPos[0]+xPos[1]*xPos[1])<0.8*bDist
-                                &&
-                                sqrt((xPos[0] - xc1[0]) * (xPos[0] - xc1[0]) +
-                                     (xPos[1] - xc1[1]) * (xPos[1] - xc1[1])) > 0.8* rCore
-                                &&
-                                sqrt((xPos[0] - xc2[0]) * (xPos[0] - xc2[0]) +
-                                     (xPos[1] - xc2[1]) * (xPos[1] - xc2[1])) > 0.8* rCore
-                        );
-                    };
-                    auto thirdRuleHFiberH= [bDist](const TPZVec<REAL> &xPos) {
-                        return (xPos[0]>0.95*bDist ||
-                                xPos[1]>0.95*bDist);
-                    };
-                    refineRulesH.Resize(3);
+//                    auto secondRuleHFiberH = [xc1,xc2,rCore,bDist](const TPZVec<REAL> &xPos) {
+//                        return (
+//                                sqrt(xPos[0]*xPos[0]+xPos[1]*xPos[1])<0.8*bDist
+//                                &&
+//                                sqrt((xPos[0] - xc1[0]) * (xPos[0] - xc1[0]) +
+//                                     (xPos[1] - xc1[1]) * (xPos[1] - xc1[1])) > 0.8* rCore
+//                                &&
+//                                sqrt((xPos[0] - xc2[0]) * (xPos[0] - xc2[0]) +
+//                                     (xPos[1] - xc2[1]) * (xPos[1] - xc2[1])) > 0.8* rCore
+//                        );
+//                    };
+//                    auto thirdRuleHFiberH= [bDist](const TPZVec<REAL> &xPos) {
+//                        return (xPos[0]>0.95*bDist ||
+//                                xPos[1]>0.95*bDist);
+//                    };
+                    refineRulesH.Resize(1);
                     refineRulesH[0]=firstRuleHFiberH;
-                    refineRulesH[1]=secondRuleHFiberH;
-                    refineRulesH[2]=thirdRuleHFiberH;
+//                    refineRulesH[1]=secondRuleHFiberH;
+//                    refineRulesH[2]=thirdRuleHFiberH;
                 }
                 CreateHoleyFiberMesh(gmesh, simData.pzOpts.meshFile, matIdVec, simData.pzOpts.prefix,
                                      simData.pzOpts.exportGMesh, simData.pzOpts.scaleFactor,
@@ -1655,7 +1658,7 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
                      TPZVec<std::function<bool (const TPZVec<REAL> &)>> refineRules) {
     //SPZModalAnalysisData::boundtype symmetry;
     const int nDivTHole = factor * 2 + 1, nDivRHole = factor * 4 + 1,
-            nDivCladding1 = factor * 6 + 1, nDivCladding2 = factor * 4,nDivCladding3 = factor * 2,
+            nDivCladding1 = factor * 6 + 1, nDivCladding2 = factor * 4+1,nDivCladding3 = factor * 2+1,
                     nDivPml = factor * 3 + 1;
 
     const int nQuads = 32;

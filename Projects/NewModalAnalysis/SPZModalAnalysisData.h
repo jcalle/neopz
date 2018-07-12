@@ -37,7 +37,10 @@ struct SPZModalAnalysisData{
   struct SPZHoleyFiberOpts{
       REAL dPML;
       REAL boundDist;
-      SPZModalAnalysisData::boundtype symmetry;
+      SPZModalAnalysisData::boundtype symmetryX;
+      SPZModalAnalysisData::boundtype symmetryY;
+      bool refineH;
+      bool refineP;
   };
   struct SPZPhysicalOpts{
     bool isCutOff;
