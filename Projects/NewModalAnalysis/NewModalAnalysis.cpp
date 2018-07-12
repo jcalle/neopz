@@ -279,9 +279,9 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
                 xc2[1] = 0;
                 REAL bDist = simData.physicalOpts.holeyFiberOpts.boundDist *simData.pzOpts.scaleFactor;
                 if(refineP == true){
-                    auto firstRuleHFiberP = [xc1,xc2,rCore,bDist](const TPZVec<REAL> &xPos) {
+                    auto firstRuleHFiberP = [xc1,xc2,rCore,bDist,Lambda](const TPZVec<REAL> &xPos) {
                         return (
-                                sqrt(xPos[0]*xPos[0]+xPos[1]*xPos[1])<0.62*bDist
+                                sqrt(xPos[0]*xPos[0]+xPos[1]*xPos[1])<(Lambda + rCore)
 //                                &&
 //                                sqrt((xPos[0] - xc1[0]) * (xPos[0] - xc1[0]) +
 //                                     (xPos[1] - xc1[1]) * (xPos[1] - xc1[1])) > 0.6* rCore
@@ -325,15 +325,15 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
                 }
                 if(refineH==true){
 
-                    auto firstRuleHFiberH = [xc1,xc2,rCore,bDist](const TPZVec<REAL> &xPos) {
+                    auto firstRuleHFiberH = [xc1,xc2,rCore,bDist, Lambda](const TPZVec<REAL> &xPos) {
                         return (
-                                sqrt(xPos[0]*xPos[0]+xPos[1]*xPos[1])<0.5*bDist
-//                                &&
-//                                sqrt((xPos[0] - xc1[0]) * (xPos[0] - xc1[0]) +
-//                                     (xPos[1] - xc1[1]) * (xPos[1] - xc1[1])) > 0.7* rCore
-//                                &&
-//                                sqrt((xPos[0] - xc2[0]) * (xPos[0] - xc2[0]) +
-//                                     (xPos[1] - xc2[1]) * (xPos[1] - xc2[1])) > 0.7* rCore
+                                sqrt(xPos[0]*xPos[0]+xPos[1]*xPos[1])<(Lambda + rCore)
+                                &&
+                                sqrt((xPos[0] - xc1[0]) * (xPos[0] - xc1[0]) +
+                                     (xPos[1] - xc1[1]) * (xPos[1] - xc1[1])) > 0.67* rCore
+                                &&
+                                sqrt((xPos[0] - xc2[0]) * (xPos[0] - xc2[0]) +
+                                     (xPos[1] - xc2[1]) * (xPos[1] - xc2[1])) > 0.67* rCore
                         );
                     };
 //                    auto secondRuleHFiberH = [xc1,xc2,rCore,bDist](const TPZVec<REAL> &xPos) {
@@ -347,14 +347,15 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
 //                                     (xPos[1] - xc2[1]) * (xPos[1] - xc2[1])) > 0.8* rCore
 //                        );
 //                    };
-//                    auto thirdRuleHFiberH= [bDist](const TPZVec<REAL> &xPos) {
-//                        return (xPos[0]>0.95*bDist ||
-//                                xPos[1]>0.95*bDist);
-//                    };
-                    refineRulesH.Resize(1);
+                    auto thirdRuleHFiberH= [bDist](const TPZVec<REAL> &xPos) {
+                        return (xPos[0]>0.95*bDist ||
+                                xPos[1]>0.95*bDist);
+                    };
+                    refineRulesH.Resize(2);
                     refineRulesH[0]=firstRuleHFiberH;
 //                    refineRulesH[1]=secondRuleHFiberH;
 //                    refineRulesH[2]=thirdRuleHFiberH;
+                    refineRulesH[1]=thirdRuleHFiberH;
                 }
                 CreateHoleyFiberMesh(gmesh, simData.pzOpts.meshFile, matIdVec, simData.pzOpts.prefix,
                                      simData.pzOpts.exportGMesh, simData.pzOpts.scaleFactor,
@@ -1977,7 +1978,7 @@ CreateHoleyFiberMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<i
                     TPZGeoEl *geo = thisTimeRefined[iEl];
                     geo->X(qsiPos,xPos);
                     int shouldRefine = 0;
-                    for(int iref = 0; iref <= refLevel; iref++){
+                    for(int iref = 0; iref < refineRules.size(); iref++){
                         shouldRefine = refineRules[iref](xPos) ? shouldRefine+1 : shouldRefine;
                     }
                     if(shouldRefine < refLevel) continue;
