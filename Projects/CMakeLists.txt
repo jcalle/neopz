@@ -102,7 +102,7 @@ ENABLE_TESTING()
 		#
 		# If your project works with Complex numbers (STATE type = complex any type), please add it on the list below
 		if(BUILD_COMPLEX_PROJECTS)
-
+			add_subdirectory(AcousticsFourierAnalysis)
 			#Example to work with scalar as complex
 		else(BUILD_COMPLEX_PROJECTS)
 			#

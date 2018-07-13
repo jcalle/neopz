@@ -128,7 +128,7 @@ void TPZSYsmpMatrix<TVar>::MultAdd(const TPZFMatrix<TVar> &x,const TPZFMatrix<TV
 	int64_t  r = (opt) ? this->Cols() : this->Rows();
 	
 	// Determine how to initialize z
-	if(beta != 0) {
+	if(beta != 0.) {
         z = y*beta;
 	} else {
         z.Zero();
@@ -374,3 +374,7 @@ int TPZSYsmpMatrix<TVar>::ClassId() const{
 template class TPZSYsmpMatrix<double>;
 template class TPZSYsmpMatrix<float>;
 template class TPZSYsmpMatrix<long double>;
+
+#ifdef STATE_COMPLEX
+template class TPZSYsmpMatrix<std::complex<double>>;
+#endif
