@@ -40,6 +40,7 @@ void TPZMatAcousticsH1::Contribute(TPZMaterialData &data, REAL weight, TPZFMatri
 
 void TPZMatAcousticsH1::ContributeBC(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ek,
                                      TPZFMatrix<STATE> &ef, TPZBndCond &bc){
+    return;
     TPZFMatrix<REAL> &phi = data.phi;
     const int phr = phi.Rows();
     int in, jn;
@@ -71,11 +72,34 @@ void TPZMatAcousticsH1::ContributeBC(TPZMaterialData &data, REAL weight, TPZFMat
     }//switch
 
 }
-void TPZMatAcousticsH1::Solution(TPZMaterialData &data, int var, TPZVec<STATE> &Solout) {
 
+int TPZMatAcousticsH1::VariableIndex(const std::string &name) {
+    if(!strcmp("Pressure",name.c_str()))    return  1;
 }
-int TPZMatAcousticsH1::IntegrationRuleOrder(TPZVec<int> &elPMaxOrder) const {
 
+int TPZMatAcousticsH1::NSolutionVariables(int var) {
+    switch(var){
+        case 1://pressure
+            return 1;
+        default:
+            DebugStop();
+    }
+    return 0;
+}
+void TPZMatAcousticsH1::Solution(TPZMaterialData &data, int var, TPZVec<STATE> &Solout) {
+    Solout.Resize( this->NSolutionVariables(var));
+
+
+    switch(var){
+        case 1://pressure
+            Solout = data.sol[0];
+            for(int i = 0; i< Solout.size(); i++){
+                Solout[i] = std::real(Solout[i]);
+            }
+            break;
+        default:
+            DebugStop();
+    }
 }
 
 int TPZMatAcousticsH1::Dimension() const {

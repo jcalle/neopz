@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
     InitializePZLOG();
 #endif
     const std::string prefix = "results/";//PARAMS
-    int pOrder = 1; //PARAMS
+    int pOrder = 2; //PARAMS
     const int nDivIni = 4; //PARAMS
     const int nPcycles = 4;
     const int nHcycles = 7;
@@ -85,11 +85,11 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     // PARAMETROS FISICOS DO PROBLEMA
     const int nThreads = 8; //PARAMS
     const bool l2error = true; //PARAMS
-    const bool genVTK = false; //PARAMS
-    const bool printG = false;//PARAMS
-    const bool printC = false;//PARAMS
+    const bool genVTK = true; //PARAMS
+    const bool printG = true;//PARAMS
+    const bool printC = true;//PARAMS
     const int postprocessRes = 0;//PARAMS
-    REAL elSize = 4,length = 60,height = 20,pmlLength = 20;
+    REAL elSize = 1,length = 60,height = 20,pmlLength = 20;
     REAL alphaPML;
     REAL rho;
     REAL velocity;
@@ -128,13 +128,13 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
 //  strmtrx->EquationFilter().SetActiveEquations(activeEquations);
 //  an.SetStructuralMatrix(strmtrx);
 
-    TPZSymetricSpStructMatrix matrix(cmesh);
-    //TPZSBandStructMatrix matrix(cmeshHCurl);
+    TPZSkylineStructMatrix matrix(cmesh);
+//    TPZSBandStructMatrix matrix(cmesh);
     matrix.SetNumThreads(nThreads);
     FilterBoundaryEquations(cmesh, activeEquations, neq, neqOriginal);
     matrix.EquationFilter().SetActiveEquations(activeEquations);
     TPZStepSolver<STATE> step;
-    step.SetDirect(ECholesky);
+    step.SetDirect(ELDLt);
     an.SetSolver(step);
     an.SetStructuralMatrix(matrix);
     ////////////////////////////////////////////////////////////////////////
@@ -155,43 +155,45 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         }
     }
 
-    {
-        TPZAutoPointer<TPZStructMatrix> structMatrixPtr = an.StructMatrix();
-        structMatrixPtr->SetMaterialIds(matsNonPml);
-        //set matrix M
-        an.Assemble();
-        //get matrix M
+//    {
+//        TPZAutoPointer<TPZStructMatrix> structMatrixPtr = an.StructMatrix();
+//        structMatrixPtr->SetMaterialIds(matsNonPml);
+//        //set matrix M
+//        an.Assemble();
+//        //get matrix M
+//
+//        //set matrix K
+////        an.Assemble();
+//        //get matrix K
+//    }
 
-        //set matrix K
-        an.Assemble();
-        //get matrix K
-    }
+//
+//    ////////////////////////////////////////////////////////////////////////
+//    for(int iW = 0; iW < nSamples; iW++){
+//        const STATE currentW = (iW+1) * wSample;
+//        TPZAutoPointer<TPZStructMatrix> structMatrixPtr = an.StructMatrix();
+//        structMatrixPtr->SetMaterialIds(matsNonPml);
+//        //assemble load vector
+//        an.AssembleResidual();
+//        //assemble pml
+//        structMatrixPtr->SetMaterialIds(matsPml);
+//        for(auto itMap : matsPml){
+//            TPZMatAcousticsPml *mat = dynamic_cast<TPZMatAcousticsPml *>(cmesh->FindMaterial(itMap));
+//            if(mat!=nullptr){
+//                mat->SetW(currentW);
+//            }else{
+//                DebugStop();
+//            }
+//            an.Assemble();
+//            //sum all matrices
+//            //solve system
+//            //get solution
+//            //inverse transform
+//        }
+//    }
 
-
-
-    ////////////////////////////////////////////////////////////////////////
-    for(int iW = 0; iW < nSamples; iW++){
-        const STATE currentW = (iW+1) * wSample;
-        TPZAutoPointer<TPZStructMatrix> structMatrixPtr = an.StructMatrix();
-        structMatrixPtr->SetMaterialIds(matsNonPml);
-        //assemble load vector
-        an.AssembleResidual();
-        //assemble pml
-        structMatrixPtr->SetMaterialIds(matsPml);
-        for(auto itMap : matsPml){
-            TPZMatAcousticsPml *mat = dynamic_cast<TPZMatAcousticsPml *>(cmesh->FindMaterial(itMap));
-            if(mat!=nullptr){
-                mat->SetW(currentW);
-            }else{
-                DebugStop();
-            }
-            an.Assemble();
-            //sum all matrices
-            //solve system
-            //get solution
-            //inverse transform
-        }
-    }
+    an.Assemble();
+    an.Solve();
     //loads real solution
     an.LoadSolution();
 
@@ -228,11 +230,10 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
 //        errorFile.close();
 //        std::cout<<" Done!"<<std::endl;
 //    }
-
     if (genVTK) {
         std::cout<<"Post processing... ";
         TPZStack<std::string> scalnames, vecnames;
-        vecnames.Push("E");
+        scalnames.Push("Pressure");
         std::string plotfile = prefix+"sol";
         plotfile.append(std::to_string(cmesh->NElements()));
         plotfile.append(".vtk");
@@ -244,8 +245,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         std::cout<<" Done!"<<std::endl;
     }
     gmesh->SetReference(nullptr);
-    cmesh->SetReference(nullptr);
-    delete cmesh;
+    cmesh->SetReference(nullptr);delete cmesh;
     delete gmesh;
 }
 
@@ -292,10 +292,13 @@ CreateGMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matI
 	}
 #endif
     auto matIds = meshReader.fMaterialDataVec;
-    matIdVec.Resize(matIds.size());
-    for(int i = 0; i < matIds.size(); i++ )    {
-        matIdVec[i] = matIds[i].begin()->first;
-    }
+    matIdVec.Resize(4);
+    //fPZMaterialId[dimension][name]
+    matIdVec[0] = meshReader.fPZMaterialId[2]["water"];
+    matIdVec[1] = meshReader.fPZMaterialId[2]["pmlLeft"];
+    matIdVec[2] = meshReader.fPZMaterialId[2]["pmlRight"];
+    matIdVec[3] = meshReader.fPZMaterialId[1]["bound"];
+
     if(print){
         std::string meshFileName = prefix + "gmesh";
         const size_t strlen = meshFileName.length();
@@ -370,8 +373,8 @@ CreateCMesh(TPZCompMesh *&cmesh, TPZGeoMesh *gmesh, int pOrder, void (&loadVec)(
             const REAL &alphaPml, const std::string &prefix, const bool &print,
             const TPZVec<int> &matIdVec, const REAL &rho, const REAL &velocity) {
     const int dim = 2;   // dimensao do problema
-    const int matId = 1; // define id para um material(formulacao fraca)
-    const int bc0 = -1;  // define id para um material(cond contorno dirichlet)
+    const int matId = matIdVec[0]; // define id para um material(formulacao fraca)
+    const int bc0 = matIdVec[matIdVec.size()-1];  // define id para um material(cond contorno dirichlet)
     enum {
         dirichlet = 0,
         neumann,
@@ -388,7 +391,7 @@ CreateCMesh(TPZCompMesh *&cmesh, TPZGeoMesh *gmesh, int pOrder, void (&loadVec)(
     matAcoustics->SetForcingFunction(loadVec, 4);
     auto exactSol = [](const TPZVec<REAL> &coord, TPZVec<STATE> &result, TPZFMatrix<STATE> &grad) {
         result.Resize(1, 0.);
-        result[0] = M_PI * cos(M_PI * coord[0]) * sin(M_PI * coord[1]);
+        result[0] = M_PI * cos((1/10.) * 2 * M_PI * coord[0]) * sin((1/10.) * 2 * M_PI  * coord[1]);
 
         grad.Resize(2, 1);
         grad(0, 0) = -1 * M_PI * M_PI * sin(M_PI * coord[0]) * sin(M_PI * coord[1]);
@@ -451,7 +454,8 @@ CreateCMesh(TPZCompMesh *&cmesh, TPZGeoMesh *gmesh, int pOrder, void (&loadVec)(
         pmlLength = xMax - xMin;
     }
     matAcousticsPML =
-            new TPZMatAcousticsPml(matIdVec[1],*matAcoustics,true, pmlBegin, false, -1, alphaPml,pmlLength);
+            new TPZMatAcousticsPml(matIdVec[2],*matAcoustics,true, pmlBegin, false, -1, alphaPml,pmlLength);
+    matAcousticsPML->SetExactSol(exactSol);
     cmesh->InsertMaterialObject(matAcousticsPML);
 
     TPZFMatrix<STATE> val1(1, 1, 0.), val2(1, 1, 0.);
@@ -466,9 +470,15 @@ CreateCMesh(TPZCompMesh *&cmesh, TPZGeoMesh *gmesh, int pOrder, void (&loadVec)(
     cmesh->SetAllCreateFunctionsContinuous();
     cmesh->AutoBuild();
     if(print){
-        std::string fileName(prefix+ "cmesh");
-        fileName.append(".txt");
-        std::ofstream fileHCurl(fileName.c_str());
-        cmesh->Print(fileHCurl);
+        std::string meshFileName = prefix + "cmesh";
+        const size_t strlen = meshFileName.length();
+        meshFileName.append(".vtk");
+        std::ofstream outVTK(meshFileName.c_str());
+        meshFileName.replace(strlen, 4, ".txt");
+        std::ofstream outTXT(meshFileName.c_str());
+        TPZVTKGeoMesh::PrintCMeshVTK(cmesh,outVTK,true);
+        cmesh->Print(outTXT);
+        outTXT.close();
+        outVTK.close();
     }
 }
