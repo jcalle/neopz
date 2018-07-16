@@ -14,6 +14,7 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <TPZGmshReader.h>
 #include <pzl2projection.h>
+#include <TPZSkylineNSymStructMatrix.h>
 #include "TPZVTKGeoMesh.h"
 #include "pzanalysis.h"
 #include "pzbndcond.h"
@@ -128,13 +129,13 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
 //  strmtrx->EquationFilter().SetActiveEquations(activeEquations);
 //  an.SetStructuralMatrix(strmtrx);
 
-    TPZSkylineStructMatrix matrix(cmesh);
+    TPZSkylineNSymStructMatrix matrix(cmesh);
 //    TPZSBandStructMatrix matrix(cmesh);
     matrix.SetNumThreads(nThreads);
     FilterBoundaryEquations(cmesh, activeEquations, neq, neqOriginal);
     matrix.EquationFilter().SetActiveEquations(activeEquations);
     TPZStepSolver<STATE> step;
-    step.SetDirect(ELDLt);
+    step.SetDirect(ELU);
     an.SetSolver(step);
     an.SetStructuralMatrix(matrix);
     ////////////////////////////////////////////////////////////////////////
@@ -155,81 +156,63 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         }
     }
 
-//    {
-//        TPZAutoPointer<TPZStructMatrix> structMatrixPtr = an.StructMatrix();
-//        structMatrixPtr->SetMaterialIds(matsNonPml);
-//        //set matrix M
-//        an.Assemble();
-//        //get matrix M
-//
-//        //set matrix K
-////        an.Assemble();
-//        //get matrix K
-//    }
+    {
+        TPZAutoPointer<TPZStructMatrix> structMatrixPtr = an.StructMatrix();
+        structMatrixPtr->SetMaterialIds(matsNonPml);
+        //set matrix M
+        for (std::set<int>::iterator it=matsNonPml.begin(); it!=matsNonPml.end(); ++it){
+            TPZMatAcousticsH1 *matH1 = dynamic_cast<TPZMatAcousticsH1 *>(cmesh->MaterialVec()[*it]);
+            matH1->SetAssemblingMatrix(TPZMatAcousticsH1::M);
+        }
+        an.Assemble();
+        //TODO: get matrix M
 
-//
-//    ////////////////////////////////////////////////////////////////////////
-//    for(int iW = 0; iW < nSamples; iW++){
-//        const STATE currentW = (iW+1) * wSample;
-//        TPZAutoPointer<TPZStructMatrix> structMatrixPtr = an.StructMatrix();
-//        structMatrixPtr->SetMaterialIds(matsNonPml);
-//        //assemble load vector
-//        an.AssembleResidual();
-//        //assemble pml
-//        structMatrixPtr->SetMaterialIds(matsPml);
-//        for(auto itMap : matsPml){
-//            TPZMatAcousticsPml *mat = dynamic_cast<TPZMatAcousticsPml *>(cmesh->FindMaterial(itMap));
-//            if(mat!=nullptr){
-//                mat->SetW(currentW);
-//            }else{
-//                DebugStop();
-//            }
-//            an.Assemble();
-//            //sum all matrices
-//            //solve system
-//            //get solution
-//            //inverse transform
-//        }
-//    }
+        //set matrix K
+        for (std::set<int>::iterator it=matsNonPml.begin(); it!=matsNonPml.end(); ++it){
+            TPZMatAcousticsH1 *matH1 = dynamic_cast<TPZMatAcousticsH1 *>(cmesh->MaterialVec()[*it]);
+            matH1->SetAssemblingMatrix(TPZMatAcousticsH1::K);
+        }
+        an.Assemble();
+        //TODO: get matrix K
+    }
 
-    an.Assemble();
-    an.Solve();
-    //loads real solution
-    an.LoadSolution();
 
-//    boost::posix_time::ptime t1_a =
-//            boost::posix_time::microsec_clock::local_time();
-//    an.Assemble();
-//    boost::posix_time::ptime t2_a =
-//            boost::posix_time::microsec_clock::local_time();
-//    boost::posix_time::ptime t1_s =
-//            boost::posix_time::microsec_clock::local_time();
-//    an.Solve();
-//    boost::posix_time::ptime t2_s =
-//            boost::posix_time::microsec_clock::local_time();
-//
-//
-//    std::cout<<"Assembly duration: "<<t2_a-t1_a
-//             <<"  Solver duration: "<<t2_s-t1_s<<std::endl;
-//    an.LoadSolution();
-//    if (l2error) {
-//        std::cout<<"Calculating errors..."<<std::endl;
-//        TPZVec<REAL> errorVec(1,0);
-//        an.SetExact(&exactSol);
-//        errorVec.Resize(2, 0.);
-//        an.SetThreadsForError(nThreads);
-//        an.PostProcessError(errorVec);
-//        std::string fileName = prefix + "error_nel";
-//        fileName.append(std::to_string(nDiv * nDiv * 2));
-//        fileName.append("_p");
-//        fileName.append(std::to_string(pOrder));
-//        fileName.append(".csv");
-//        std::ofstream errorFile(fileName.c_str());
-//        errorFile << neq << "," << errorVec[0] << "," << errorVec[1] << "," << errorVec[2]
-//                  << std::endl;
-//        errorFile.close();
-//        std::cout<<" Done!"<<std::endl;
-//    }
+    ////////////////////////////////////////////////////////////////////////
+    const int64_t nTimeSteps = 2;
+    TPZFMatrix<STATE> timeDomainSolution(neq,nTimeSteps,0.);
+
+    for(int iW = 0; iW < nSamples; iW++){
+        const STATE currentW = (iW+1) * wSample;
+        TPZAutoPointer<TPZStructMatrix> structMatrixPtr = an.StructMatrix();
+        structMatrixPtr->SetMaterialIds(matsNonPml);
+        //TODO: set forcing function
+        an.AssembleResidual();
+        //assemble load vector
+        //assemble pml
+        structMatrixPtr->SetMaterialIds(matsPml);
+        for(auto itMap : matsPml){
+            TPZMatAcousticsPml *mat = dynamic_cast<TPZMatAcousticsPml *>(cmesh->FindMaterial(itMap));
+            if(mat!=nullptr){
+                mat->SetW(currentW);
+            }else{
+                DebugStop();
+            }
+            an.Assemble();
+            //
+            //TODO: sum all matrices
+            //solve system
+            an.Solve();
+            //get solution
+            TPZFMatrix<STATE> &currentSol = an.Solution();//p omega
+            //inverse transform
+                    for(int iPt = 0; iPt < neq; iPt++){
+                        for(int iTime = 0; iTime < nTimeSteps; iTime++){
+                            timeDomainSolution(iPt,iTime) += std::real(currentSol(iPt,0));//TODO: fazer continha aqui
+                        }
+                    }
+        }
+    }
+
     if (genVTK) {
         std::cout<<"Post processing... ";
         TPZStack<std::string> scalnames, vecnames;
@@ -241,6 +224,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         an.DefineGraphMesh(2, scalnames, vecnames,
                            plotfile);  // define malha grafica
         int postProcessResolution = postprocessRes; // define resolucao do pos processamento
+        an.LoadSolution(timeDomainSolution);
         an.PostProcess(postProcessResolution);
         std::cout<<" Done!"<<std::endl;
     }
@@ -389,15 +373,15 @@ CreateCMesh(TPZCompMesh *&cmesh, TPZGeoMesh *gmesh, int pOrder, void (&loadVec)(
     TPZMatAcousticsH1 *matAcoustics = NULL;
     matAcoustics = new TPZMatAcousticsH1(matIdVec[0], rho, velocity);
     matAcoustics->SetForcingFunction(loadVec, 4);
-    auto exactSol = [](const TPZVec<REAL> &coord, TPZVec<STATE> &result, TPZFMatrix<STATE> &grad) {
-        result.Resize(1, 0.);
-        result[0] = M_PI * cos((1/10.) * 2 * M_PI * coord[0]) * sin((1/10.) * 2 * M_PI  * coord[1]);
-
-        grad.Resize(2, 1);
-        grad(0, 0) = -1 * M_PI * M_PI * sin(M_PI * coord[0]) * sin(M_PI * coord[1]);
-        grad(1, 0) = M_PI * M_PI * cos(M_PI * coord[0]) * cos(M_PI * coord[1]);
-    };
-    matAcoustics->SetExactSol(exactSol);
+//    auto exactSol = [](const TPZVec<REAL> &coord, TPZVec<STATE> &result, TPZFMatrix<STATE> &grad) {
+//        result.Resize(1, 0.);
+//        result[0] = M_PI * cos((1/10.) * 2 * M_PI * coord[0]) * sin((1/10.) * 2 * M_PI  * coord[1]);
+//
+//        grad.Resize(2, 1);
+//        grad(0, 0) = -1 * M_PI * M_PI * sin(M_PI * coord[0]) * sin(M_PI * coord[1]);
+//        grad(1, 0) = M_PI * M_PI * cos(M_PI * coord[0]) * cos(M_PI * coord[1]);
+//    };
+//    matAcoustics->SetExactSol(exactSol);
     cmesh->InsertMaterialObject(matAcoustics);
 
     TPZMatAcousticsPml *matAcousticsPML = NULL;
@@ -428,7 +412,7 @@ CreateCMesh(TPZCompMesh *&cmesh, TPZGeoMesh *gmesh, int pOrder, void (&loadVec)(
     //matAcousticsPML = new TPZMatAcousticsPml(matIdVec[1], rho, velocity, pmlBegin, pmlLength, alphaPml);
     matAcousticsPML =
             new TPZMatAcousticsPml(matIdVec[1],*matAcoustics,true, pmlBegin, false, -1, alphaPml,pmlLength);
-    matAcousticsPML->SetExactSol(exactSol);
+//    matAcousticsPML->SetExactSol(exactSol);
     cmesh->InsertMaterialObject(matAcousticsPML);
     {
         REAL xMax =-1e20,xMin = 1e20;
@@ -455,7 +439,7 @@ CreateCMesh(TPZCompMesh *&cmesh, TPZGeoMesh *gmesh, int pOrder, void (&loadVec)(
     }
     matAcousticsPML =
             new TPZMatAcousticsPml(matIdVec[2],*matAcoustics,true, pmlBegin, false, -1, alphaPml,pmlLength);
-    matAcousticsPML->SetExactSol(exactSol);
+//    matAcousticsPML->SetExactSol(exactSol);
     cmesh->InsertMaterialObject(matAcousticsPML);
 
     TPZFMatrix<STATE> val1(1, 1, 0.), val2(1, 1, 0.);
