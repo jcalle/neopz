@@ -15,6 +15,7 @@
 #include <TPZGmshReader.h>
 #include <pzl2projection.h>
 #include <TPZSkylineNSymStructMatrix.h>
+#include <pzskylnsymmat.h>
 #include "TPZVTKGeoMesh.h"
 #include "pzanalysis.h"
 #include "pzbndcond.h"
@@ -95,6 +96,45 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     REAL rho;
     REAL velocity;
 
+
+{
+    TPZSkylNSymMatrix<REAL> matTest(5,5);
+    TPZVec<int64_t> skylineVec(5);
+    skylineVec[0]=-2;
+    skylineVec[1]=1;
+    skylineVec[2]=0;
+    skylineVec[3]=1;
+    skylineVec[4]=4;
+    /************
+     *  VERIFICAR SKYLINE
+     *
+     *
+     * */
+    matTest.SetSkyline(skylineVec);
+    matTest(0,0) = 10;
+    matTest(1,0) = 11;
+    matTest(2,0) = 12;
+    //matTest(3,0) = 4;
+
+    matTest(1,1) = 9;
+
+    matTest(0,2) = 9;
+    matTest(1,2) = 21;
+    matTest(2,2) = 7;
+    matTest(3,2) = 0;
+    matTest(4,2) = 9;
+
+    matTest(1,3) = 248;
+    matTest(2,3) = 0;
+    matTest(3,3) = 0;
+    matTest(4,3) = 3;
+
+    matTest(4,4) = 6;
+
+    matTest.Print(std::cout);
+}
+
+
     std::cout<<"Creating gmesh... ";
     boost::posix_time::ptime t1_g =
             boost::posix_time::microsec_clock::local_time();
@@ -129,15 +169,15 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
 //  strmtrx->EquationFilter().SetActiveEquations(activeEquations);
 //  an.SetStructuralMatrix(strmtrx);
 
-    TPZSkylineNSymStructMatrix matrix(cmesh);
-//    TPZSBandStructMatrix matrix(cmesh);
-    matrix.SetNumThreads(nThreads);
-    FilterBoundaryEquations(cmesh, activeEquations, neq, neqOriginal);
-    matrix.EquationFilter().SetActiveEquations(activeEquations);
+    TPZSkylineNSymStructMatrix structMatrix(cmesh);
+    structMatrix.SetNumThreads(nThreads);
+//    FilterBoundaryEquations(cmesh, activeEquations, neq, neqOriginal);
+//    structMatrix.EquationFilter().SetActiveEquations(activeEquations);
+    neq = cmesh->NEquations();
     TPZStepSolver<STATE> step;
     step.SetDirect(ELU);
     an.SetSolver(step);
-    an.SetStructuralMatrix(matrix);
+    an.SetStructuralMatrix(structMatrix);
     ////////////////////////////////////////////////////////////////////////
     const REAL wMax = 3*wZero;
     const int nSamples = 100;
@@ -156,24 +196,30 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         }
     }
 
+    TPZSkylNSymMatrix<STATE> matM;
+    TPZSkylNSymMatrix<STATE> matK;
+
     {
         TPZAutoPointer<TPZStructMatrix> structMatrixPtr = an.StructMatrix();
         structMatrixPtr->SetMaterialIds(matsNonPml);
-        //set matrix M
+        //set structMatrix M
         for (std::set<int>::iterator it=matsNonPml.begin(); it!=matsNonPml.end(); ++it){
             TPZMatAcousticsH1 *matH1 = dynamic_cast<TPZMatAcousticsH1 *>(cmesh->MaterialVec()[*it]);
             matH1->SetAssemblingMatrix(TPZMatAcousticsH1::M);
         }
         an.Assemble();
-        //TODO: get matrix M
-
-        //set matrix K
+        //get structMatrix M
+        auto mat = dynamic_cast<TPZSkylNSymMatrix<STATE> *>( an.Solver().Matrix().operator->() );
+        matM = *mat;
+        //set structMatrix K
         for (std::set<int>::iterator it=matsNonPml.begin(); it!=matsNonPml.end(); ++it){
             TPZMatAcousticsH1 *matH1 = dynamic_cast<TPZMatAcousticsH1 *>(cmesh->MaterialVec()[*it]);
             matH1->SetAssemblingMatrix(TPZMatAcousticsH1::K);
         }
         an.Assemble();
-        //TODO: get matrix K
+        //get structMatrix K
+        mat = dynamic_cast<TPZSkylNSymMatrix<STATE> *>( an.Solver().Matrix().operator->() );
+        matK = *mat;
     }
 
 
@@ -184,32 +230,50 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     for(int iW = 0; iW < nSamples; iW++){
         const STATE currentW = (iW+1) * wSample;
         TPZAutoPointer<TPZStructMatrix> structMatrixPtr = an.StructMatrix();
-        structMatrixPtr->SetMaterialIds(matsNonPml);
-        //TODO: set forcing function
-        an.AssembleResidual();
-        //assemble load vector
         //assemble pml
         structMatrixPtr->SetMaterialIds(matsPml);
-        for(auto itMap : matsPml){
+        for(auto itMap : matsPml) {
             TPZMatAcousticsPml *mat = dynamic_cast<TPZMatAcousticsPml *>(cmesh->FindMaterial(itMap));
-            if(mat!=nullptr){
+            if (mat != nullptr) {
                 mat->SetW(currentW);
-            }else{
+            } else {
                 DebugStop();
             }
-            an.Assemble();
-            //
-            //TODO: sum all matrices
-            //solve system
-            an.Solve();
-            //get solution
-            TPZFMatrix<STATE> &currentSol = an.Solution();//p omega
-            //inverse transform
-                    for(int iPt = 0; iPt < neq; iPt++){
-                        for(int iTime = 0; iTime < nTimeSteps; iTime++){
-                            timeDomainSolution(iPt,iTime) += std::real(currentSol(iPt,0));//TODO: fazer continha aqui
-                        }
-                    }
+        }
+        TPZFMatrix<STATE> rhsFake;
+        auto mat = dynamic_cast<TPZSkylNSymMatrix<STATE> *>( an.Solver().Matrix().operator->() );
+        TPZSkylNSymMatrix<STATE> matFinal(*mat);
+
+        for(int iCol = 0; iCol < neq; iCol++){
+            const int nRows = matFinal.SkyHeight(iCol);
+            const int minRow = iCol-nRows < 0 ? 0 : iCol - nRows;
+            const int maxRow = iCol+nRows > neq - 1 ? neq - 1 : iCol + nRows;
+            for(int iRow = minRow; iRow <= maxRow; iRow ++){
+                matFinal.PutVal(iRow,iCol, -1.*currentW*currentW*matM.GetVal(iRow,iCol) + matK.GetVal(iRow,iCol));
+            }
+        }
+//        matK.MultAdd(identityMatrix,matM,matFinal,1.,-1.*currentW*currentW,false);
+
+//        structMatrix.Assemble(matM,rhsFake,nullptr);
+        structMatrixPtr->Assemble(matFinal,rhsFake,nullptr);
+        an.Assemble();
+
+        structMatrixPtr->SetMaterialIds(matsNonPml);
+        //TODO: set forcing function
+        //assemble load vector
+        an.AssembleResidual();
+        //
+        //TODO: sum all matrices
+        //matM.MultAdd()
+        //solve system
+        an.Solve();
+        //get solution
+        TPZFMatrix<STATE> &currentSol = an.Solution();//p omega
+        //inverse transform
+        for(int iPt = 0; iPt < neq; iPt++){
+            for(int iTime = 0; iTime < nTimeSteps; iTime++){
+                timeDomainSolution(iPt,iTime) += std::real(currentSol(iPt,0));//TODO: fazer continha aqui
+            }
         }
     }
 
