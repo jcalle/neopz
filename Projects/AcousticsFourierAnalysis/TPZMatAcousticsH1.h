@@ -26,11 +26,12 @@ public:
     void Solution(TPZMaterialData &data, int var, TPZVec<STATE> &Solout) override;
     void SetExactSol(void (*exactSol)(const TPZVec<REAL> &, TPZVec<STATE> &, TPZFMatrix<STATE> &));
     void SetAssemblingMatrix(EWhichMatrix mat);
-private:
+protected:
     REAL fRho;
     REAL fVelocity;
     void (*fExactSol)(const TPZVec<REAL> &coord, TPZVec<STATE> &result,
                   TPZFMatrix<STATE> &grad);
+private:
     EWhichMatrix fAssembling;
 };
 

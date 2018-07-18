@@ -58,7 +58,7 @@ void TPZMatAcousticsH1::Contribute(TPZMaterialData &data, REAL weight, TPZFMatri
 void TPZMatAcousticsH1::Contribute(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ef) {
     TPZFMatrix<REAL> &phi = data.phi;
     const int nshape = phi.Rows();
-    //TODO: Get forcing fuction
+    //TODO: Get forcing function
     switch(fAssembling){
         case M:
             for(int i = 0; i < nshape; i++){

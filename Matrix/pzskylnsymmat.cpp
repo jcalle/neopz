@@ -201,13 +201,13 @@ TVar & TPZSkylNSymMatrix<TVar>::operator()(const int64_t r, const int64_t c)
   {
     // Indice do vetor coluna.
     int64_t index = row - col;
-    if (index >= Size(col))
+    if (index >= Size(row))
     {
       // Error("TPZSkylMatrix::operator()","Index out of range");
       TPZMatrix<TVar>::Error(__PRETTY_FUNCTION__, "Index out of range");
       DebugStop();
     }
-    return fElemb[col][index];
+    return fElemb[row][index];
   }
 }
 
@@ -252,15 +252,15 @@ int TPZSkylNSymMatrix<TVar>::PutVal(const int64_t r, const int64_t c, const TVar
     // Indice do vetor coluna.
     int64_t index = row - col;
     // Se precisar redimensionar o vetor.
-    if (index >= Size(col) && !IsZero(value))
+    if (index >= Size(row) && !IsZero(value))
     {
       cout << "TPZSkylMatrix::PutVal Size" << Size(col);
       cout.flush();
       TPZMatrix<TVar>::Error(__PRETTY_FUNCTION__, "Index out of range");
     }
-    else if (index >= Size(col))
+    else if (index >= Size(row))
       return 1;
-    fElemb[col][index] = value;
+    fElemb[row][index] = value;
     // delete[]newVet;
   }
 	this->fDecomposed = 0;
@@ -538,8 +538,8 @@ const TVar & TPZSkylNSymMatrix<TVar>::GetVal(const int64_t r, const int64_t c)co
     int64_t index = row - col;
     // TPZColuna *pCol = &fDiag[col];
 
-    if (index < Size(col))
-      return(fElemb[col][index]);
+    if (index < Size(row))
+      return(fElemb[row][index]);
     else
     {
       if (this->gZero != TVar(0.))
@@ -594,7 +594,7 @@ const TVar & TPZSkylNSymMatrix<TVar>::GetValB(const int64_t r, const int64_t c)c
     DebugStop();
 
 #endif
-  return(fElem[col][index]);
+  return(fElem[row][index]);
 }
 
 /** ****** Operacoes com matrizes SKY LINE  ******* */
