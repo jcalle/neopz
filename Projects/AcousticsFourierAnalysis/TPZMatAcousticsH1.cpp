@@ -59,20 +59,17 @@ void TPZMatAcousticsH1::Contribute(TPZMaterialData &data, REAL weight, TPZFMatri
     TPZFMatrix<REAL> &phi = data.phi;
     const int nshape = phi.Rows();
     //TODO: Get forcing function
-    switch(fAssembling){
-        case M:
-            for(int i = 0; i < nshape; i++){
-                ef(i,0) += weight * 1.;
-            }//for i
-            break;
-        case K:
-            for(int i = 0; i < nshape; i++){
-                ef(i,0) += weight * 1.;
-            }//for i
-            break;
-        case NDefined:
-            DebugStop();
-    }
+    TPZVec<REAL> &x = data.x;
+    //Execute(const TPZVec<REAL> &x, TPZVec<TVar> &f, TPZFMatrix<TVar> &df)
+    TPZVec<STATE> f;
+    TPZFMatrix<STATE> gradf;
+    TPZFunction<STATE> *func = fForcingFunction.operator->();
+    func->Execute(x,f,gradf);
+
+    for(int i = 0; i < nshape; i++){
+        ef(i,0) += weight * phi(i,0) * f[0];
+    }//for i
+
 }
 
 void TPZMatAcousticsH1::ContributeBC(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ek,
