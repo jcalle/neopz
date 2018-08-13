@@ -58,16 +58,9 @@ void TPZMatAcousticsH1::Contribute(TPZMaterialData &data, REAL weight, TPZFMatri
 void TPZMatAcousticsH1::Contribute(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ef) {
     TPZFMatrix<REAL> &phi = data.phi;
     const int nshape = phi.Rows();
-    //TODO: Get forcing function
-    TPZVec<REAL> &x = data.x;
-    //Execute(const TPZVec<REAL> &x, TPZVec<TVar> &f, TPZFMatrix<TVar> &df)
-    TPZVec<STATE> f;
-    TPZFMatrix<STATE> gradf;
-    TPZFunction<STATE> *func = fForcingFunction.operator->();
-    func->Execute(x,f,gradf);
 
     for(int i = 0; i < nshape; i++){
-        ef(i,0) += weight * phi(i,0) * f[0];
+        ef(i,0) += weight * phi(i,0) * fSourceFunc;
     }//for i
 
 }
@@ -109,6 +102,7 @@ void TPZMatAcousticsH1::ContributeBC(TPZMaterialData &data, REAL weight, TPZFMat
 
 int TPZMatAcousticsH1::VariableIndex(const std::string &name) {
     if(!strcmp("Pressure",name.c_str()))    return  1;
+    return -1;
 }
 
 int TPZMatAcousticsH1::NSolutionVariables(int var) {
@@ -151,4 +145,8 @@ void TPZMatAcousticsH1::ContributeBCInterface(TPZMaterialData &data, TPZMaterial
 
 void TPZMatAcousticsH1::SetExactSol(void (*exactSol)(const TPZVec<REAL> &, TPZVec<STATE> &, TPZFMatrix<STATE> &)) {
     TPZMatAcousticsH1::fExactSol = exactSol;
+}
+
+void TPZMatAcousticsH1::SetSourceFunc(const STATE &sourceFunc) {
+    fSourceFunc = sourceFunc;
 }

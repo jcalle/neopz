@@ -6,6 +6,7 @@
 #define PZ_TPZMATACOUSTICSH_H
 
 #include <pzdiscgal.h>
+#include <functional>
 
 class TPZMatAcousticsH1 : public TPZDiscontinuousGalerkin {
 public:
@@ -25,12 +26,17 @@ public:
     int NSolutionVariables(int var) override;
     void Solution(TPZMaterialData &data, int var, TPZVec<STATE> &Solout) override;
     void SetExactSol(void (*exactSol)(const TPZVec<REAL> &, TPZVec<STATE> &, TPZFMatrix<STATE> &));
+
+    void SetSourceFunc(const STATE &fSourceFunc);
+
     void SetAssemblingMatrix(EWhichMatrix mat);
 protected:
     REAL fRho;
     REAL fVelocity;
     void (*fExactSol)(const TPZVec<REAL> &coord, TPZVec<STATE> &result,
                   TPZFMatrix<STATE> &grad);
+    STATE fSourceFunc;
+
 private:
     EWhichMatrix fAssembling;
 };

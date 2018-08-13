@@ -16,6 +16,8 @@
 #include <pzl2projection.h>
 #include <TPZSkylineNSymStructMatrix.h>
 #include <pzskylnsymmat.h>
+#include <pzgeopoint.h>
+#include <pzgeoelrefless.h>
 #include "TPZVTKGeoMesh.h"
 #include "pzanalysis.h"
 #include "pzbndcond.h"
@@ -95,6 +97,8 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     REAL alphaPML;
     REAL rho;
     REAL velocity;
+    REAL peakTime = 10;
+    REAL amplitude = 10;
 
 
 //{
@@ -143,6 +147,41 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     TPZVec<int> matIdVec;
     CreateGMesh(gmesh, meshFileName, matIdVec, printG, elSize, length,
                 height, pmlLength, prefix);
+
+    int matIdSource = 0;
+    for (int iMat = 0; iMat< matIdVec.size(); iMat++){
+        matIdSource += matIdVec[iMat];
+    }
+    TPZVec<int> matIdVecCp(matIdVec);
+    matIdVec.resize(matIdVec.size()+1);
+    matIdVec[0] = matIdSource;
+    for (int iMat = 0; iMat< matIdVecCp.size(); iMat++){
+        matIdVec[iMat+1] = matIdVecCp[iMat];
+    }
+
+    {
+        const REAL sourcePosX = length/2.;
+        const REAL sourcePosY = height/2.;
+        REAL minDist = 1e6;
+        int64_t nodeIndex = -1;
+        for(int iNode = 0; iNode < gmesh->NNodes(); iNode++){
+            const TPZGeoNode & currentNode = gmesh->NodeVec()[iNode];
+            const REAL xNode = currentNode.Coord(0);
+            const REAL yNode = currentNode.Coord(1);
+            const REAL currentDist =
+                    (sourcePosX - xNode)*(sourcePosX - xNode) + (sourcePosY - yNode)*(sourcePosY - yNode);
+            if(currentDist < minDist){
+                minDist = currentDist;
+                nodeIndex = currentNode.Id();
+            }
+        }
+        TPZVec<int64_t> nodeIdVec(1,nodeIndex);
+        TPZGeoElRefLess<pzgeom::TPZGeoPoint > *zeroDEl =
+                new TPZGeoElRefLess<pzgeom::TPZGeoPoint >(nodeIdVec, matIdSource,
+                        *gmesh);
+        gmesh->BuildConnectivity();
+    }
+
     boost::posix_time::ptime t2_g =
             boost::posix_time::microsec_clock::local_time();
     std::cout<<"Created! "<<t2_g-t1_g<<std::endl;
@@ -186,12 +225,17 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     ////////////////////////////////////////////////////////////////////////
     std::set<int> matsPml;
     std::set<int> matsNonPml;
-    for(auto itMap : cmesh->MaterialVec()){
+    std::set<int> matSource;
+    for(auto itMap : cmesh->MaterialVec()) {
         TPZMatAcousticsPml *matPml = dynamic_cast<TPZMatAcousticsPml *>(itMap.second);
         TPZMatAcousticsH1 *matH1 = dynamic_cast<TPZMatAcousticsH1 *>(itMap.second);
-        if(matH1!=nullptr && matPml==nullptr){
+        if (matH1 != nullptr && matPml == nullptr) {
+            if(matH1->Id() == matIdVec[0]){//TODO: fazer isso de maneira menos tosca. queremos pular o elemento da fonte
+                matSource.insert(matH1->Id());
+                continue;
+            }
             matsNonPml.insert(matH1->Id());
-        }else if(matPml !=nullptr){
+        } else if (matPml != nullptr) {
             matsPml.insert(matPml->Id());
         }
     }
@@ -255,8 +299,24 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         structMatrixPtr->Assemble(matFinal,rhsFake,nullptr);
 
 
-        structMatrixPtr->SetMaterialIds(matsNonPml);
-        //TODO: set forcing function
+        structMatrixPtr->SetMaterialIds(matSource);
+        //TOD2O: set forcing function
+        TPZMatAcousticsH1 *matSourcePtr = dynamic_cast<TPZMatAcousticsH1 *>(cmesh->MaterialVec()[matIdSource]);
+        if(matSourcePtr == nullptr){
+            DebugStop();
+        }
+//        auto currentSource = [currentW, amplitude, peakTime, wZero](const TPZVec<REAL> &coord, TPZVec<STATE> &result) {
+//            result.Resize(1, 0.);
+//            result[0] += -2. * sqrt(-1) * amplitude * currentW;
+//            result[0] *= exp(0.5 + sqrt(-1) * currentW * peakTime - (currentW/wZero)*(currentW/wZero));
+//            result[0] *= sqrt(2 * M_PI)/( wZero * wZero);
+//        };
+
+        STATE currentSource = 0;
+        currentSource += -2. * sqrt(-1) * amplitude * currentW;
+        currentSource *= exp(0.5 + sqrt(-1) * currentW * peakTime - (currentW/wZero)*(currentW/wZero));
+        currentSource *= sqrt(2 * M_PI)/( wZero * wZero);
+        matSourcePtr->SetSourceFunc(currentSource);
         //assemble load vector
         an.AssembleResidual();
         //solve system
@@ -416,7 +476,8 @@ CreateCMesh(TPZCompMesh *&cmesh, TPZGeoMesh *gmesh, int pOrder, void (&loadVec)(
             const REAL &alphaPml, const std::string &prefix, const bool &print,
             const TPZVec<int> &matIdVec, const REAL &rho, const REAL &velocity) {
     const int dim = 2;   // dimensao do problema
-    const int matId = matIdVec[0]; // define id para um material(formulacao fraca)
+    const int matIdSource = matIdVec[0]; // define id para um material(formulacao fraca)
+    const int matId = matIdVec[1]; // define id para um material(formulacao fraca)
     const int bc0 = matIdVec[matIdVec.size()-1];  // define id para um material(cond contorno dirichlet)
     enum {
         dirichlet = 0,
@@ -432,6 +493,10 @@ CreateCMesh(TPZCompMesh *&cmesh, TPZGeoMesh *gmesh, int pOrder, void (&loadVec)(
     TPZMatAcousticsH1 *matAcoustics = NULL;
     matAcoustics = new TPZMatAcousticsH1(matIdVec[0], rho, velocity);
     matAcoustics->SetForcingFunction(loadVec, 4);
+    cmesh->InsertMaterialObject(matAcoustics);
+    matAcoustics = new TPZMatAcousticsH1(matIdVec[1], rho, velocity);
+//    matAcoustics->SetForcingFunction(loadVec, 4);
+    cmesh->InsertMaterialObject(matAcoustics);
 //    auto exactSol = [](const TPZVec<REAL> &coord, TPZVec<STATE> &result, TPZFMatrix<STATE> &grad) {
 //        result.Resize(1, 0.);
 //        result[0] = M_PI * cos((1/10.) * 2 * M_PI * coord[0]) * sin((1/10.) * 2 * M_PI  * coord[1]);
@@ -441,7 +506,6 @@ CreateCMesh(TPZCompMesh *&cmesh, TPZGeoMesh *gmesh, int pOrder, void (&loadVec)(
 //        grad(1, 0) = M_PI * M_PI * cos(M_PI * coord[0]) * cos(M_PI * coord[1]);
 //    };
 //    matAcoustics->SetExactSol(exactSol);
-    cmesh->InsertMaterialObject(matAcoustics);
 
     TPZMatAcousticsPml *matAcousticsPML = NULL;
     REAL pmlBegin, pmlLength;
@@ -470,7 +534,7 @@ CreateCMesh(TPZCompMesh *&cmesh, TPZGeoMesh *gmesh, int pOrder, void (&loadVec)(
     }
     //matAcousticsPML = new TPZMatAcousticsPml(matIdVec[1], rho, velocity, pmlBegin, pmlLength, alphaPml);
     matAcousticsPML =
-            new TPZMatAcousticsPml(matIdVec[1],*matAcoustics,true, pmlBegin, false, -1, alphaPml,pmlLength);
+            new TPZMatAcousticsPml(matIdVec[2],*matAcoustics,true, pmlBegin, false, -1, alphaPml,pmlLength);
 //    matAcousticsPML->SetExactSol(exactSol);
     cmesh->InsertMaterialObject(matAcousticsPML);
     {
@@ -497,7 +561,7 @@ CreateCMesh(TPZCompMesh *&cmesh, TPZGeoMesh *gmesh, int pOrder, void (&loadVec)(
         pmlLength = xMax - xMin;
     }
     matAcousticsPML =
-            new TPZMatAcousticsPml(matIdVec[2],*matAcoustics,true, pmlBegin, false, -1, alphaPml,pmlLength);
+            new TPZMatAcousticsPml(matIdVec[3],*matAcoustics,true, pmlBegin, false, -1, alphaPml,pmlLength);
 //    matAcousticsPML->SetExactSol(exactSol);
     cmesh->InsertMaterialObject(matAcousticsPML);
 
