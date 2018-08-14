@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
 
 void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix, const REAL &wZero) {
     // PARAMETROS FISICOS DO PROBLEMA
-    const int nThreads = 8; //PARAMS
+    const int nThreads = 0; //PARAMS
     const bool l2error = true; //PARAMS
     const bool genVTK = true; //PARAMS
     const bool printG = true;//PARAMS
@@ -95,11 +95,12 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     const int postprocessRes = 0;//PARAMS
     REAL elSize = 1,length = 60,height = 20,pmlLength = 20;
     REAL alphaPML;
-    REAL rho;
-    REAL velocity;
-    REAL peakTime = 10;
+    REAL rho = 1.3;
+    REAL velocity = 340;
+    REAL peakTime = 1./100;
     REAL amplitude = 10;
-
+    REAL totalTime = 5 * peakTime;
+    const int64_t nTimeSteps = 100;
 
 //{
 //    TPZSkylNSymMatrix<REAL> matTest(5,5);
@@ -195,7 +196,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
             boost::posix_time::microsec_clock::local_time();
     std::cout<<"Created! "<<t2_c-t1_c<<std::endl;
 
-    TPZAnalysis an(cmesh);
+    TPZAnalysis an(cmesh, false);
     // configuracoes do objeto de analise
     TPZManVector<int64_t, 1000> activeEquations;
     int neq = 0;
@@ -210,9 +211,13 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
 
     TPZSkylineNSymStructMatrix structMatrix(cmesh);
     structMatrix.SetNumThreads(nThreads);
-//    FilterBoundaryEquations(cmesh, activeEquations, neq, neqOriginal);
-//    structMatrix.EquationFilter().SetActiveEquations(activeEquations);
-    neq = cmesh->NEquations();
+    bool filter = false;
+    if(filter){
+        FilterBoundaryEquations(cmesh, activeEquations, neq, neqOriginal);
+        structMatrix.EquationFilter().SetActiveEquations(activeEquations);
+    }else{
+        neq = cmesh->NEquations();
+    }
     TPZStepSolver<STATE> step;
     step.SetDirect(ELU);
     an.SetSolver(step);
@@ -246,6 +251,9 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     {
         TPZAutoPointer<TPZStructMatrix> structMatrixPtr = an.StructMatrix();
         structMatrixPtr->SetMaterialIds(matsNonPml);
+        for(auto iMat : matsNonPml){
+            std::cout<<iMat<<std::endl;
+        }
         //set structMatrix M
         for (std::set<int>::iterator it=matsNonPml.begin(); it!=matsNonPml.end(); ++it){
             TPZMatAcousticsH1 *matH1 = dynamic_cast<TPZMatAcousticsH1 *>(cmesh->MaterialVec()[*it]);
@@ -268,7 +276,6 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
 
 
     ////////////////////////////////////////////////////////////////////////
-    const int64_t nTimeSteps = 2;
     TPZFMatrix<STATE> timeDomainSolution(neq,nTimeSteps,0.);
 
     for(int iW = 0; iW < nSamples; iW++){
@@ -284,7 +291,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
                 DebugStop();
             }
         }
-        TPZFMatrix<STATE> rhsFake(neq,1);
+        TPZFMatrix<STATE> rhsFake(cmesh->NEquations(),1);
         auto mat = dynamic_cast<TPZSkylNSymMatrix<STATE> *>( an.Solver().Matrix().operator->() );
         TPZSkylNSymMatrix<STATE> matFinal(*mat);
         //-w^2 M + K
@@ -313,8 +320,8 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
 //        };
 
         STATE currentSource = 0;
-        currentSource += -2. * sqrt(-1) * amplitude * currentW;
-        currentSource *= exp(0.5 + sqrt(-1) * currentW * peakTime - (currentW/wZero)*(currentW/wZero));
+        currentSource += -2. * sqrt((STATE)-1) * amplitude * currentW;
+        currentSource *= exp(0.5 + sqrt((STATE)-1) * currentW * peakTime - (currentW/wZero)*(currentW/wZero));
         currentSource *= sqrt(2 * M_PI)/( wZero * wZero);
         matSourcePtr->SetSourceFunc(currentSource);
         //assemble load vector
@@ -324,10 +331,12 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         //get solution
         TPZFMatrix<STATE> &currentSol = an.Solution();//p omega
         //inverse transform
+
+        REAL timeStepSize = totalTime/nTimeSteps;
         for(int iPt = 0; iPt < neq; iPt++){
             for(int iTime = 0; iTime < nTimeSteps; iTime++){
                 timeDomainSolution(iPt,iTime) +=
-                        std::real(currentSol(iPt,0)) * wSample * std::cos((REAL)iTime * currentW)/M_PI;
+                        std::real(currentSol(iPt,0)) * wSample * std::cos((REAL)iTime * timeStepSize * currentW)/M_PI;
             }
         }
     }

@@ -67,7 +67,7 @@ void TPZMatAcousticsH1::Contribute(TPZMaterialData &data, REAL weight, TPZFMatri
 
 void TPZMatAcousticsH1::ContributeBC(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ek,
                                      TPZFMatrix<STATE> &ef, TPZBndCond &bc){
-    return;//Neumann 0 you do nothing, Dirichlet 0 will be filtered
+//    return;//Neumann 0 you do nothing, Dirichlet 0 will be filtered
     TPZFMatrix<REAL> &phi = data.phi;
     const int phr = phi.Rows();
     int in, jn;
