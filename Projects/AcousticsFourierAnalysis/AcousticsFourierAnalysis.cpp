@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
 
 void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix, const REAL &wZero) {
     // PARAMETROS FISICOS DO PROBLEMA
-    const int nThreads = 0; //PARAMS
+    const int nThreads = 8; //PARAMS
     const bool l2error = true; //PARAMS
     const bool genVTK = true; //PARAMS
     const bool printG = true;//PARAMS
@@ -327,6 +327,8 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         //assemble load vector
         an.AssembleResidual();
         //solve system
+        an.Solver().SetMatrix(&matFinal);
+        std::cout<<"solver step "<<iW<<" out of "<<nSamples<<std::endl;
         an.Solve();
         //get solution
         TPZFMatrix<STATE> &currentSol = an.Solution();//p omega
