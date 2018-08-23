@@ -173,7 +173,7 @@ public:
 	 */
 	virtual int Decompose_LU(std::list<int64_t> &singular);
 	virtual int Decompose_LU();
-	
+
 	//@}
 	
 	/**

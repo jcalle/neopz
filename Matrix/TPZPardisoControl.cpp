@@ -112,6 +112,18 @@ int DataType(float a)
     return 1;
 }
 
+template<>
+int DataType(std::complex<double> a)
+{
+    return 0;
+}
+
+template<>
+int DataType(std::complex<float> a)
+{
+    return 1;
+}
+
 
 template<class TVar>
 long long TPZPardisoControl<TVar>::MatrixType()
@@ -120,16 +132,24 @@ long long TPZPardisoControl<TVar>::MatrixType()
     if (fStructure == EStructureNonSymmetric) {
         DebugStop();
     }
-    if (fSystemType == ESymmetric && fProperty == EIndefinite) {
+    else if( fSystemType == ENonSymmetric &&
+             (std::is_same<TVar,std::complex<double>>::value || std::is_same<TVar,std::complex<float>>::value)){
+        fMatrixType = 13;
+    }
+    else if( fSystemType == ESymmetric &&
+             (std::is_same<TVar,std::complex<double>>::value || std::is_same<TVar,std::complex<float>>::value)){
+        fMatrixType = 6;
+    }
+    else if (fSystemType == ESymmetric && fProperty == EIndefinite) {
         fMatrixType = -2;
     }
-    if (fSystemType == ESymmetric && fProperty == EPositiveDefinite) {
+    else if (fSystemType == ESymmetric && fProperty == EPositiveDefinite) {
         fMatrixType = 2;
     }
-    if (fSystemType == ENonSymmetric && fStructure == EStructureSymmetric) {
+    else if (fSystemType == ENonSymmetric && fStructure == EStructureSymmetric) {
         fMatrixType = 1;
     }
-    if (fSystemType == ENonSymmetric && fProperty == EPositiveDefinite) {
+    else if (fSystemType == ENonSymmetric && fProperty == EPositiveDefinite) {
         DebugStop();
     }
     
@@ -295,6 +315,7 @@ void TPZPardisoControl<TVar>::Solve(TPZFMatrix<TVar> &rhs, TPZFMatrix<TVar> &sol
 //    rhs.Print("rhs");
 //    sol.Print("sol");
     if (Error) {
+        std::cout << "Pardiso:: linear solver returned "<<Error<<std::endl;
         DebugStop();
     }
     std::cout << "Pardiso:: linear solve complete. \n";
@@ -328,6 +349,10 @@ TPZPardisoControl<TVar>::~TPZPardisoControl()
 template class TPZPardisoControl<double>;
 template class TPZPardisoControl<long double>;
 template class TPZPardisoControl<float>;
+
+template class TPZPardisoControl<std::complex<double>>;
+template class TPZPardisoControl<std::complex<long double>>;
+template class TPZPardisoControl<std::complex<float>>;
 
 
 
