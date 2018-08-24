@@ -94,7 +94,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     const bool printC = true;//PARAMS
     const int postprocessRes = 0;//PARAMS
     REAL elSize = 1,length = 60,height = 20,pmlLength = 20;
-    REAL alphaPML;
+    REAL alphaPML = 10;
     REAL rho = 1.3;
     REAL velocity = 340;
     REAL peakTime = 1./100;
@@ -102,42 +102,6 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     REAL totalTime = 5 * peakTime;
     const int64_t nTimeSteps = 100;
 
-//{
-//    TPZSkylNSymMatrix<REAL> matTest(5,5);
-//    TPZVec<int64_t> skylineVec(5);
-//    skylineVec[0]=-2;
-//    skylineVec[1]=1;
-//    skylineVec[2]=0;
-//    skylineVec[3]=1;
-//    skylineVec[4]=4;
-//    /************
-//     *  VERIFICAR SKYLINE
-//     *
-//     *
-//     * */
-//    matTest.SetSkyline(skylineVec);
-//    matTest(0,0) = 10;
-//    matTest(1,0) = 11;
-//    matTest(2,0) = 12;
-//    //matTest(3,0) = 4;
-//
-//    matTest(1,1) = 9;
-//
-//    matTest(0,2) = 9;
-//    matTest(1,2) = 21;
-//    matTest(2,2) = 7;
-//    matTest(3,2) = 0;
-//    matTest(4,2) = 9;
-//
-//    matTest(1,3) = 248;
-//    matTest(2,3) = 0;
-//    matTest(3,3) = 0;
-//    matTest(4,3) = 3;
-//
-//    matTest(4,4) = 6;
-//
-//    matTest.Print(std::cout);
-//}
 
 
     std::cout<<"Creating gmesh... ";
@@ -202,20 +166,13 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     int neq = 0;
     int neqOriginal = 0;
 
-//  TPZAutoPointer<TPZStructMatrix> strmtrx;
-//  strmtrx = new TPZSpStructMatrix(cmeshHCurl);
-//  strmtrx->SetNumThreads(nThreads);
-//  FilterBoundaryEquations(cmeshHCurl, activeEquations, neq, neqOriginal);
-//  strmtrx->EquationFilter().SetActiveEquations(activeEquations);
-//  an.SetStructuralMatrix(strmtrx);
-//    TPZFYsmpMatrix
 
 
 
 //    TPZSkylineNSymStructMatrix structMatrix(cmesh);
     TPZSpStructMatrix structMatrix(cmesh);
     structMatrix.SetNumThreads(nThreads);
-    bool filter = false;
+    bool filter = true;
     if(filter){
         FilterBoundaryEquations(cmesh, activeEquations, neq, neqOriginal);
         structMatrix.EquationFilter().SetActiveEquations(activeEquations);
@@ -228,7 +185,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     an.SetStructuralMatrix(structMatrix);
     ////////////////////////////////////////////////////////////////////////
     const REAL wMax = 3*wZero;
-    const int nSamples = 100;
+    const int nSamples = 50;
     const REAL wSample = wMax/nSamples;
 
     ////////////////////////////////////////////////////////////////////////
@@ -257,9 +214,6 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     {
         TPZAutoPointer<TPZStructMatrix> structMatrixPtr = an.StructMatrix();
         structMatrixPtr->SetMaterialIds(matsNonPml);
-        for(auto iMat : matsNonPml){
-            std::cout<<iMat<<std::endl;
-        }
         //set structMatrix M
         for (std::set<int>::iterator it=matsNonPml.begin(); it!=matsNonPml.end(); ++it){
             TPZMatAcousticsH1 *matH1 = dynamic_cast<TPZMatAcousticsH1 *>(cmesh->MaterialVec()[*it]);
@@ -291,6 +245,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
 
     ////////////////////////////////////////////////////////////////////////
     TPZFMatrix<STATE> timeDomainSolution(neq,nTimeSteps,0.);
+    TPZFMatrix<STATE> rhsFake(cmesh->NEquations(),1);
 //    TPZAutoPointer<TPZMatrix<STATE>> matFinal(new TPZSkylNSymMatrix<STATE>(matK));
     TPZAutoPointer<TPZMatrix<STATE>> matFinal(new TPZFYsmpMatrix<STATE>(matK));
     for(int iW = 0; iW < nSamples; iW++){
@@ -306,7 +261,6 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
                 DebugStop();
             }
         }
-        TPZFMatrix<STATE> rhsFake(cmesh->NEquations(),1);
 
         //-w^2 M + K
         boost::posix_time::ptime t1_sum =
@@ -396,12 +350,26 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         an.DefineGraphMesh(2, scalnames, vecnames,
                            plotfile);  // define malha grafica
         int postProcessResolution = postprocessRes; // define resolucao do pos processamento
-        an.LoadSolution(timeDomainSolution);
-        an.PostProcess(postProcessResolution);
+
+        TPZFMatrix<STATE> currentSol(neq,1);
+        TPZFMatrix<STATE> scatteredSol(neqOriginal,1);
+        for(int iTime = 0; iTime < nTimeSteps; iTime++){
+            for(int iPt = 0; iPt < neq; iPt++){
+                currentSol(iPt,0) = timeDomainSolution(iPt,iTime);
+            }
+            if(filter){
+                structMatrix.EquationFilter().Scatter(currentSol, scatteredSol);
+                an.LoadSolution(scatteredSol);
+            }else{
+                an.LoadSolution(currentSol);
+            }
+            an.PostProcess(postProcessResolution);
+        }
         std::cout<<" Done!"<<std::endl;
     }
     gmesh->SetReference(nullptr);
-    cmesh->SetReference(nullptr);delete cmesh;
+    cmesh->SetReference(nullptr);
+    delete cmesh;
     delete gmesh;
 }
 

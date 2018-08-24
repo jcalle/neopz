@@ -31,12 +31,11 @@ void TPZMatAcousticsPml::Contribute(TPZMaterialData &data, REAL weight, TPZFMatr
     STATE dx =1., dy =1., d0;
     d0 = 3. * fAlphaMax * fVelocity / (2 * fD);
 
-    //TODO: dont use std::complex<REAL>
     if(fAttX){
-        dx = 1. - std::complex<REAL>(0,1) * (1./fW) * d0 * ((x[0]-fPmlBeginX) / fD)*((x[0]-fPmlBeginX) / fD);
+        dx = 1. - SPZAlwaysComplex<STATE>::type(0,1) * (1./fW) * d0 * ((x[0]-fPmlBeginX) / fD)*((x[0]-fPmlBeginX) / fD);
     }
     if(fAttY){
-        dy = 1. - std::complex<REAL>(0,1) * (1./fW) * d0 * ((x[1]-fPmlBeginY) / fD)*((x[1]-fPmlBeginY) / fD);
+        dy = 1. - SPZAlwaysComplex<STATE>::type(0,1) * (1./fW) * d0 * ((x[1]-fPmlBeginY) / fD)*((x[1]-fPmlBeginY) / fD);
     }
     TPZFMatrix<REAL> &phi = data.phi;
     const int nshape = phi.Rows();

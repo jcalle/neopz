@@ -37,7 +37,40 @@ typename std::underlying_type<Enumeration>::type as_integer(const Enumeration va
     return static_cast<typename std::underlying_type<Enumeration>::type>(value);
 }
 
+template<class T>
+struct SPZAlwaysComplex{
 
+};
+
+template<>
+struct SPZAlwaysComplex<float>{
+	typedef std::complex<float> type;
+};
+
+template<>
+struct SPZAlwaysComplex<double>{
+	typedef std::complex<double> type;
+};
+
+template<>
+struct SPZAlwaysComplex<long double>{
+	typedef std::complex<long double> type;
+};
+
+template<>
+struct SPZAlwaysComplex<std::complex<float>>{
+	typedef std::complex<float> type;
+};
+
+template<>
+struct SPZAlwaysComplex<std::complex<double>>{
+	typedef std::complex<double> type;
+};
+
+template<>
+struct SPZAlwaysComplex<std::complex<long double>>{
+	typedef std::complex<long double> type;
+};
 /*structs used for help identifying fundamental types in template parameters.
  For instance,
  
