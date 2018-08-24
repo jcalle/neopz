@@ -98,7 +98,7 @@ class TPZSkylNSymMatrix : public TPZMatrix<TVar>
 
   // Operadores com matrizes SKY LINE.
   //TPZSkylNSymMatrix &operator= (const TPZSkylNSymMatrix &A );
-  //TPZSkylMatrix &operator= (TTempMat<TPZSkylMatrix> A);
+  TPZSkylNSymMatrix<TVar> &operator= (const TPZSkylNSymMatrix<TVar> &A);
 
   //TPZSkylNSymMatrix operator+  (const TPZSkylNSymMatrix &A ) const;
   //TPZSkylNSymMatrix operator-  (const TPZSkylNSymMatrix &A ) const;

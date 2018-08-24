@@ -596,6 +596,13 @@ const TVar & TPZSkylNSymMatrix<TVar>::GetValB(const int64_t r, const int64_t c)c
 #endif
   return(fElem[row][index]);
 }
+template<class TVar>
+TPZSkylNSymMatrix<TVar> & TPZSkylNSymMatrix<TVar>:: operator = (const TPZSkylNSymMatrix<TVar> & A)
+{
+  Clear();
+  Copy(A);
+  return(*this);
+}
 
 /** ****** Operacoes com matrizes SKY LINE  ******* */
 

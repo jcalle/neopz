@@ -93,7 +93,6 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     const bool printG = true;//PARAMS
     const bool printC = true;//PARAMS
     const int postprocessRes = 0;//PARAMS
-    REAL elSize = 1,length = 60,height = 20,pmlLength = 20;
     REAL alphaPML = 10;
     REAL rho = 1.3;
     REAL velocity = 340;
@@ -101,6 +100,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     REAL amplitude = 10;
     REAL totalTime = 5 * peakTime;
     const int64_t nTimeSteps = 100;
+    REAL elSize = 2 *M_PI*velocity / (12 *wZero),length = 60,height = 5,pmlLength = 20;
 
 
 
@@ -167,10 +167,13 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     int neqOriginal = 0;
 
 
+//#define USING_SKYLINE
 
-
-//    TPZSkylineNSymStructMatrix structMatrix(cmesh);
+#ifdef USING_SKYLINE
+    TPZSkylineNSymStructMatrix structMatrix(cmesh);
+#else
     TPZSpStructMatrix structMatrix(cmesh);
+#endif
     structMatrix.SetNumThreads(nThreads);
     bool filter = true;
     if(filter){
@@ -185,7 +188,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     an.SetStructuralMatrix(structMatrix);
     ////////////////////////////////////////////////////////////////////////
     const REAL wMax = 3*wZero;
-    const int nSamples = 50;
+    const int nSamples = 350;
     const REAL wSample = wMax/nSamples;
 
     ////////////////////////////////////////////////////////////////////////
@@ -205,11 +208,16 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
             matsPml.insert(matPml->Id());
         }
     }
-//    TPZFYsmpMatrix
+
+
+#ifdef USING_SKYLINE
+    TPZSkylNSymMatrix<STATE> matM;
+    TPZSkylNSymMatrix<STATE> matK;
+#else
     TPZFYsmpMatrix<STATE> matM;
     TPZFYsmpMatrix<STATE> matK;
-//    TPZSkylNSymMatrix<STATE> matM;
-//    TPZSkylNSymMatrix<STATE> matK;
+#endif
+
 
     {
         TPZAutoPointer<TPZStructMatrix> structMatrixPtr = an.StructMatrix();
@@ -221,8 +229,12 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         }
         an.Assemble();
         //get structMatrix M
+
+#ifdef USING_SKYLINE
+        auto mat = dynamic_cast<TPZSkylNSymMatrix<STATE> *>( an.Solver().Matrix().operator->() );
+#else
         auto mat = dynamic_cast<TPZFYsmpMatrix<STATE> *>( an.Solver().Matrix().operator->() );
-//        auto mat = dynamic_cast<TPZSkylNSymMatrix<STATE> *>( an.Solver().Matrix().operator->() );
+#endif
         if(!mat){
             DebugStop();
         }
@@ -234,8 +246,11 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         }
         an.Assemble();
         //get structMatrix K
+#ifdef USING_SKYLINE
+        mat = dynamic_cast<TPZSkylNSymMatrix<STATE> *>( an.Solver().Matrix().operator->() );
+#else
         mat = dynamic_cast<TPZFYsmpMatrix<STATE> *>( an.Solver().Matrix().operator->() );
-//        mat = dynamic_cast<TPZSkylNSymMatrix<STATE> *>( an.Solver().Matrix().operator->() );
+#endif
         if(!mat){
             DebugStop();
         }
@@ -246,9 +261,12 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     ////////////////////////////////////////////////////////////////////////
     TPZFMatrix<STATE> timeDomainSolution(neq,nTimeSteps,0.);
     TPZFMatrix<STATE> rhsFake(cmesh->NEquations(),1);
-//    TPZAutoPointer<TPZMatrix<STATE>> matFinal(new TPZSkylNSymMatrix<STATE>(matK));
+#ifdef USING_SKYLINE
+    TPZAutoPointer<TPZMatrix<STATE>> matFinal(new TPZSkylNSymMatrix<STATE>(matK));
+#else
     TPZAutoPointer<TPZMatrix<STATE>> matFinal(new TPZFYsmpMatrix<STATE>(matK));
-    for(int iW = 0; iW < nSamples; iW++){
+#endif
+    for(int iW = 0; iW < nSamples - 1; iW++){
         const STATE currentW = (iW+1) * wSample;
         TPZAutoPointer<TPZStructMatrix> structMatrixPtr = an.StructMatrix();
         //assemble pml
@@ -266,6 +284,18 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         boost::posix_time::ptime t1_sum =
           boost::posix_time::microsec_clock::local_time();
 
+
+
+#ifdef USING_SKYLINE
+        for(int iCol = 0; iCol < neq; iCol++){
+            TPZSkylNSymMatrix<STATE> * matFinalDummy = dynamic_cast<TPZSkylNSymMatrix<STATE> *>(matFinal.operator->());
+            const int nRows = matFinalDummy->SkyHeight(iCol);
+            for(int iRow = iCol; iRow >= iCol - nRows; iRow --){
+                matFinal->PutVal(iRow,iCol, -1.*currentW*currentW*matM.GetVal(iRow,iCol) + matK.GetVal(iRow,iCol));
+                matFinal->PutVal(iCol,iRow, -1.*currentW*currentW*matM.GetVal(iCol,iRow) + matK.GetVal(iCol,iRow));
+            }
+        }
+#else
         TPZVec<int64_t> ia;
         TPZVec<int64_t> ja;
         TPZVec<STATE> aM, aK, aFinal;
@@ -278,15 +308,8 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
             aFinal[i] = -1.*currentW*currentW*aM[i] + aK[i];
         }
         matFinalDummy->SetData(ia,ja,aFinal);
+#endif
 
-//        for(int iCol = 0; iCol < neq; iCol++){
-//          TPZSkylNSymMatrix<STATE> * matFinalDummy = dynamic_cast<TPZSkylNSymMatrix<STATE> *>(matFinal.operator->());
-//            const int nRows = matFinalDummy->SkyHeight(iCol);
-//            for(int iRow = iCol; iRow >= iCol - nRows; iRow --){
-//                matFinal->PutVal(iRow,iCol, -1.*currentW*currentW*matM.GetVal(iRow,iCol) + matK.GetVal(iRow,iCol));
-//                matFinal->PutVal(iCol,iRow, -1.*currentW*currentW*matM.GetVal(iCol,iRow) + matK.GetVal(iCol,iRow));
-//            }
-//        }
 
         boost::posix_time::ptime t2_sum =
           boost::posix_time::microsec_clock::local_time();
@@ -296,7 +319,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
 
 
         structMatrixPtr->SetMaterialIds(matSource);
-        //TOD2O: set forcing function
+
         TPZMatAcousticsH1 *matSourcePtr = dynamic_cast<TPZMatAcousticsH1 *>(cmesh->MaterialVec()[matIdSource]);
         if(matSourcePtr == nullptr){
             DebugStop();
@@ -318,14 +341,14 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         //solve system
         an.Solver().SetMatrix(matFinal);
 
-        std::cout<<"solver step "<<iW<<" out of "<<nSamples;
+        std::cout<<"solver step "<<iW+1<<" out of "<<nSamples - 1;
         boost::posix_time::ptime t1_solve =
           boost::posix_time::microsec_clock::local_time();
         std::cout<<std::flush;
         an.Solve();
         boost::posix_time::ptime t2_solve =
           boost::posix_time::microsec_clock::local_time();
-        std::cout<<" took "<<t2_solve-t1_solve<<std::endl;
+        std::cout<<"solver step "<<iW+1<<" out of "<<nSamples - 1<<" took "<<t2_solve-t1_solve<<std::endl;
         //get solution
         TPZFMatrix<STATE> &currentSol = an.Solution();//p omega
         //inverse transform
@@ -340,7 +363,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     }
 
     if (genVTK) {
-        std::cout<<"Post processing... ";
+        std::cout<<"Post processing... "<<std::endl;
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("Pressure");
         std::string plotfile = prefix+"sol";
@@ -354,6 +377,8 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         TPZFMatrix<STATE> currentSol(neq,1);
         TPZFMatrix<STATE> scatteredSol(neqOriginal,1);
         for(int iTime = 0; iTime < nTimeSteps; iTime++){
+            std::cout<<"\rtime: "<<iTime+1<<" out of "<<nTimeSteps<<std::endl;
+            std::cout<<std::flush;
             for(int iPt = 0; iPt < neq; iPt++){
                 currentSol(iPt,0) = timeDomainSolution(iPt,iTime);
             }
@@ -535,7 +560,7 @@ CreateCMesh(TPZCompMesh *&cmesh, TPZGeoMesh *gmesh, int pOrder, void (&loadVec)(
         TPZGeoMesh * gmesh = cmesh->Reference();
         for (int iel = 0; iel < gmesh->NElements(); ++iel) {
             TPZGeoEl *geo = gmesh->Element(iel);
-            if (geo->MaterialId() == matIdVec[1]) {
+            if (geo->MaterialId() == matIdVec[2]) {
                 for (int iNode = 0; iNode < geo->NCornerNodes(); ++iNode) {
                     TPZManVector<REAL, 3> co(3);
                     geo->Node(iNode).GetCoordinates(co);
@@ -563,7 +588,7 @@ CreateCMesh(TPZCompMesh *&cmesh, TPZGeoMesh *gmesh, int pOrder, void (&loadVec)(
         TPZGeoMesh * gmesh = cmesh->Reference();
         for (int iel = 0; iel < gmesh->NElements(); ++iel) {
             TPZGeoEl *geo = gmesh->Element(iel);
-            if (geo->MaterialId() == matIdVec[2]) {
+            if (geo->MaterialId() == matIdVec[3]) {
                 for (int iNode = 0; iNode < geo->NCornerNodes(); ++iNode) {
                     TPZManVector<REAL, 3> co(3);
                     geo->Node(iNode).GetCoordinates(co);
