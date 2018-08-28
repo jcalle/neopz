@@ -60,7 +60,7 @@ void TPZMatAcousticsH1::Contribute(TPZMaterialData &data, REAL weight, TPZFMatri
     const int nshape = phi.Rows();
 
     for(int i = 0; i < nshape; i++){
-        ef(i,0) += weight * phi(i,0) * fSourceFunc;
+        ef(i,0) += weight * phi(i,0) * fSourceFunc / (fRho* fVelocity * fVelocity);
     }//for i
 
 }
@@ -121,9 +121,6 @@ void TPZMatAcousticsH1::Solution(TPZMaterialData &data, int var, TPZVec<STATE> &
     switch(var){
         case 1://pressure
             Solout = data.sol[0];
-            for(int i = 0; i< Solout.size(); i++){
-                Solout[i] = std::real(Solout[i]);
-            }
             break;
         default:
             DebugStop();

@@ -100,9 +100,19 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     REAL amplitude = 10;
     REAL totalTime = 5 * peakTime;
     const int64_t nTimeSteps = 100;
-    REAL elSize = 2 *M_PI*velocity / (12 *wZero),length = 60,height = 5,pmlLength = 20;
+    REAL elSize = 2 *M_PI*velocity / (10 *wZero),length = 60,height = 8,pmlLength = 20;
 
+    ////////////////////////////////////////////////////////////////////////
+    const REAL wMax = 3*wZero;
+    int nSamples = 100;
+    REAL wSample = wMax/nSamples;
 
+    if(2 * M_PI /wSample < totalTime){
+        std::cout<<"sampling is not good. hmmmmmmm."<<std::endl;
+        nSamples = (int)std::ceil(wMax / (2*M_PI/(1.001*totalTime)));
+        wSample = wMax/nSamples;
+        std::cout<<"new nSamples: "<<nSamples<<std::endl;
+    }
 
     std::cout<<"Creating gmesh... ";
     boost::posix_time::ptime t1_g =
@@ -124,11 +134,11 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         matIdVec[iMat+1] = matIdVecCp[iMat];
     }
 
+    int64_t sourceNodeIndex = -1;
     {
         const REAL sourcePosX = length/2.;
         const REAL sourcePosY = height/2.;
         REAL minDist = 1e6;
-        int64_t nodeIndex = -1;
         for(int iNode = 0; iNode < gmesh->NNodes(); iNode++){
             const TPZGeoNode & currentNode = gmesh->NodeVec()[iNode];
             const REAL xNode = currentNode.Coord(0);
@@ -137,10 +147,10 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
                     (sourcePosX - xNode)*(sourcePosX - xNode) + (sourcePosY - yNode)*(sourcePosY - yNode);
             if(currentDist < minDist){
                 minDist = currentDist;
-                nodeIndex = currentNode.Id();
+                sourceNodeIndex = currentNode.Id();
             }
         }
-        TPZVec<int64_t> nodeIdVec(1,nodeIndex);
+        TPZVec<int64_t> nodeIdVec(1,sourceNodeIndex);
         TPZGeoElRefLess<pzgeom::TPZGeoPoint > *zeroDEl =
                 new TPZGeoElRefLess<pzgeom::TPZGeoPoint >(nodeIdVec, matIdSource,
                         *gmesh);
@@ -186,10 +196,6 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     step.SetDirect(ELU);
     an.SetSolver(step);
     an.SetStructuralMatrix(structMatrix);
-    ////////////////////////////////////////////////////////////////////////
-    const REAL wMax = 3*wZero;
-    const int nSamples = 350;
-    const REAL wSample = wMax/nSamples;
 
     ////////////////////////////////////////////////////////////////////////
     std::set<int> matsPml;
@@ -266,7 +272,25 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
 #else
     TPZAutoPointer<TPZMatrix<STATE>> matFinal(new TPZFYsmpMatrix<STATE>(matK));
 #endif
-    for(int iW = 0; iW < nSamples - 1; iW++){
+    TPZCompEl * sourceCompel = nullptr;
+    {
+        TPZGeoElRefLess<pzgeom::TPZGeoPoint> *sourceEl = nullptr;
+        for (int iEl = 0; iEl < gmesh->NElements(); ++iEl) {
+            sourceEl = dynamic_cast<TPZGeoElRefLess<pzgeom::TPZGeoPoint>*>(gmesh->Element(iEl));
+            if(sourceEl){
+                break;
+            }
+        }
+        if(sourceEl == nullptr){
+            std::cout<<"could not find source element"<<std::endl;
+            DebugStop();
+        }
+        sourceCompel = sourceEl->Reference();
+    }
+    TPZFMatrix<STATE> frequencySolution(nSamples-1,2);
+    for(int iW = 0; iW < nSamples-1; iW++){
+
+        matFinal->SetIsDecomposed(ENoDecompose);
         const STATE currentW = (iW+1) * wSample;
         TPZAutoPointer<TPZStructMatrix> structMatrixPtr = an.StructMatrix();
         //assemble pml
@@ -351,6 +375,13 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         std::cout<<"solver step "<<iW+1<<" out of "<<nSamples - 1<<" took "<<t2_solve-t1_solve<<std::endl;
         //get solution
         TPZFMatrix<STATE> &currentSol = an.Solution();//p omega
+        //get spectrum
+        frequencySolution(iW,0) = currentW;
+        TPZVec<REAL> qsi(1,0);
+        int var = 1;
+        TPZVec<STATE> sol(1,0);
+        sourceCompel->Solution(qsi,var,sol);
+        frequencySolution(iW,1) = sol[0];
         //inverse transform
 
         REAL timeStepSize = totalTime/nTimeSteps;
@@ -364,6 +395,23 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
 
     if (genVTK) {
         std::cout<<"Post processing... "<<std::endl;
+        {
+            std::string matFileName = prefix+"freqSpectrum.dat";
+            //void TPZMatrix<TVar>::Print(const char *name, std::ostream& out,const MatrixOutputFormat form) const {
+            std::ofstream matFile(matFileName);
+            if(!matFile.is_open()){
+                DebugStop();
+            }
+            for(int irow = 0; irow < frequencySolution.Rows(); irow++){
+                REAL omega = std::real(frequencySolution.Get(irow,0));
+                REAL reSpectrum = std::real(frequencySolution.Get(irow,1));
+                REAL imSpectrum = std::imag(frequencySolution.Get(irow,1));
+                matFile<<omega<<"  ,  ";
+                matFile<<reSpectrum<<" + I * "<<imSpectrum<<std::endl;
+            }
+            matFile.close();
+        }
+
         TPZStack<std::string> scalnames, vecnames;
         scalnames.Push("Pressure");
         std::string plotfile = prefix+"sol";
@@ -377,7 +425,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         TPZFMatrix<STATE> currentSol(neq,1);
         TPZFMatrix<STATE> scatteredSol(neqOriginal,1);
         for(int iTime = 0; iTime < nTimeSteps; iTime++){
-            std::cout<<"\rtime: "<<iTime+1<<" out of "<<nTimeSteps<<std::endl;
+            std::cout<<"\rtime: "<<iTime+1<<" out of "<<nTimeSteps;
             std::cout<<std::flush;
             for(int iPt = 0; iPt < neq; iPt++){
                 currentSol(iPt,0) = timeDomainSolution(iPt,iTime);
@@ -390,7 +438,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
             }
             an.PostProcess(postProcessResolution);
         }
-        std::cout<<" Done!"<<std::endl;
+        std::cout<<std::endl<<" Done!"<<std::endl;
     }
     gmesh->SetReference(nullptr);
     cmesh->SetReference(nullptr);
