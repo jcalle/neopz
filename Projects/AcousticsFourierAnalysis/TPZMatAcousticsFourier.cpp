@@ -4,33 +4,33 @@
 
 #include <pzaxestools.h>
 #include <pzvec_extras.h>
-#include "TPZMatAcousticsH1.h"
+#include "TPZMatAcousticsFourier.h"
 #include "pzbndcond.h"
 
-TPZMatAcousticsH1::TPZMatAcousticsH1() : TPZDiscontinuousGalerkin(), fRho(-1), fVelocity(-1), fAssembling(NDefined){
+TPZMatAcousticsFourier::TPZMatAcousticsFourier() : TPZDiscontinuousGalerkin(), fRho(-1), fVelocity(-1), fAssembling(NDefined){
 
 }
-TPZMatAcousticsH1::TPZMatAcousticsH1(int id) : TPZDiscontinuousGalerkin(id), fRho(-1), fVelocity(-1),
+TPZMatAcousticsFourier::TPZMatAcousticsFourier(int id) : TPZDiscontinuousGalerkin(id), fRho(-1), fVelocity(-1),
                                                fAssembling(NDefined){
 
 }
-TPZMatAcousticsH1::TPZMatAcousticsH1(int id, const REAL &rho, const REAL &velocity) :
+TPZMatAcousticsFourier::TPZMatAcousticsFourier(int id, const REAL &rho, const REAL &velocity) :
         TPZDiscontinuousGalerkin(id), fRho(rho), fVelocity(velocity) , fAssembling(NDefined){
 
 }
-TPZMatAcousticsH1::TPZMatAcousticsH1(const TPZMatAcousticsH1 &mat) : TPZDiscontinuousGalerkin(mat),
+TPZMatAcousticsFourier::TPZMatAcousticsFourier(const TPZMatAcousticsFourier &mat) : TPZDiscontinuousGalerkin(mat),
                                                                      fRho(mat.fRho), fVelocity(mat.fVelocity),
                                                                      fAssembling(NDefined){
 
 }
-TPZMatAcousticsH1::~TPZMatAcousticsH1(){
+TPZMatAcousticsFourier::~TPZMatAcousticsFourier(){
 
 }
 
-void TPZMatAcousticsH1::SetAssemblingMatrix(TPZMatAcousticsH1::EWhichMatrix mat) {
+void TPZMatAcousticsFourier::SetAssemblingMatrix(TPZMatAcousticsFourier::EWhichMatrix mat) {
     fAssembling = mat;
 }
-void TPZMatAcousticsH1::Contribute(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) {
+void TPZMatAcousticsFourier::Contribute(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) {
     TPZFMatrix<REAL> &phi = data.phi;
     const int nshape = phi.Rows();
 
@@ -55,7 +55,7 @@ void TPZMatAcousticsH1::Contribute(TPZMaterialData &data, REAL weight, TPZFMatri
     }
 }
 
-void TPZMatAcousticsH1::Contribute(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ef) {
+void TPZMatAcousticsFourier::Contribute(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ef) {
     TPZFMatrix<REAL> &phi = data.phi;
     const int nshape = phi.Rows();
 
@@ -65,7 +65,7 @@ void TPZMatAcousticsH1::Contribute(TPZMaterialData &data, REAL weight, TPZFMatri
 
 }
 
-void TPZMatAcousticsH1::ContributeBC(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ek,
+void TPZMatAcousticsFourier::ContributeBC(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ek,
                                      TPZFMatrix<STATE> &ef, TPZBndCond &bc){
 //    return;//Neumann 0 you do nothing, Dirichlet 0 will be filtered
     TPZFMatrix<REAL> &phi = data.phi;
@@ -100,12 +100,12 @@ void TPZMatAcousticsH1::ContributeBC(TPZMaterialData &data, REAL weight, TPZFMat
 
 }
 
-int TPZMatAcousticsH1::VariableIndex(const std::string &name) {
+int TPZMatAcousticsFourier::VariableIndex(const std::string &name) {
     if(!strcmp("Pressure",name.c_str()))    return  1;
     return -1;
 }
 
-int TPZMatAcousticsH1::NSolutionVariables(int var) {
+int TPZMatAcousticsFourier::NSolutionVariables(int var) {
     switch(var){
         case 1://pressure
             return 1;
@@ -114,7 +114,7 @@ int TPZMatAcousticsH1::NSolutionVariables(int var) {
     }
     return 0;
 }
-void TPZMatAcousticsH1::Solution(TPZMaterialData &data, int var, TPZVec<STATE> &Solout) {
+void TPZMatAcousticsFourier::Solution(TPZMaterialData &data, int var, TPZVec<STATE> &Solout) {
     Solout.Resize( this->NSolutionVariables(var));
 
 
@@ -127,23 +127,23 @@ void TPZMatAcousticsH1::Solution(TPZMaterialData &data, int var, TPZVec<STATE> &
     }
 }
 
-int TPZMatAcousticsH1::Dimension() const {
+int TPZMatAcousticsFourier::Dimension() const {
     return 2;
 }
 
-int TPZMatAcousticsH1::NStateVariables() {
+int TPZMatAcousticsFourier::NStateVariables() {
     return 1;
 }
 
-void TPZMatAcousticsH1::ContributeBCInterface(TPZMaterialData &data, TPZMaterialData &dataL, REAL weight,
+void TPZMatAcousticsFourier::ContributeBCInterface(TPZMaterialData &data, TPZMaterialData &dataL, REAL weight,
                                               TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef, TPZBndCond &bc) {
     DebugStop();
 }
 
-void TPZMatAcousticsH1::SetExactSol(void (*exactSol)(const TPZVec<REAL> &, TPZVec<STATE> &, TPZFMatrix<STATE> &)) {
-    TPZMatAcousticsH1::fExactSol = exactSol;
+void TPZMatAcousticsFourier::SetExactSol(void (*exactSol)(const TPZVec<REAL> &, TPZVec<STATE> &, TPZFMatrix<STATE> &)) {
+    TPZMatAcousticsFourier::fExactSol = exactSol;
 }
 
-void TPZMatAcousticsH1::SetSourceFunc(const STATE &sourceFunc) {
+void TPZMatAcousticsFourier::SetSourceFunc(const STATE &sourceFunc) {
     fSourceFunc = sourceFunc;
 }

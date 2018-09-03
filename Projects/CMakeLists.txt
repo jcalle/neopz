@@ -105,6 +105,7 @@ ENABLE_TESTING()
 			add_subdirectory(AcousticsFourierAnalysis)
 			#Example to work with scalar as complex
 		else(BUILD_COMPLEX_PROJECTS)
+			add_subdirectory(AcousticsTransientAnalysis)
 			#
 			# REGULAR PROJECTS
 			#

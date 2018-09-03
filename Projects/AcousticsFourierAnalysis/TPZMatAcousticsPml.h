@@ -6,11 +6,11 @@
 #define PZ_TPZMATACOUSTICSPML_H
 
 
-#include "TPZMatAcousticsH1.h"
+#include "TPZMatAcousticsFourier.h"
 
-class TPZMatAcousticsPml : public TPZMatAcousticsH1 {
+class TPZMatAcousticsPml : public TPZMatAcousticsFourier {
 public:
-    TPZMatAcousticsPml(const int id,const TPZMatAcousticsH1 &mat,
+    TPZMatAcousticsPml(const int id,const TPZMatAcousticsFourier &mat,
                        const bool &att_x, const REAL &pmlBeginX,
                        const bool &att_y, const REAL &pmlBeginY,
                        const REAL &alphaMax, const REAL &d);
@@ -21,7 +21,7 @@ public:
     STATE GetW() const;
     void SetW(STATE fW);
 private:
-    TPZMatAcousticsPml(const TPZMatAcousticsH1 &mat);//this does not exist
+    TPZMatAcousticsPml(const TPZMatAcousticsFourier &mat);//this does not exist
     TPZMatAcousticsPml(int id);//this does not exist
     TPZMatAcousticsPml();//this does not exist
     const bool fAttX;

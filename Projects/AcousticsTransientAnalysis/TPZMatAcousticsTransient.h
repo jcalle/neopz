@@ -8,14 +8,14 @@
 #include <pzdiscgal.h>
 #include <functional>
 
-class TPZMatAcousticsH1 : public TPZDiscontinuousGalerkin {
+class TPZMatAcousticsTransient : public TPZDiscontinuousGalerkin {
 public:
-    enum EWhichMatrix {M = 0, K, NDefined};
-    TPZMatAcousticsH1();//this does not exist
-    explicit TPZMatAcousticsH1(int id);
-    TPZMatAcousticsH1(int id, const REAL &rho, const REAL &velocity);
-    TPZMatAcousticsH1(const TPZMatAcousticsH1 &mat);
-    ~TPZMatAcousticsH1() override;
+    TPZMatAcousticsTransient();//this does not exist
+    explicit TPZMatAcousticsTransient(int id);
+    TPZMatAcousticsTransient(int id, const REAL &rho, const REAL &velocity);
+    TPZMatAcousticsTransient(const TPZMatAcousticsTransient &mat);
+    ~TPZMatAcousticsTransient() override;
+    void FillDataRequirements(TPZMaterialData &data) override;
     void Contribute(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) override;
     void Contribute(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ef) override;
     void ContributeBC(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef, TPZBndCond &bc) override;
@@ -25,20 +25,15 @@ public:
     int VariableIndex(const std::string &name) override;
     int NSolutionVariables(int var) override;
     void Solution(TPZMaterialData &data, int var, TPZVec<STATE> &Solout) override;
-    void SetExactSol(void (*exactSol)(const TPZVec<REAL> &, TPZVec<STATE> &, TPZFMatrix<STATE> &));
-
-    void SetSourceFunc(const STATE &fSourceFunc);
-
-    void SetAssemblingMatrix(EWhichMatrix mat);
+    void SetSource(const std::function<void (const REAL &time, STATE &val)> &source);
+    void SetCurrentTime(const REAL& time);
+    void SetDeltaT(const REAL& deltat);
 protected:
     REAL fRho;
     REAL fVelocity;
-    void (*fExactSol)(const TPZVec<REAL> &coord, TPZVec<STATE> &result,
-                  TPZFMatrix<STATE> &grad);
-    STATE fSourceFunc;
-
-private:
-    EWhichMatrix fAssembling;
+    REAL fDeltaT;
+    REAL fCurrentTime;
+    std::function<void (const REAL &time, STATE &val)> fSource;
 };
 
 

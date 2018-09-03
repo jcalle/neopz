@@ -6,11 +6,11 @@
 #include <pzvec_extras.h>
 #include "TPZMatAcousticsPml.h"
 
-TPZMatAcousticsPml::TPZMatAcousticsPml(const int id,const TPZMatAcousticsH1 &mat,
+TPZMatAcousticsPml::TPZMatAcousticsPml(const int id,const TPZMatAcousticsFourier &mat,
                                        const bool &att_x, const REAL &pmlBeginX,
                                        const bool &att_y, const REAL &pmlBeginY,
                                        const REAL &alphaMax, const REAL &d) :
-        TPZMatAcousticsH1(mat), fAttX (att_x), fAttY (att_y),
+        TPZMatAcousticsFourier(mat), fAttX (att_x), fAttY (att_y),
         fPmlBeginX (pmlBeginX), fPmlBeginY (pmlBeginY),
         fAlphaMax (alphaMax), fD (d) , fW(-1)
 {
