@@ -33,7 +33,7 @@ void TPZMatAcousticsTransient::FillDataRequirements(TPZMaterialData &data)
 
 void TPZMatAcousticsTransient::Contribute(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) {
     TPZFMatrix<REAL> &phi = data.phi;
-    if(data.HSize == 0) return;
+    if(phi.Rows() == 1) return;//0d element
     const int nshape = phi.Rows();
     for(int i = 0; i < nshape; i++){
         for(int j = 0; j < nshape; j++){

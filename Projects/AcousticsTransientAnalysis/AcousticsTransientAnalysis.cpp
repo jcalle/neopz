@@ -76,7 +76,7 @@ int main(int argc, char *argv[]) {
 
 void RunSimulation(const int &pOrder, const std::string &prefix, const REAL &wZero) {
     // PARAMETROS FISICOS DO PROBLEMA
-    const int nThreads = 8; //PARAMS
+    const int nThreads = 0; //PARAMS
     const bool l2error = true; //PARAMS
     const bool genVTK = true; //PARAMS
     const bool printG = true;//PARAMS
@@ -174,7 +174,7 @@ void RunSimulation(const int &pOrder, const std::string &prefix, const REAL &wZe
         neq = cmesh->NEquations();
     }
     TPZStepSolver<STATE> step;
-    step.SetDirect(ELU);
+    step.SetDirect(ELDLt);
     an.SetSolver(step);
     an.SetStructuralMatrix(structMatrix);
 
@@ -211,13 +211,20 @@ void RunSimulation(const int &pOrder, const std::string &prefix, const REAL &wZe
     }
 
     for(int it = 0; it < nTimeSteps; it++){
-        for (int imat = 0; imat < matIdVec.NElements(); ++imat) {
-            TPZMatAcousticsTransient *mat = dynamic_cast<TPZMatAcousticsTransient *>(cmesh->MaterialVec()[imat]);
-            mat->SetCurrentTime(it * deltaT);
+        std::cout<<"time step "<<it<<" out of "<<nTimeSteps - 1<<"\t";
+        for(auto imat : cmesh->MaterialVec()) {
+            auto *mat = dynamic_cast<TPZMatAcousticsTransient *>(imat.second);
+            auto *bound = dynamic_cast<TPZBndCond *>(imat.second);
+            if(mat!=nullptr){
+                mat->SetCurrentTime(it*deltaT);
+            }
+            else if(bound== nullptr){
+                DebugStop();
+            }
         }
+        const int prevSol = it - 1 < 0 ? nTimeSteps - it - 1: it-1;
+        const int prevPrevSol = it - 2 < 0 ? nTimeSteps - it - 2 : it-2;
         for(int i = 0; i < neq; i++){
-            const int prevSol = i - 1 < 0 ? nTimeSteps - i : i-1;
-            const int prevPrevSol = i - 2 < 0 ? nTimeSteps - i - 1 : i-2;
             currentSol(i,0) = allSolutions(i,prevPrevSol);
             currentSol(i,1) = allSolutions(i,prevSol);
         }
