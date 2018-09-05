@@ -76,18 +76,18 @@ int main(int argc, char *argv[]) {
 
 void RunSimulation(const int &pOrder, const std::string &prefix, const REAL &wZero) {
     // PARAMETROS FISICOS DO PROBLEMA
-    const int nThreads = 0; //PARAMS
-    const bool l2error = true; //PARAMS
+    const int nThreads = 8; //PARAMS
+    const bool l2error = false; //PARAMS
     const bool genVTK = true; //PARAMS
-    const bool printG = true;//PARAMS
-    const bool printC = true;//PARAMS
+    const bool printG = false;//PARAMS
+    const bool printC = false;//PARAMS
     const int postprocessRes = 0;//PARAMS
     REAL rho = 1.3;
     REAL velocity = 340;
     REAL peakTime = 1./100;
     REAL amplitude = 10;
     REAL totalTime = 5 * peakTime;
-    REAL elSize = 2 *M_PI*velocity / (10 *wZero),length = 60,height = 8;
+    REAL elSize = 2 *M_PI*velocity / (12 *wZero),length = 60,height = 8;
 
     ////////////////////////////////////////////////////////////////////////
     const int64_t nTimeSteps = std::ceil(totalTime/(0.2 *elSize / velocity));
@@ -197,12 +197,9 @@ void RunSimulation(const int &pOrder, const std::string &prefix, const REAL &wZe
     //t=t0
     an.Assemble();
 
-    TPZFMatrix<STATE> currentSol(neq,2,0);
-    TPZFMatrix<STATE> scatteredSol(neqOriginal,2,0);
-    TPZFMatrix<STATE> allSolutions(neq,nTimeSteps,0);
     auto source = [wZero,peakTime,amplitude](const REAL &time, STATE & val){
-        val = (wZero/2*M_PI)*M_SQRT2*
-                amplitude*std::exp(0.5 - (wZero/(2*M_PI))*(wZero/(2*M_PI))*M_PI*M_PI*(time - peakTime)*(time - peakTime))*M_PI*(time - peakTime);
+        val = 0.5 * amplitude * (peakTime-time)*wZero*wZero*std::exp(-.25 * (peakTime-time)*(peakTime-time)*wZero*wZero);
+//        val = (wZero/2*M_PI)*M_SQRT2*                amplitude*std::exp(0.5 - (wZero/(2*M_PI))*(wZero/(2*M_PI))*M_PI*M_PI*(time - peakTime)*(time - peakTime))*M_PI*(time - peakTime);
     };
 
     {
@@ -210,8 +207,12 @@ void RunSimulation(const int &pOrder, const std::string &prefix, const REAL &wZe
         mat->SetSource(source);
     }
 
+    uint solSize = filter? neqOriginal : neq;
+    TPZFMatrix<STATE> currentSol(solSize,2,0);
+    TPZFMatrix<STATE> allSolutions(solSize,nTimeSteps,0);
+
     for(int it = 0; it < nTimeSteps; it++){
-        std::cout<<"time step "<<it<<" out of "<<nTimeSteps - 1<<"\t";
+        std::cout<<"time step "<<it+1<<" out of "<<nTimeSteps <<"\t";
         for(auto imat : cmesh->MaterialVec()) {
             auto *mat = dynamic_cast<TPZMatAcousticsTransient *>(imat.second);
             auto *bound = dynamic_cast<TPZBndCond *>(imat.second);
@@ -224,20 +225,17 @@ void RunSimulation(const int &pOrder, const std::string &prefix, const REAL &wZe
         }
         const int prevSol = it - 1 < 0 ? nTimeSteps - it - 1: it-1;
         const int prevPrevSol = it - 2 < 0 ? nTimeSteps - it - 2 : it-2;
-        for(int i = 0; i < neq; i++){
-            currentSol(i,0) = allSolutions(i,prevPrevSol);
-            currentSol(i,1) = allSolutions(i,prevSol);
+        //TODO:Klaus, pfv dá uma olhadinha se tá certo na formulação a ordem das soluções anteriores.
+        //uma sugestão seria fazer currentSol(i,0) =1 e currentSol(i,1) = 0 e conferir no contribute.
+        for(int i = 0; i < solSize; i++){
+            currentSol(i,0) = allSolutions(i,prevSol);
+            currentSol(i,1) = allSolutions(i,prevPrevSol);
         }
-        if(filter) {
-            structMatrix.EquationFilter().Scatter(currentSol, scatteredSol);
-            an.LoadSolution(scatteredSol);
-        }else{
-            an.LoadSolution(currentSol);
-        }
+        an.LoadSolution(currentSol);
         an.AssembleResidual();
         an.Solve();
         TPZFMatrix<STATE>& stepSol = an.Solution();
-        for(int i = 0; i < neq; i++){
+        for(int i = 0; i < solSize; i++){
             allSolutions(i,it) = stepSol(i,0);
         }
     }
@@ -255,23 +253,19 @@ void RunSimulation(const int &pOrder, const std::string &prefix, const REAL &wZe
                            plotfile);  // define malha grafica
         int postProcessResolution = postprocessRes; // define resolucao do pos processamento
 
-        TPZFMatrix<STATE> currentSol(neq,1);
-        TPZFMatrix<STATE> scatteredSol(neqOriginal,1);
+        TPZFMatrix<STATE> currentSol(solSize,1);
         for(int iTime = 0; iTime < nTimeSteps; iTime++){
             std::cout<<"\rtime: "<<iTime+1<<" out of "<<nTimeSteps<<std::flush;
-            for(int iPt = 0; iPt < neq; iPt++){
+            for(int iPt = 0; iPt < solSize; iPt++){
                 currentSol(iPt,0) = allSolutions(iPt,iTime);
             }
-            if(filter){
-                structMatrix.EquationFilter().Scatter(currentSol, scatteredSol);
-                an.LoadSolution(scatteredSol);
-            }else{
-                an.LoadSolution(currentSol);
-            }
+            an.LoadSolution(currentSol);
             an.PostProcess(postProcessResolution);
         }
         std::cout<<std::endl<<" Done!"<<std::endl;
     }
+
+    //TODO: descobrir pq o programa quebra toda vez
     gmesh->SetReference(nullptr);
     for(int icon = 0; icon < cmesh->NConnects(); icon++){
         TPZConnect &con = cmesh->ConnectVec()[icon];
