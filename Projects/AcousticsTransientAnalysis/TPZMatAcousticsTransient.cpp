@@ -38,8 +38,8 @@ void TPZMatAcousticsTransient::Contribute(TPZMaterialData &data, REAL weight, TP
     for(int i = 0; i < nshape; i++){
         for(int j = 0; j < nshape; j++){
             ek(i, j) += weight*data.phi(i,0)*data.phi(j,0)/(fRho*fVelocity*fVelocity*fDeltaT*fDeltaT);
-            ek(i, j) -= fNewmarkBeta*weight*data.dphi(0,i)*data.dphi(0,j)/fRho;
-            ek(i, j) -= fNewmarkBeta*weight*data.dphi(1,i)*data.dphi(1,j)/fRho;
+            ek(i, j) += fNewmarkBeta*weight*data.dphi(0,i)*data.dphi(0,j)/fRho;
+            ek(i, j) += fNewmarkBeta*weight*data.dphi(1,i)*data.dphi(1,j)/fRho;
         }//for j
     }//for i
 }
@@ -58,19 +58,24 @@ void TPZMatAcousticsTransient::Contribute(TPZMaterialData &data, REAL weight, TP
 //    STATE prevPrevSol = data.sol[0][0];
 //    TPZFMatrix<STATE> &prevPrevSolGrad = data.dsol[0];
     fSource(fCurrentTime,sourceVal);
+    if(nshape==1){
+        for(int i = 0; i < nshape; i++){
+            ef(i,0) += weight * phi(i,0) * sourceVal;
+        }//for i
+        return;
+    }
     const STATE coeff = 1./(fRho * fVelocity * fVelocity * fDeltaT * fDeltaT);
     for(int i = 0; i < nshape; i++){
         ef(i,0) += weight * phi(i,0) * sourceVal;
+
         ef(i,0) -= weight * phi(i,0) * (-2.)* prevSol*coeff;
         ef(i,0) -= weight * phi(i,0) * (1.)* prevPrevSol*coeff;
 
-    }//for i
-    if(nshape==1) return;
-    for(int i = 0; i < nshape; i++){
-        ef(i,0) += weight*(data.dphi(0,i)*(1.-2.*fNewmarkBeta)*prevSolGrad(0,0))/fRho;
-        ef(i,0) += weight*(data.dphi(1,i)*(1.-2.*fNewmarkBeta)*prevSolGrad(1,0))/fRho;
-        ef(i,0) += weight*(data.dphi(0,i)*(fNewmarkBeta)*prevPrevSolGrad(0,0))/fRho;
-        ef(i,0) += weight*(data.dphi(1,i)*(fNewmarkBeta)*prevPrevSolGrad(1,0))/fRho;
+        ef(i,0) -= weight*(data.dphi(0,i)*(1.-2.*fNewmarkBeta)*prevSolGrad(0,0))/fRho;
+        ef(i,0) -= weight*(data.dphi(1,i)*(1.-2.*fNewmarkBeta)*prevSolGrad(1,0))/fRho;
+
+        ef(i,0) -= weight*(data.dphi(0,i)*(fNewmarkBeta)*prevPrevSolGrad(0,0))/fRho;
+        ef(i,0) -= weight*(data.dphi(1,i)*(fNewmarkBeta)*prevPrevSolGrad(1,0))/fRho;
 
     }//for i
 

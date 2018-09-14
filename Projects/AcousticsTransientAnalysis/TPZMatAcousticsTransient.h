@@ -33,7 +33,7 @@ protected:
     REAL fVelocity;
     REAL fDeltaT;
     REAL fCurrentTime;
-    REAL fNewmarkBeta =0.25;
+    REAL fNewmarkBeta =0;
     std::function<void (const REAL &time, STATE &val)> fSource;
 };
 
