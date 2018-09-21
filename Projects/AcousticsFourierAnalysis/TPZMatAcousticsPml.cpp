@@ -44,8 +44,8 @@ void TPZMatAcousticsPml::Contribute(TPZMaterialData &data, REAL weight, TPZFMatr
         for(int j = 0; j < nshape; j++){
             ek(i, j) += -1. * fW * fW * weight*data.phi(i,0)*data.phi(j,0)/(fRho * fVelocity * fVelocity);
 
-            ek(i, j) += weight*data.dphi(0,i)*data.dphi(0,j)/(fRho * dx * dx);
-            ek(i, j) += weight*data.dphi(1,i)*data.dphi(1,j)/(fRho * dy * dy);
+            ek(i, j) += weight*data.dphix(0,i)*data.dphix(0,j)/(fRho * dx * dx);
+            ek(i, j) += weight*data.dphix(1,i)*data.dphix(1,j)/(fRho * dy * dy);
         }//for j
     }//for i
 }

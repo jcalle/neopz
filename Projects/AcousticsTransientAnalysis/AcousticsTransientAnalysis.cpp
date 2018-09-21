@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
     InitializePZLOG();
 #endif
     const std::string prefix = "results/";//PARAMS
-    int pOrder = 3; //PARAMS
+    int pOrder = 2; //PARAMS
     const int nDivIni = 4; //PARAMS
     const int nPcycles = 1;
     const int nHcycles = 1;
@@ -86,7 +86,7 @@ void RunSimulation(const int &pOrder, const std::string &prefix, const REAL &wZe
     REAL velocity = 340;
     REAL peakTime = 1./100;
     REAL amplitude = 1;
-    REAL totalTime = 2 * peakTime;
+    REAL totalTime = 8   * peakTime;
     REAL elSize = 2 *M_PI*velocity / (12 *wZero),length = 20,height = 20;
 
     ////////////////////////////////////////////////////////////////////////

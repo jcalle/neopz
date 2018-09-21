@@ -33,13 +33,15 @@ void TPZMatAcousticsTransient::FillDataRequirements(TPZMaterialData &data)
 
 void TPZMatAcousticsTransient::Contribute(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) {
     TPZFMatrix<REAL> &phi = data.phi;
-    if(phi.Rows() == 1) return;//0d element
+    if(phi.Rows() == 1) {
+        return;//0d element
+    }
     const int nshape = phi.Rows();
     for(int i = 0; i < nshape; i++){
         for(int j = 0; j < nshape; j++){
             ek(i, j) += weight*data.phi(i,0)*data.phi(j,0)/(fRho*fVelocity*fVelocity*fDeltaT*fDeltaT);
-            ek(i, j) += fNewmarkBeta*weight*data.dphi(0,i)*data.dphi(0,j)/fRho;
-            ek(i, j) += fNewmarkBeta*weight*data.dphi(1,i)*data.dphi(1,j)/fRho;
+            ek(i, j) += fNewmarkBeta*weight*data.dphix(0,i)*data.dphix(0,j)/fRho;
+            ek(i, j) += fNewmarkBeta*weight*data.dphix(1,i)*data.dphix(1,j)/fRho;
         }//for j
     }//for i
 }
@@ -71,11 +73,11 @@ void TPZMatAcousticsTransient::Contribute(TPZMaterialData &data, REAL weight, TP
         ef(i,0) -= weight * phi(i,0) * (-2.)* prevSol*coeff;
         ef(i,0) -= weight * phi(i,0) * (1.)* prevPrevSol*coeff;
 
-        ef(i,0) -= weight*(data.dphi(0,i)*(1.-2.*fNewmarkBeta)*prevSolGrad(0,0))/fRho;
-        ef(i,0) -= weight*(data.dphi(1,i)*(1.-2.*fNewmarkBeta)*prevSolGrad(1,0))/fRho;
+        ef(i,0) -= weight*(data.dphix(0,i)*(1.-2.*fNewmarkBeta)*prevSolGrad(0,0))/fRho;
+        ef(i,0) -= weight*(data.dphix(1,i)*(1.-2.*fNewmarkBeta)*prevSolGrad(1,0))/fRho;
 
-        ef(i,0) -= weight*(data.dphi(0,i)*(fNewmarkBeta)*prevPrevSolGrad(0,0))/fRho;
-        ef(i,0) -= weight*(data.dphi(1,i)*(fNewmarkBeta)*prevPrevSolGrad(1,0))/fRho;
+        ef(i,0) -= weight*(data.dphix(0,i)*(fNewmarkBeta)*prevPrevSolGrad(0,0))/fRho;
+        ef(i,0) -= weight*(data.dphix(1,i)*(fNewmarkBeta)*prevPrevSolGrad(1,0))/fRho;
 
     }//for i
 

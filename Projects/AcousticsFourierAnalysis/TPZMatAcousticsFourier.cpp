@@ -45,8 +45,8 @@ void TPZMatAcousticsFourier::Contribute(TPZMaterialData &data, REAL weight, TPZF
         case K:
             for(int i = 0; i < nshape; i++){
                 for(int j = 0; j < nshape; j++){
-                    ek(i, j) += weight*data.dphi(0,i)*data.dphi(0,j)/fRho;
-                    ek(i, j) += weight*data.dphi(1,i)*data.dphi(1,j)/fRho;
+                    ek(i, j) += weight*data.dphix(0,i)*data.dphix(0,j)/fRho;
+                    ek(i, j) += weight*data.dphix(1,i)*data.dphix(1,j)/fRho;
                 }//for j
             }//for i
             break;
@@ -60,7 +60,7 @@ void TPZMatAcousticsFourier::Contribute(TPZMaterialData &data, REAL weight, TPZF
     const int nshape = phi.Rows();
 
     for(int i = 0; i < nshape; i++){
-        ef(i,0) += weight * phi(i,0) * fSourceFunc / (fRho* fVelocity * fVelocity);
+        ef(i,0) += weight * phi(i,0) * fSourceFunc;
     }//for i
 
 }
