@@ -58,7 +58,9 @@ void TPZMatAcousticsFourier::Contribute(TPZMaterialData &data, REAL weight, TPZF
 void TPZMatAcousticsFourier::Contribute(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ef) {
     TPZFMatrix<REAL> &phi = data.phi;
     const int nshape = phi.Rows();
-
+    if(nshape > 1){
+        DebugStop();
+    }
     for(int i = 0; i < nshape; i++){
         ef(i,0) += weight * phi(i,0) * fSourceFunc;
     }//for i
@@ -79,7 +81,7 @@ void TPZMatAcousticsFourier::ContributeBC(TPZMaterialData &data, REAL weight, TP
             for(in = 0 ; in < phr; in++) {
                 ef(in,0) += (STATE)TPZMaterial::gBigNumber * bc.Val2()(0,0) * (STATE)phi(in,0) * (STATE)weight;
                 for (jn = 0 ; jn < phr; jn++) {
-                    ek(in,jn) += weight * TPZMaterial::gBigNumber * phi(in,0) * phi(jn,0)  * (1/fRho);
+                    ek(in,jn) += weight * TPZMaterial::gBigNumber * phi(in,0) * phi(jn,0);
                 }//jn
             }//in
             break;
@@ -88,7 +90,7 @@ void TPZMatAcousticsFourier::ContributeBC(TPZMaterialData &data, REAL weight, TP
             // Neumann condition
         case 1 : {
             for(in = 0 ; in < phr; in++) {
-                ef(in,0) +=(STATE)weight * bc.Val2()(0,0) * (STATE)phi(in,0) * (1/fRho);
+                ef(in,0) +=(STATE)weight * bc.Val2()(0,0) * (STATE)phi(in,0);
             }//in
             break;
         }

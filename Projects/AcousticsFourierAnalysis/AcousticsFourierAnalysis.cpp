@@ -90,8 +90,8 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     const int nThreads = 8; //PARAMS
     const bool l2error = true; //PARAMS
     const bool genVTK = true; //PARAMS
-    const bool printG = true;//PARAMS
-    const bool printC = true;//PARAMS
+    const bool printG = false;//PARAMS
+    const bool printC = false;//PARAMS
     const int postprocessRes = 0;//PARAMS
     REAL alphaPML = 10;
     REAL rho = 1.3;
@@ -104,7 +104,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
 
     ////////////////////////////////////////////////////////////////////////
     const REAL wMax = 3*wZero;
-    int nSamples = 100;
+    int nSamples = 150;
     REAL wSample = wMax/nSamples;
 
     if(2 * M_PI /wSample < totalTime){
@@ -173,7 +173,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     TPZAnalysis an(cmesh);
     // configuracoes do objeto de analise
     TPZManVector<int64_t, 1000> activeEquations;
-    int neq = 0;
+    int neqReduced = 0;
     int neqOriginal = 0;
 
 
@@ -187,10 +187,10 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     structMatrix.SetNumThreads(nThreads);
     bool filter = true;
     if(filter){
-        FilterBoundaryEquations(cmesh, activeEquations, neq, neqOriginal);
+        FilterBoundaryEquations(cmesh, activeEquations, neqReduced, neqOriginal);
         structMatrix.EquationFilter().SetActiveEquations(activeEquations);
     }else{
-        neq = cmesh->NEquations();
+        neqOriginal = cmesh->NEquations();
     }
     TPZStepSolver<STATE> step;
     step.SetDirect(ELU);
@@ -265,16 +265,20 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
 
 
     ////////////////////////////////////////////////////////////////////////
-    TPZFMatrix<STATE> timeDomainSolution(neq,nTimeSteps,0.);
+    TPZFMatrix<STATE> timeDomainSolution(neqOriginal,nTimeSteps,0.);
     TPZFMatrix<STATE> rhsFake(cmesh->NEquations(),1);
 
     TPZCompEl * sourceCompel = nullptr;
     {
         TPZGeoElRefLess<pzgeom::TPZGeoPoint> *sourceEl = nullptr;
         for (int iEl = 0; iEl < gmesh->NElements(); ++iEl) {
-            sourceEl = dynamic_cast<TPZGeoElRefLess<pzgeom::TPZGeoPoint>*>(gmesh->Element(iEl));
-            if(sourceEl){
-                break;
+            if (gmesh->Element(iEl)->MaterialId() == matIdSource){
+                sourceEl = dynamic_cast<TPZGeoElRefLess<pzgeom::TPZGeoPoint>*>(gmesh->Element(iEl));
+                if(sourceEl){
+                    break;
+                }else{
+                    DebugStop();
+                }
             }
         }
         if(sourceEl == nullptr){
@@ -292,26 +296,12 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         TPZAutoPointer<TPZMatrix<STATE>> matFinal(new TPZFYsmpMatrix<STATE>(matK));
 #endif
         const STATE currentW = (iW+1) * wSample;
-        TPZAutoPointer<TPZStructMatrix> structMatrixPtr = an.StructMatrix();
-        //assemble pml
-        structMatrixPtr->SetMaterialIds(matsPml);
-        for(auto itMap : matsPml) {
-            TPZMatAcousticsPml *mat = dynamic_cast<TPZMatAcousticsPml *>(cmesh->FindMaterial(itMap));
-            if (mat != nullptr) {
-                mat->SetW(currentW);
-            } else {
-                DebugStop();
-            }
-        }
-
         //-w^2 M + K
         boost::posix_time::ptime t1_sum =
           boost::posix_time::microsec_clock::local_time();
 
-
-
 #ifdef USING_SKYLINE
-        for(int iCol = 0; iCol < neq; iCol++){
+        for(int iCol = 0; iCol < neqOriginal; iCol++){
             TPZSkylNSymMatrix<STATE> * matFinalDummy = dynamic_cast<TPZSkylNSymMatrix<STATE> *>(matFinal.operator->());
             const int nRows = matFinalDummy->SkyHeight(iCol);
             for(int iRow = iCol; iRow >= iCol - nRows; iRow --){
@@ -338,7 +328,21 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         boost::posix_time::ptime t2_sum =
           boost::posix_time::microsec_clock::local_time();
         std::cout<<"Summing matrices took "<<t2_sum-t1_sum<<std::endl;
+
+
         //pml elements
+        TPZAutoPointer<TPZStructMatrix> structMatrixPtr = an.StructMatrix();
+        //assemble pml
+        structMatrixPtr->SetMaterialIds(matsPml);
+        for(auto itMap : matsPml) {
+            TPZMatAcousticsPml *mat = dynamic_cast<TPZMatAcousticsPml *>(cmesh->FindMaterial(itMap));
+            if (mat != nullptr) {
+                mat->SetW(currentW);
+            } else {
+                DebugStop();
+            }
+        }
+
         structMatrixPtr->Assemble(matFinal,rhsFake,nullptr);
 
 
@@ -348,33 +352,27 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         if(matSourcePtr == nullptr){
             DebugStop();
         }
-//        auto currentSource = [currentW, amplitude, peakTime, wZero](const TPZVec<REAL> &coord, TPZVec<STATE> &result) {
-//            result.Resize(1, 0.);
-//            result[0] += -2. * sqrt(-1) * amplitude * currentW;
-//            result[0] *= exp(0.5 + sqrt(-1) * currentW * peakTime - (currentW/wZero)*(currentW/wZero));
-//            result[0] *= sqrt(2 * M_PI)/( wZero * wZero);
-//        };
 
         STATE currentSource = 0;
-        currentSource += -2. * sqrt((STATE)-1) * amplitude * currentW;
-        currentSource *= exp(0.5 + sqrt((STATE)-1) * currentW * peakTime - (currentW/wZero)*(currentW/wZero));
-        currentSource *= sqrt(2 * M_PI)/( wZero * wZero);
+        currentSource += -2. * SPZAlwaysComplex<STATE>::type(0,1)  * amplitude * currentW;
+        currentSource *= exp(0.5 + SPZAlwaysComplex<STATE>::type(0,1)  * currentW * peakTime - (currentW/wZero)*(currentW/wZero));
+        currentSource *= sqrt(2 * M_PI)/(wZero);
         matSourcePtr->SetSourceFunc(currentSource);
         //assemble load vector
         an.AssembleResidual();
         //solve system
         an.Solver().SetMatrix(matFinal);
 
-        std::cout<<"solver step "<<iW+1<<" out of "<<nSamples - 1;
+        std::cout<<"Beginning solver step "<<iW+1<<" out of "<<nSamples - 1<<std::endl;
         boost::posix_time::ptime t1_solve =
           boost::posix_time::microsec_clock::local_time();
-        std::cout<<std::flush;
         an.Solve();
         boost::posix_time::ptime t2_solve =
           boost::posix_time::microsec_clock::local_time();
         std::cout<<"solver step "<<iW+1<<" out of "<<nSamples - 1<<" took "<<t2_solve-t1_solve<<std::endl;
         //get solution
         TPZFMatrix<STATE> &currentSol = an.Solution();//p omega
+
         //get spectrum
         frequencySolution(iW,0) = currentW;
         TPZVec<REAL> qsi(1,0);
@@ -385,7 +383,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         //inverse transform
 
         REAL timeStepSize = totalTime/nTimeSteps;
-        for(int iPt = 0; iPt < neq; iPt++){
+        for(int iPt = 0; iPt < neqOriginal; iPt++){
             for(int iTime = 0; iTime < nTimeSteps; iTime++){
                 timeDomainSolution(iPt,iTime) +=
                         0.5*(1.+std::cos(currentW*M_PI/wMax))*std::real(currentSol(iPt,0)) * wSample * std::cos(-1. * (REAL)iTime * timeStepSize * currentW)/M_PI;
@@ -424,19 +422,13 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
                            plotfile);  // define malha grafica
         int postProcessResolution = postprocessRes; // define resolucao do pos processamento
 
-        TPZFMatrix<STATE> currentSol(neq,1);
-        TPZFMatrix<STATE> scatteredSol(neqOriginal,1);
+        TPZFMatrix<STATE> currentSol(neqOriginal,1);
         for(int iTime = 0; iTime < nTimeSteps; iTime++){
             std::cout<<"\rtime: "<<iTime+1<<" out of "<<nTimeSteps<<std::flush;
-            for(int iPt = 0; iPt < neq; iPt++){
+            for(int iPt = 0; iPt < neqOriginal; iPt++){
                 currentSol(iPt,0) = timeDomainSolution(iPt,iTime);
             }
-            if(filter){
-                structMatrix.EquationFilter().Scatter(currentSol, scatteredSol);
-                an.LoadSolution(scatteredSol);
-            }else{
-                an.LoadSolution(currentSol);
-            }
+            an.LoadSolution(currentSol);
             an.PostProcess(postProcessResolution);
         }
         std::cout<<std::endl<<" Done!"<<std::endl;
