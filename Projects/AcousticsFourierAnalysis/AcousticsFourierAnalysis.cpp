@@ -293,7 +293,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
 #ifdef USING_SKYLINE
         TPZAutoPointer<TPZMatrix<STATE>> matFinal(new TPZSkylNSymMatrix<STATE>(matK));
 #else
-        TPZAutoPointer<TPZMatrix<STATE>> matFinal(new TPZFYsmpMatrix<STATE>(matK));
+        TPZAutoPointer<TPZMatrix<STATE>> matFinal(new TPZFYsmpMatrix<STATE>(matK.Rows(),matK.Cols()));
 #endif
         const STATE currentW = (iW+1) * wSample;
         //-w^2 M + K
