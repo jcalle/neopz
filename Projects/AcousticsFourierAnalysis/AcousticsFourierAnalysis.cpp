@@ -301,7 +301,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
           boost::posix_time::microsec_clock::local_time();
 
 #ifdef USING_SKYLINE
-        for(int iCol = 0; iCol < neqOriginal; iCol++){
+        for(int iCol = 0; iCol < matFinal->Cols(); iCol++){
             TPZSkylNSymMatrix<STATE> * matFinalDummy = dynamic_cast<TPZSkylNSymMatrix<STATE> *>(matFinal.operator->());
             const int nRows = matFinalDummy->SkyHeight(iCol);
             for(int iRow = iCol; iRow >= iCol - nRows; iRow --){
