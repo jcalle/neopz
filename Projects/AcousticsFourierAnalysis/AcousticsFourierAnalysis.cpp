@@ -90,7 +90,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     const int nThreads = 8; //PARAMS
     const bool l2error = true; //PARAMS
     const bool genVTK = true; //PARAMS
-    const bool printG = false;//PARAMS
+    const bool printG = true;//PARAMS
     const bool printC = false;//PARAMS
     const int postprocessRes = 0;//PARAMS
     REAL alphaPML = 10;
@@ -98,13 +98,13 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     REAL velocity = 340;
     REAL peakTime = 1./100;
     REAL amplitude = 10;
-    REAL totalTime = 5 * peakTime;
+    REAL totalTime = 10 * peakTime;
     const int64_t nTimeSteps = 100;
-    REAL elSize = 2 *M_PI*velocity / (10 *wZero),length = 60,height = 8,pmlLength = 20;
+    const REAL wMax = 3*wZero;
+    REAL elSize = 2 *M_PI*velocity / (5.5 *wMax),length = 50,height = 8,pmlLength = 20;
 
     ////////////////////////////////////////////////////////////////////////
-    const REAL wMax = 3*wZero;
-    int nSamples = 150;
+    int nSamples = 250;
     REAL wSample = wMax/nSamples;
 
     if(2 * M_PI /wSample < totalTime){
