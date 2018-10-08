@@ -86,11 +86,11 @@ void RunSimulation(const int &pOrder, const std::string &prefix, const REAL &wZe
     REAL velocity = 340;
     REAL peakTime = 1./100;
     REAL amplitude = 1;
-    REAL totalTime = 8   * peakTime;
-    REAL elSize = 2 *M_PI*velocity / (12 *wZero),length = 20,height = 20;
+    REAL totalTime = 12   * peakTime;
+    REAL elSize = 2 *M_PI*velocity / (16 *wZero),length = 20,height = 20;
 
     ////////////////////////////////////////////////////////////////////////
-    const int64_t nTimeSteps = std::ceil(totalTime/(0.2 *elSize / velocity));
+    const int64_t nTimeSteps = std::ceil(totalTime/(0.8 *elSize / velocity));
     const REAL deltaT = totalTime/nTimeSteps;
     const REAL cfl = velocity * deltaT/(elSize);
     std::cout<<"CFL: "<<cfl<<std::endl;
