@@ -31,6 +31,18 @@
 #include "TPZMatAcousticsFourier.h"
 #include "TPZMatAcousticsPml.h"
 
+
+namespace SPZAcousticData{
+    enum pmltype{
+        xp=0,yp,xm,ym,xpyp,xmyp,xmym,xpym
+    };
+    enum boundtype{
+        softwall = 0, hardwall = 1
+    };
+
+    //TODO:Remove this atrocity
+    bool allPMLS = true;
+}
 void
 CreateGMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec, const bool &print,
             const REAL &elSize, const REAL &length, const REAL &height, const REAL &pmlLength, const std::string &prefix);
@@ -51,7 +63,9 @@ void FilterBoundaryEquations(TPZCompMesh *cmeshHCurl,
 void
 CreateCMesh(TPZCompMesh *&cmesh, TPZGeoMesh *gmesh, int pOrder, void (&loadVec)(const TPZVec<REAL> &, TPZVec<STATE> &),
             const REAL &alphaPml, const std::string &prefix, const bool &print,
-            const TPZVec<int> &matIdVec, const REAL &rho, const REAL &velocity);
+            const TPZVec<int> &matIdVec, const TPZVec<REAL> &rhoVec,const TPZVec<REAL> &velocityVec,
+            const TPZVec< SPZAcousticData::pmltype > &pmlTypeVec,
+            const TPZVec<SPZAcousticData::boundtype> &boundTypeVec);
 
 void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix, const REAL &wZero);
 
@@ -90,7 +104,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     const int nThreads = 8; //PARAMS
     const bool l2error = true; //PARAMS
     const bool genVTK = true; //PARAMS
-    const bool printG = true;//PARAMS
+    const bool printG = false;//PARAMS
     const bool printC = false;//PARAMS
     const int postprocessRes = 0;//PARAMS
     REAL alphaPML = 10;
@@ -98,14 +112,36 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     REAL velocity = 340;
     REAL peakTime = 1./100;
     REAL amplitude = 10;
-    REAL totalTime = 10 * peakTime;
+    REAL totalTime = 3 * peakTime;
     const int64_t nTimeSteps = 100;
     const REAL wMax = 3*wZero;
-    REAL elSize = 2 *M_PI*velocity / (5.5 *wMax),length = 50,height = 8,pmlLength = 20;
+    REAL elSize = 2 *M_PI*velocity / (5.5 *wZero),length = 20,height = 20,pmlLength = 20;
 
     ////////////////////////////////////////////////////////////////////////
-    int nSamples = 250;
+    int nSamples = 130;
     REAL wSample = wMax/nSamples;
+
+    const int nPmls = SPZAcousticData::allPMLS? 8 : 2;
+    TPZVec<REAL> rhoVec(1,rho);
+    TPZVec<REAL> velocityVec(1,velocity);
+    TPZVec<SPZAcousticData::pmltype > pmlTypeVec(nPmls, SPZAcousticData::pmltype::xp);
+    TPZVec<SPZAcousticData::boundtype > boundTypeVec(1, SPZAcousticData::boundtype::softwall);
+    if(SPZAcousticData::allPMLS){
+        pmlTypeVec[0] = SPZAcousticData::pmltype::xp;
+        pmlTypeVec[1] = SPZAcousticData::pmltype::xpyp;
+        pmlTypeVec[2] = SPZAcousticData::pmltype::yp;
+        pmlTypeVec[3] = SPZAcousticData::pmltype::xmyp;
+        pmlTypeVec[4] = SPZAcousticData::pmltype::xm;
+        pmlTypeVec[5] = SPZAcousticData::pmltype::xmym;
+        pmlTypeVec[6] = SPZAcousticData::pmltype::ym;
+        pmlTypeVec[7] = SPZAcousticData::pmltype::xpym;
+    }
+    else{
+        pmlTypeVec[0] = SPZAcousticData::pmltype::xm;
+        pmlTypeVec[1] = SPZAcousticData::pmltype::xp;
+    }
+    boundTypeVec[0] = SPZAcousticData::boundtype::softwall;
+
 
     if(2 * M_PI /wSample < totalTime){
         std::cout<<"sampling is not good. hmmmmmmm."<<std::endl;
@@ -119,6 +155,9 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
             boost::posix_time::microsec_clock::local_time();
     TPZGeoMesh *gmesh = nullptr;
     std::string meshFileName("wellMesh.geo");
+    if(SPZAcousticData::allPMLS == true){
+        meshFileName = "wellMeshPML.geo";
+    }
     TPZVec<int> matIdVec;
     CreateGMesh(gmesh, meshFileName, matIdVec, printG, elSize, length,
                 height, pmlLength, prefix);
@@ -165,7 +204,8 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     boost::posix_time::ptime t1_c =
             boost::posix_time::microsec_clock::local_time();
     TPZCompMesh *cmesh = NULL;
-    CreateCMesh(cmesh, gmesh, pOrder, loadVec, alphaPML, prefix, printC, matIdVec, rho, velocity);
+    CreateCMesh(cmesh, gmesh, pOrder, loadVec, alphaPML, prefix, printC, matIdVec,
+            rhoVec, velocityVec, pmlTypeVec,boundTypeVec);
     boost::posix_time::ptime t2_c =
             boost::posix_time::microsec_clock::local_time();
     std::cout<<"Created! "<<t2_c-t1_c<<std::endl;
@@ -488,12 +528,19 @@ CreateGMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matI
 	}
 #endif
     auto matIds = meshReader.fMaterialDataVec;
-    matIdVec.Resize(4);
-    //fPZMaterialId[dimension][name]
-    matIdVec[0] = meshReader.fPZMaterialId[2]["water"];
-    matIdVec[1] = meshReader.fPZMaterialId[2]["pmlLeft"];
-    matIdVec[2] = meshReader.fPZMaterialId[2]["pmlRight"];
-    matIdVec[3] = meshReader.fPZMaterialId[1]["bound"];
+    const int n1dMat = meshReader.fMatIdTranslate[1].size();
+    const int n2dMat = meshReader.fMatIdTranslate[2].size();
+    matIdVec.Resize(n2dMat+n1dMat);
+    int imat = 0;
+    ///at this point, the materials in the .geo must be declared in a crescent order
+    for (auto& kv : meshReader.fMatIdTranslate[2]) {
+        matIdVec[imat] = kv.first;
+        imat++;
+    }
+    for (auto& kv : meshReader.fMatIdTranslate[1]) {
+        matIdVec[imat] = kv.first;
+        imat++;
+    }
 
     if(print){
         std::string meshFileName = prefix + "gmesh";
@@ -567,29 +614,54 @@ void FilterBoundaryEquations(TPZCompMesh *cmeshHCurl,
 void
 CreateCMesh(TPZCompMesh *&cmesh, TPZGeoMesh *gmesh, int pOrder, void (&loadVec)(const TPZVec<REAL> &, TPZVec<STATE> &),
             const REAL &alphaPml, const std::string &prefix, const bool &print,
-            const TPZVec<int> &matIdVec, const REAL &rho, const REAL &velocity) {
-    const int dim = 2;   // dimensao do problema
-    const int matIdSource = matIdVec[0]; // define id para um material(formulacao fraca)
-    const int matId = matIdVec[1]; // define id para um material(formulacao fraca)
-    const int bc0 = matIdVec[matIdVec.size()-1];  // define id para um material(cond contorno dirichlet)
-    enum {
-        dirichlet = 0,
-        neumann,
-        mixed
-    }; // tipo da condicao de contorno do problema
-    // Criando material
+            const TPZVec<int> &matIdVec, const TPZVec<REAL> &rhoVec,const TPZVec<REAL> &velocityVec,
+            const TPZVec< SPZAcousticData::pmltype > &pmlTypeVec,
+            const TPZVec<SPZAcousticData::boundtype> &boundTypeVec){
 
+    TPZManVector<int, 8> sourceMatIdVec(1);
+    for (int i = 0; i < 1; i++) {
+        sourceMatIdVec[i] = matIdVec[i];
+    }
+
+    TPZManVector<int, 8> volMatIdVec(matIdVec.size() - boundTypeVec.size() - pmlTypeVec.size() - sourceMatIdVec.size());
+    for (int i = 0; i < volMatIdVec.size(); i++) {
+        volMatIdVec[i] = matIdVec[i+sourceMatIdVec.size()];
+    }
+
+    TPZManVector<int, 8> pmlMatIdVec(pmlTypeVec.size());
+    for (int i = 0; i < pmlMatIdVec.size(); i++) {
+        pmlMatIdVec[i] = matIdVec[volMatIdVec.size() + sourceMatIdVec.size() + i];
+    }
+    TPZManVector<int, 8> boundMatIdVec(boundTypeVec.size());
+    for (int i = 0; i < boundMatIdVec.size(); i++) {
+        boundMatIdVec[i] = matIdVec[volMatIdVec.size() + sourceMatIdVec.size()  + pmlMatIdVec.size() + i];
+    }
+
+
+    const int64_t outerMaterialIndex = volMatIdVec[volMatIdVec.size() - 1];
+
+    const int dim = 2;   // dimensao do problema
     cmesh = new TPZCompMesh(gmesh);
     cmesh->SetDefaultOrder(pOrder); // seta ordem polimonial de aproximacao
     cmesh->SetDimModel(dim);        // seta dimensao do modelo
     // Inserindo material na malha
-    TPZMatAcousticsFourier *matAcoustics = NULL;
-    matAcoustics = new TPZMatAcousticsFourier(matIdVec[0], rho, velocity);
-    matAcoustics->SetForcingFunction(loadVec, 4);
-    cmesh->InsertMaterialObject(matAcoustics);
-    matAcoustics = new TPZMatAcousticsFourier(matIdVec[1], rho, velocity);
-//    matAcoustics->SetForcingFunction(loadVec, 4);
-    cmesh->InsertMaterialObject(matAcoustics);
+    TPZMatAcousticsFourier *matAcoustics = nullptr, *matOuter = nullptr;
+    REAL rhoOuter=-1, velocityOuter=-1;
+    for (int i = 0; i < volMatIdVec.size(); ++i) {
+        matAcoustics = new TPZMatAcousticsFourier(volMatIdVec[i], rhoVec[i], velocityVec[i]);
+        cmesh->InsertMaterialObject(matAcoustics);
+        if(volMatIdVec[i] == outerMaterialIndex){
+            rhoOuter = rhoVec[i];
+            velocityOuter = velocityVec[i];
+            matOuter = matAcoustics;
+        }
+    }
+
+    for (int i = 0; i < sourceMatIdVec.size(); ++i) {
+        matAcoustics = new TPZMatAcousticsFourier(sourceMatIdVec[i], rhoVec[i], velocityVec[i]);//rho and v wont be used
+        matAcoustics->SetForcingFunction(loadVec, 4);
+        cmesh->InsertMaterialObject(matAcoustics);
+    }
 //    auto exactSol = [](const TPZVec<REAL> &coord, TPZVec<STATE> &result, TPZFMatrix<STATE> &grad) {
 //        result.Resize(1, 0.);
 //        result[0] = M_PI * cos((1/10.) * 2 * M_PI * coord[0]) * sin((1/10.) * 2 * M_PI  * coord[1]);
@@ -599,74 +671,125 @@ CreateCMesh(TPZCompMesh *&cmesh, TPZGeoMesh *gmesh, int pOrder, void (&loadVec)(
 //        grad(1, 0) = M_PI * M_PI * cos(M_PI * coord[0]) * cos(M_PI * coord[1]);
 //    };
 //    matAcoustics->SetExactSol(exactSol);
+    //TODO: achar material sobre o qual a PML foi criada. Isso é essencial para casos mais complicados.
+    for (int i = 0; i < pmlMatIdVec.size(); i++) {
+        TPZMatAcousticsPml *matAcousticsPML = NULL;
+        REAL xMax = -1e20, xMin = 1e20, yMax = -1e20, yMin = 1e20, elSizeTol = 1e20;
+        TPZGeoEl *leftmostEl=nullptr, *rightmostEl=nullptr, *highestEl=nullptr, *lowestEl=nullptr;
+        TPZGeoMesh *gmesh = cmesh->Reference();
+        for (int iel = 0; iel < gmesh->NElements(); ++iel) {
+            TPZGeoEl *geo = gmesh->Element(iel);
+            if (geo->MaterialId() == pmlMatIdVec[i]) {
+                const REAL elSize = geo->ElementRadius();
+                if(elSize < elSizeTol){
+                    elSizeTol = elSize;
+                }
+                for (int iNode = 0; iNode < geo->NCornerNodes(); ++iNode) {
+                    TPZManVector<REAL, 3> co(3);
+                    geo->Node(iNode).GetCoordinates(co);
+                    const REAL &xP = co[0];
+                    const REAL &yP = co[1];
+                    if (xP > xMax) {
+                        xMax = xP;
+                        rightmostEl = geo;
+                    }
+                    if (xP < xMin) {
+                        xMin = xP;
+                        leftmostEl = geo;
+                    }
+                    if (yP > yMax) {
+                        yMax = yP;
+                        highestEl = geo;
+                    }
+                    if (yP < yMin) {
+                        yMin = yP;
+                        lowestEl = geo;
+                    }
+                }
+            }
+        }
+        bool attx, atty;
+        REAL xBegin, yBegin, d;
+        switch (pmlTypeVec[i]) {
+            case SPZAcousticData::xp:
+                attx = true;
+                atty = false;
+                xBegin = xMin;
+                yBegin = -1;
+                d = xMax - xMin;
+                //TODO: usar leftmostEl para encontrar material vizinho
+                break;
+            case SPZAcousticData::yp:
+                attx = false;
+                atty = true;
+                xBegin = -1;
+                yBegin = yMin;
+                d = yMax - yMin;
+                //TODO: usar lowestEl para encontrar material vizinho
+                break;
+            case SPZAcousticData::xm:
+                attx = true;
+                atty = false;
+                xBegin = xMax;
+                yBegin = -1;
+                d = xMax - xMin;
+                //TODO: usar rightmostEl para encontrar material vizinho
+                break;
+            case SPZAcousticData::ym:
+                attx = false;
+                atty = true;
+                xBegin = -1;
+                yBegin = yMax;
+                d = yMax - yMin;
+                //TODO: usar highestEl para encontrar material vizinho
+                break;
+            case SPZAcousticData::xpyp:
+                attx = true;
+                atty = true;
+                xBegin = xMin;
+                yBegin = yMin;
+                d = xMax - xMin;
+                //TODO: usar elSizeTol para encontrar material vizinho
+                break;
+            case SPZAcousticData::xmyp:
+                attx = true;
+                atty = true;
+                xBegin = xMax;
+                yBegin = yMin;
+                d = xMax - xMin;
+                //TODO: usar elSizeTol para encontrar material vizinho
+                break;
+            case SPZAcousticData::xmym:
+                attx = true;
+                atty = true;
+                xBegin = xMax;
+                yBegin = yMax;
+                d = xMax - xMin;
+                //TODO: usar elSizeTol para encontrar material vizinho
+                break;
+            case SPZAcousticData::xpym:
+                attx = true;
+                atty = true;
+                xBegin = xMin;
+                yBegin = yMax;
+                d = xMax - xMin;
+                //TODO: usar elSizeTol para encontrar material vizinho
+                break;
+        }
 
-    TPZMatAcousticsPml *matAcousticsPML = NULL;
-    REAL pmlBegin, pmlLength;
-    {
-        REAL xMax =-1e20,xMin = 1e20;
-        TPZGeoMesh * gmesh = cmesh->Reference();
-        for (int iel = 0; iel < gmesh->NElements(); ++iel) {
-            TPZGeoEl *geo = gmesh->Element(iel);
-            if (geo->MaterialId() == matIdVec[2]) {
-                for (int iNode = 0; iNode < geo->NCornerNodes(); ++iNode) {
-                    TPZManVector<REAL, 3> co(3);
-                    geo->Node(iNode).GetCoordinates(co);
-                    const REAL &xP = co[0];
-                    const REAL &yP = co[1];
-                    if (xP > xMax) {
-                        xMax = xP;
-                    }
-                    if (xP < xMin) {
-                        xMin = xP;
-                    }
-                }
-            }
-        }
-        pmlBegin = xMin;
-        pmlLength = xMax - xMin;
+        matAcousticsPML =
+                new TPZMatAcousticsPml(pmlMatIdVec[i], *matOuter, attx, xBegin, atty, yBegin, alphaPml,d);
+        cmesh->InsertMaterialObject(matAcousticsPML);
     }
-    //matAcousticsPML = new TPZMatAcousticsPml(matIdVec[1], rho, velocity, pmlBegin, pmlLength, alphaPml);
-    matAcousticsPML =
-            new TPZMatAcousticsPml(matIdVec[2],*matAcoustics,true, pmlBegin, false, -1, alphaPml,pmlLength);
-//    matAcousticsPML->SetExactSol(exactSol);
-    cmesh->InsertMaterialObject(matAcousticsPML);
-    {
-        REAL xMax =-1e20,xMin = 1e20;
-        TPZGeoMesh * gmesh = cmesh->Reference();
-        for (int iel = 0; iel < gmesh->NElements(); ++iel) {
-            TPZGeoEl *geo = gmesh->Element(iel);
-            if (geo->MaterialId() == matIdVec[3]) {
-                for (int iNode = 0; iNode < geo->NCornerNodes(); ++iNode) {
-                    TPZManVector<REAL, 3> co(3);
-                    geo->Node(iNode).GetCoordinates(co);
-                    const REAL &xP = co[0];
-                    const REAL &yP = co[1];
-                    if (xP > xMax) {
-                        xMax = xP;
-                    }
-                    if (xP < xMin) {
-                        xMin = xP;
-                    }
-                }
-            }
-        }
-        pmlBegin = xMax;
-        pmlLength = xMax - xMin;
-    }
-    matAcousticsPML =
-            new TPZMatAcousticsPml(matIdVec[3],*matAcoustics,true, pmlBegin, false, -1, alphaPml,pmlLength);
-//    matAcousticsPML->SetExactSol(exactSol);
-    cmesh->InsertMaterialObject(matAcousticsPML);
 
     TPZFMatrix<STATE> val1(1, 1, 0.), val2(1, 1, 0.);
     val1(0, 0) = 0.;
     val2(0, 0) = 0.;
-    TPZMaterial *bCondDir = matAcoustics->CreateBC(
-            matAcoustics, bc0, dirichlet, val1, val2); // cria material que implementa a
-    // condicao de contorno de
-    // dirichlet
-
-    cmesh->InsertMaterialObject(bCondDir); // insere material na malha
+    TPZMaterial *bcond = nullptr;
+    for (int i = 0; i < boundMatIdVec.size(); i++) {
+        bcond = matAcoustics->CreateBC(matAcoustics, boundMatIdVec[i], boundTypeVec[i], val1, val2);
+        cmesh->InsertMaterialObject(bcond);
+    }
     cmesh->SetAllCreateFunctionsContinuous();
     cmesh->AutoBuild();
     if(print){
