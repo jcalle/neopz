@@ -41,7 +41,7 @@ namespace SPZAcousticData{
     };
 
     //TODO:Remove this atrocity
-    bool allPMLS = true;
+    bool allPMLS = false;
 }
 void
 CreateGMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec, const bool &print,
@@ -77,8 +77,8 @@ int main(int argc, char *argv[]) {
     const std::string prefix = "results/";//PARAMS
     int pOrder = 2; //PARAMS
     const int nDivIni = 4; //PARAMS
-    const int nPcycles = 4;
-    const int nHcycles = 7;
+    const int nPcycles = 1;
+    const int nHcycles = 1;
     const REAL wZero = 100 * 2 *M_PI;
     boost::posix_time::ptime t1 =
             boost::posix_time::microsec_clock::local_time();
@@ -112,13 +112,13 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     REAL velocity = 340;
     REAL peakTime = 1./100;
     REAL amplitude = 10;
-    REAL totalTime = 3 * peakTime;
-    const int64_t nTimeSteps = 100;
+    REAL totalTime = 6 * peakTime;
+    const int64_t nTimeSteps = 200;
     const REAL wMax = 3*wZero;
-    REAL elSize = 2 *M_PI*velocity / (5.5 *wZero),length = 20,height = 20,pmlLength = 20;
+    REAL elSize = 2 *M_PI*velocity / (12 *wZero),length = 20,height = 10,pmlLength = 20;
 
     ////////////////////////////////////////////////////////////////////////
-    int nSamples = 130;
+    int nSamples = 50;
     REAL wSample = wMax/nSamples;
 
     const int nPmls = SPZAcousticData::allPMLS? 8 : 2;
@@ -192,7 +192,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         TPZVec<int64_t> nodeIdVec(1,sourceNodeIndex);
         TPZGeoElRefLess<pzgeom::TPZGeoPoint > *zeroDEl =
                 new TPZGeoElRefLess<pzgeom::TPZGeoPoint >(nodeIdVec, matIdSource,
-                        *gmesh);
+                                                          *gmesh);
         gmesh->BuildConnectivity();
     }
 
@@ -205,7 +205,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
             boost::posix_time::microsec_clock::local_time();
     TPZCompMesh *cmesh = NULL;
     CreateCMesh(cmesh, gmesh, pOrder, loadVec, alphaPML, prefix, printC, matIdVec,
-            rhoVec, velocityVec, pmlTypeVec,boundTypeVec);
+                rhoVec, velocityVec, pmlTypeVec,boundTypeVec);
     boost::posix_time::ptime t2_c =
             boost::posix_time::microsec_clock::local_time();
     std::cout<<"Created! "<<t2_c-t1_c<<std::endl;
@@ -327,6 +327,8 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         }
         sourceCompel = sourceEl->Reference();
     }
+
+    const REAL aFactor = log(50)/(2*M_PI/wSample)*2.5;
     TPZFMatrix<STATE> frequencySolution(nSamples-1,2);
     for(int iW = 0; iW < nSamples-1; iW++){
 
@@ -335,10 +337,10 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
 #else
         TPZAutoPointer<TPZMatrix<STATE>> matFinal(new TPZFYsmpMatrix<STATE>(matK.Rows(),matK.Cols()));
 #endif
-        const STATE currentW = (iW+1) * wSample;
+        const STATE currentW = (iW+1) * wSample + SPZAlwaysComplex<STATE>::type(0,1)*aFactor;
         //-w^2 M + K
         boost::posix_time::ptime t1_sum =
-          boost::posix_time::microsec_clock::local_time();
+                boost::posix_time::microsec_clock::local_time();
 
 #ifdef USING_SKYLINE
         for(int iCol = 0; iCol < matFinal->Cols(); iCol++){
@@ -366,7 +368,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
 
 
         boost::posix_time::ptime t2_sum =
-          boost::posix_time::microsec_clock::local_time();
+                boost::posix_time::microsec_clock::local_time();
         std::cout<<"Summing matrices took "<<t2_sum-t1_sum<<std::endl;
 
 
@@ -394,9 +396,12 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         }
 
         STATE currentSource = 0;
-        currentSource += -2. * SPZAlwaysComplex<STATE>::type(0,1)  * amplitude * currentW;
-        currentSource *= exp(0.5 + SPZAlwaysComplex<STATE>::type(0,1)  * currentW * peakTime - (currentW/wZero)*(currentW/wZero));
-        currentSource *= sqrt(2 * M_PI)/(wZero);
+//        currentSource += -2. * SPZAlwaysComplex<STATE>::type(0,1)  * amplitude * currentW;
+//        currentSource *= exp(0.5 + SPZAlwaysComplex<STATE>::type(0,1)  * currentW * peakTime - (currentW/wZero)*(currentW/wZero));
+//        currentSource *= sqrt(2 * M_PI)/(wZero);
+        currentSource += -2. * SPZAlwaysComplex<STATE>::type(0,1)  * amplitude * currentW * M_SQRT2;
+        currentSource *= exp(SPZAlwaysComplex<STATE>::type(0,1)  * currentW * peakTime - (currentW/wZero)*(currentW/wZero));
+        currentSource *= 1./(wZero*wZero*wZero);
         matSourcePtr->SetSourceFunc(currentSource);
         //assemble load vector
         an.AssembleResidual();
@@ -405,10 +410,10 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
 
         std::cout<<"Beginning solver step "<<iW+1<<" out of "<<nSamples - 1<<std::endl;
         boost::posix_time::ptime t1_solve =
-          boost::posix_time::microsec_clock::local_time();
+                boost::posix_time::microsec_clock::local_time();
         an.Solve();
         boost::posix_time::ptime t2_solve =
-          boost::posix_time::microsec_clock::local_time();
+                boost::posix_time::microsec_clock::local_time();
         std::cout<<"solver step "<<iW+1<<" out of "<<nSamples - 1<<" took "<<t2_solve-t1_solve<<std::endl;
         //get solution
         TPZFMatrix<STATE> &currentSol = an.Solution();//p omega
@@ -425,8 +430,11 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         REAL timeStepSize = totalTime/nTimeSteps;
         for(int iPt = 0; iPt < neqOriginal; iPt++){
             for(int iTime = 0; iTime < nTimeSteps; iTime++){
+                const REAL currentTime = (REAL)iTime * timeStepSize;
                 timeDomainSolution(iPt,iTime) +=
-                        0.5*(1.+std::cos(currentW*M_PI/wMax))*std::real(currentSol(iPt,0)) * wSample * std::cos(-1. * (REAL)iTime * timeStepSize * currentW)/M_PI;
+                        std::exp(aFactor*currentTime)*
+                        0.5*(1.+std::cos(std::real(currentTime)*M_PI/wMax))*std::real(currentSol(iPt,0)) * wSample *
+                        std::cos(-1. * currentTime * std::real(currentW))/M_PI;
             }
         }
         //TODO:tirar isso, Fran. fix temporario para debugar mkl
@@ -436,7 +444,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     if (genVTK) {
         std::cout<<"Post processing... "<<std::endl;
         {
-            std::string matFileName = prefix+"freqSpectrum.dat";
+            std::string matFileName = prefix+"freqSpectrum.csv";
             //void TPZMatrix<TVar>::Print(const char *name, std::ostream& out,const MatrixOutputFormat form) const {
             std::ofstream matFile(matFileName);
             if(!matFile.is_open()){
@@ -473,16 +481,17 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         }
         std::cout<<std::endl<<" Done!"<<std::endl;
     }
-    gmesh->SetReference(nullptr);
-    for(int icon = 0; icon < cmesh->NConnects(); icon++){
-        TPZConnect &con = cmesh->ConnectVec()[icon];
-        con.RemoveDepend();
-    }
-    cmesh->SetReference(nullptr);
-    delete cmesh;
-    cmesh=nullptr;
-    delete gmesh;
-    gmesh=nullptr;
+    //TODO:arrumar isso
+//    gmesh->SetReference(nullptr);
+//    for(int icon = 0; icon < cmesh->NConnects(); icon++){
+//        TPZConnect &con = cmesh->ConnectVec()[icon];
+//        con.RemoveDepend();
+//    }
+//    cmesh->SetReference(nullptr);
+//    delete cmesh;
+//    cmesh=nullptr;
+//    delete gmesh;
+//    gmesh=nullptr;
 }
 
 void
@@ -520,12 +529,12 @@ CreateGMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matI
     TPZGmshReader meshReader;
     gmesh = meshReader.GeometricGmshMesh(prefix+"wellMesh.msh");
 #ifdef PZDEBUG
-	TPZCheckGeom * Geometrytest = new TPZCheckGeom(gmesh);
-	int isBadMeshQ = Geometrytest->PerformCheck();
+    TPZCheckGeom * Geometrytest = new TPZCheckGeom(gmesh);
+    int isBadMeshQ = Geometrytest->PerformCheck();
 
-	if (isBadMeshQ) {
-		DebugStop();
-	}
+    if (isBadMeshQ) {
+        DebugStop();
+    }
 #endif
     auto matIds = meshReader.fMaterialDataVec;
     const int n1dMat = meshReader.fMatIdTranslate[1].size();
