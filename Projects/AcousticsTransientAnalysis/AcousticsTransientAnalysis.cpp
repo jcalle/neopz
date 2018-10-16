@@ -66,7 +66,9 @@ int main(int argc, char *argv[]) {
             RunSimulation(pOrder, prefix,wZero);
             nDiv *= 2;
             std::cout << "************************************" << std::endl;
+            break;
         }
+        break;
     }
     boost::posix_time::ptime t2 =
             boost::posix_time::microsec_clock::local_time();
@@ -87,10 +89,10 @@ void RunSimulation(const int &pOrder, const std::string &prefix, const REAL &wZe
     REAL peakTime = 1./100;
     REAL amplitude = 1;
     REAL totalTime = 12   * peakTime;
-    REAL elSize = 2 *M_PI*velocity / (16 *wZero),length = 20,height = 20;
+    REAL elSize = 2 *M_PI*velocity / (10 *wZero),length = 20,height = 10;
 
     ////////////////////////////////////////////////////////////////////////
-    const int64_t nTimeSteps = std::ceil(totalTime/(0.8 *elSize / velocity));
+    const int64_t nTimeSteps = std::ceil(totalTime/(0.2 *elSize / velocity));
     const REAL deltaT = totalTime/nTimeSteps;
     const REAL cfl = velocity * deltaT/(elSize);
     std::cout<<"CFL: "<<cfl<<std::endl;
@@ -266,16 +268,16 @@ void RunSimulation(const int &pOrder, const std::string &prefix, const REAL &wZe
     }
 
     //TODO: descobrir pq o programa quebra toda vez
-    gmesh->SetReference(nullptr);
-    for(int icon = 0; icon < cmesh->NConnects(); icon++){
-        TPZConnect &con = cmesh->ConnectVec()[icon];
-        con.RemoveDepend();
-    }
-    cmesh->SetReference(nullptr);
-    delete cmesh;
-    cmesh=nullptr;
-    delete gmesh;
-    gmesh=nullptr;
+//    gmesh->SetReference(nullptr);
+//    for(int icon = 0; icon < cmesh->NConnects(); icon++){
+//        TPZConnect &con = cmesh->ConnectVec()[icon];
+//        con.RemoveDepend();
+//    }
+//    cmesh->SetReference(nullptr);
+//    delete cmesh;
+//    cmesh=nullptr;
+//    delete gmesh;
+//    gmesh=nullptr;
 }
 
 void
