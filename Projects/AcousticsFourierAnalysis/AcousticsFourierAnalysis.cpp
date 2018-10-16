@@ -107,19 +107,29 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     const bool printG = false;//PARAMS
     const bool printC = false;//PARAMS
     const int postprocessRes = 0;//PARAMS
-    REAL alphaPML = 10;
+    REAL alphaPML = 0;
     REAL rho = 1.3;
     REAL velocity = 340;
     REAL peakTime = 1./100;
-    REAL amplitude = 10;
-    REAL totalTime = 6 * peakTime;
-    const int64_t nTimeSteps = 200;
-    const REAL wMax = 3*wZero;
-    REAL elSize = 2 *M_PI*velocity / (12 *wZero),length = 20,height = 10,pmlLength = 20;
+    REAL amplitude = 1;
+    REAL totalTime = 12   * peakTime;
+    REAL elSize = 2 *M_PI*velocity / (10 *wZero),length = 10,height = 10,pmlLength = 5;
+
+    ////////////////////////////////////////////////////////////////////////
+    const int64_t nTimeSteps = std::ceil(totalTime/(0.2 *elSize / velocity));
+    const REAL deltaT = totalTime/nTimeSteps;
+    const REAL cfl = velocity * deltaT/(elSize);
 
     ////////////////////////////////////////////////////////////////////////
     int nSamples = 50;
+    const REAL wMax = 3 * wZero;
     REAL wSample = wMax/nSamples;
+    if(2 * M_PI /wSample < totalTime){
+        std::cout<<"sampling is not good. hmmmmmmm."<<std::endl;
+        nSamples = (int)std::ceil(wMax / (2*M_PI/(1.001*totalTime)));
+        wSample = wMax/nSamples;
+        std::cout<<"new nSamples: "<<nSamples<<std::endl;
+    }
 
     const int nPmls = SPZAcousticData::allPMLS? 8 : 2;
     TPZVec<REAL> rhoVec(1,rho);
@@ -143,12 +153,6 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     boundTypeVec[0] = SPZAcousticData::boundtype::softwall;
 
 
-    if(2 * M_PI /wSample < totalTime){
-        std::cout<<"sampling is not good. hmmmmmmm."<<std::endl;
-        nSamples = (int)std::ceil(wMax / (2*M_PI/(1.001*totalTime)));
-        wSample = wMax/nSamples;
-        std::cout<<"new nSamples: "<<nSamples<<std::endl;
-    }
 
     std::cout<<"Creating gmesh... ";
     boost::posix_time::ptime t1_g =
@@ -328,7 +332,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         sourceCompel = sourceEl->Reference();
     }
 
-    const REAL aFactor = log(50)/(2*M_PI/wSample)*2.5;
+    const REAL aFactor = log(50)/(2*M_PI/wSample);
     TPZFMatrix<STATE> frequencySolution(nSamples-1,2);
     for(int iW = 0; iW < nSamples-1; iW++){
 
@@ -434,7 +438,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
                 timeDomainSolution(iPt,iTime) +=
                         std::exp(aFactor*currentTime)*
                         0.5*(1.+std::cos(std::real(currentTime)*M_PI/wMax))*std::real(currentSol(iPt,0)) * wSample *
-                        std::cos(-1. * currentTime * std::real(currentW))/M_PI;
+                          std::cos(-1. * currentTime * std::real(currentW))/M_PI;
             }
         }
         //TODO:tirar isso, Fran. fix temporario para debugar mkl
