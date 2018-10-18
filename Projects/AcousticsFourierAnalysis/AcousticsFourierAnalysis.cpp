@@ -403,10 +403,9 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
 //        currentSource += -2. * SPZAlwaysComplex<STATE>::type(0,1)  * amplitude * currentW;
 //        currentSource *= exp(0.5 + SPZAlwaysComplex<STATE>::type(0,1)  * currentW * peakTime - (currentW/wZero)*(currentW/wZero));
 //        currentSource *= sqrt(2 * M_PI)/(wZero);
-        currentSource += -2. * SPZAlwaysComplex<STATE>::type(0,1)  * amplitude * currentW * M_SQRT2;
+        currentSource += -1. * SPZAlwaysComplex<STATE>::type(0,1)  * amplitude * currentW * M_SQRT2/wZero;
         currentSource *= exp(SPZAlwaysComplex<STATE>::type(0,1)  * currentW * peakTime - (currentW/wZero)*(currentW/wZero));
-        currentSource *= 1./(wZero*wZero*wZero);
-        matSourcePtr->SetSourceFunc(currentSource);
+        matSourcePtr->SetSourceFunc(currentSource);//FONTE IGUAL A DO COMSOL
         //assemble load vector
         an.AssembleResidual();
         //solve system
@@ -436,9 +435,12 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
             for(int iTime = 0; iTime < nTimeSteps; iTime++){
                 const REAL currentTime = (REAL)iTime * timeStepSize;
                 timeDomainSolution(iPt,iTime) +=
-                        std::exp(aFactor*currentTime)*
-                        0.5*(1.+std::cos(std::real(currentTime)*M_PI/wMax))*std::real(currentSol(iPt,0)) * wSample *
-                          std::cos(-1. * currentTime * std::real(currentW))/M_PI;
+                        std::exp(aFactor*currentTime)*//fator para compensar o shift na frequência
+                        wSample *//fator para compensar o trem de impulso com intensidade wSample
+                        0.5*(1.+std::cos(std::real(currentW)*M_PI/wMax))*//Hanning windowing, atenua frequencias altas
+                        std::real(currentSol(iPt,0)) * std::cos(-1. * currentTime * std::real(currentW))*
+                        M_2_SQRTPI * M_SQRT2 * M_SQRT1_2;//1/sqrt(2pi), para ser coerente com a
+                        // transformada feita no mathematica
             }
         }
         //TODO:tirar isso, Fran. fix temporario para debugar mkl
