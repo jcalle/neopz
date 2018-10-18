@@ -121,7 +121,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     const REAL cfl = velocity * deltaT/(elSize);
 
     ////////////////////////////////////////////////////////////////////////
-    int nSamples = 50;
+    int nSamples = 100;
     const REAL wMax = 3 * wZero;
     REAL wSample = wMax/nSamples;
     if(2 * M_PI /wSample < totalTime){
