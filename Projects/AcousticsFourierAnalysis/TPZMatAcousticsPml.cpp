@@ -12,7 +12,7 @@ TPZMatAcousticsPml::TPZMatAcousticsPml(const int id,const TPZMatAcousticsFourier
                                        const REAL &alphaMax, const REAL &d) :
         TPZMatAcousticsFourier(mat), fAttX (att_x), fAttY (att_y),
         fPmlBeginX (pmlBeginX), fPmlBeginY (pmlBeginY),
-        fAlphaMax (alphaMax), fD (d) , fW(-1)
+        fAlphaMax (alphaMax), fD (d)
 {
     this->SetId(id);
     if(fAlphaMax < 0) DebugStop(); //for the attenuation to happen
@@ -62,10 +62,3 @@ int TPZMatAcousticsPml::IntegrationRuleOrder(TPZVec<int> &elPMaxOrder) const
     return  integrationorder;
 }
 
-STATE TPZMatAcousticsPml::GetW() const {
-    return fW;
-}
-
-void TPZMatAcousticsPml::SetW(STATE fW) {
-    TPZMatAcousticsPml::fW = fW;
-}

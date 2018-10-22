@@ -17,9 +17,7 @@ public:
     ~TPZMatAcousticsPml();
     void Contribute(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) override;
     int IntegrationRuleOrder(TPZVec<int> &elPMaxOrder) const override;
-//    void Solution(TPZMaterialData &data, int var, TPZVec<STATE> &Solout) override;
-    STATE GetW() const;
-    void SetW(STATE fW);
+
 private:
     TPZMatAcousticsPml(const TPZMatAcousticsFourier &mat);//this does not exist
     TPZMatAcousticsPml(int id);//this does not exist
@@ -30,7 +28,6 @@ private:
     const REAL fPmlBeginY;
     const REAL fAlphaMax;
     const REAL fD;
-    STATE fW;
 };
 
 

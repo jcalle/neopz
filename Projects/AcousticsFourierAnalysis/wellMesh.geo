@@ -28,40 +28,48 @@ l_2 = newl; Line(l_2) = {p_2,p_3} ;
 l_3 = newl; Line(l_3) = {p_3,p_4} ;
 l_4 = newl; Line(l_4) = {p_4,p_1} ;
 
-//pml domain
-p_5 = newp; Point(p_5) = { length + pml_length, 0, 0, lc} ;
-p_6 = newp; Point(p_6) = { length + pml_length, height, 0, lc} ;
-p_7 = newp; Point(p_7) = { -pml_length, height, 0, lc} ;
-p_8 = newp; Point(p_8) = { -pml_length, 0, 0, lc} ;
-
-l_5 = newl; Line(l_5) = {p_1,p_5} ;
-l_6 = newl; Line(l_6) = {p_5,p_6} ;
-l_7 = newl; Line(l_7) = {p_6,p_2} ;
-
-l_8 = newl; Line(l_8) = {p_3,p_7} ;
-l_9 = newl; Line(l_9) = {p_7,p_8} ;
-l_10 = newl; Line(l_10) = {p_8,p_4} ;
-
 ll_1 = newll; Line Loop(ll_1) = {l_1,l_2,l_3,l_4} ;
-ll_2 = newll; Line Loop(ll_2) = {l_6,l_7,l_1,l_5} ;
-ll_3 = newll; Line Loop(ll_3) = {l_3,l_8,l_9,l_10} ;
 
 s_1 = news; Plane Surface(s_1) = {ll_1} ;
-s_2 = news; Plane Surface(s_2) = {ll_2} ;
-s_3 = news; Plane Surface(s_3) = {ll_3} ;
 
-bound[] = {l_7,l_2,l_8,l_9,l_10,l_4,l_5,l_6};
-Transfinite Line {l_2,l_4} = ndiv_x; 
-Transfinite Line {l_1,l_3,l_6,l_9} = ndiv_y;
-Transfinite Line {l_5,l_7,l_8,l_10} = ndiv_pml; 
+Transfinite Line {l_2,l_4} = ndiv_x;
 
-Transfinite Surface{s_1};
-Transfinite Surface{s_2};
-Transfinite Surface{s_3};
+Physical Surface("water",1) = {s_1} ;//regular domain
+If (pml_length > 0 )
+	//pml domain
+	p_5 = newp; Point(p_5) = { length + pml_length, 0, 0, lc} ;
+	p_6 = newp; Point(p_6) = { length + pml_length, height, 0, lc} ;
+	p_7 = newp; Point(p_7) = { -pml_length, height, 0, lc} ;
+	p_8 = newp; Point(p_8) = { -pml_length, 0, 0, lc} ;
+
+	l_5 = newl; Line(l_5) = {p_1,p_5} ;
+	l_6 = newl; Line(l_6) = {p_5,p_6} ;
+	l_7 = newl; Line(l_7) = {p_6,p_2} ;
+
+	l_8 = newl; Line(l_8) = {p_3,p_7} ;
+	l_9 = newl; Line(l_9) = {p_7,p_8} ;
+	l_10 = newl; Line(l_10) = {p_8,p_4} ;
+
+	ll_2 = newll; Line Loop(ll_2) = {l_6,l_7,l_1,l_5} ;
+	ll_3 = newll; Line Loop(ll_3) = {l_3,l_8,l_9,l_10} ;
+	s_2 = news; Plane Surface(s_2) = {ll_2} ;
+	s_3 = news; Plane Surface(s_3) = {ll_3} ;
+	bound[] = {l_7,l_2,l_8,l_9,l_10,l_4,l_5,l_6};
+
+	Transfinite Line {l_1,l_3,l_6,l_9} = ndiv_y;
+	Transfinite Line {l_5,l_7,l_8,l_10} = ndiv_pml; 
+	Transfinite Surface{s_1};
+	Transfinite Surface{s_2};
+	Transfinite Surface{s_3};
+	Physical Surface("pmlLeft",2) = {s_2} ;//pml domain
+	Physical Surface("pmlRight",3) = {s_3} ;//pml domain
+Else
+	bound[] = {l_1,l_2,l_3,l_4};
+	Transfinite Line {l_1,l_3} = ndiv_y;
+	Transfinite Surface{s_1};
+EndIf
 
 ////physical entities
-Physical Surface("water",1) = {s_1} ;//regular domain
-Physical Surface("pmlLeft",2) = {s_2} ;//pml domain
-Physical Surface("pmlRight",3) = {s_3} ;//pml domain
+
 Physical Line("bound",4) = bound[] ;//dirichlet boundary condition
 

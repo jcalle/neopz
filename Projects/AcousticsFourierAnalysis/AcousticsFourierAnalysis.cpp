@@ -41,11 +41,16 @@ namespace SPZAcousticData{
     };
 
     //TODO:Remove this atrocity
-    bool allPMLS = false;
+    enum caseNames{
+        allPmls=0, lrPmls, noPmls
+    };
 }
 void
 CreateGMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec, const bool &print,
             const REAL &elSize, const REAL &length, const REAL &height, const REAL &pmlLength, const std::string &prefix);
+
+void CreateSourceNode(TPZGeoMesh * &gmesh, const int &matIdSource, const REAL &sourcePosX, const REAL &sourcePosY);
+
 void loadVec(const TPZVec<REAL> &coord, TPZVec<STATE> &val) {
     val.Resize(3, 0.);
     //  val[0] = 3 - coord[1] * coord[1];
@@ -105,8 +110,11 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     const bool l2error = true; //PARAMS
     const bool genVTK = true; //PARAMS
     const bool printG = false;//PARAMS
-    const bool printC = false;//PARAMS
+    const bool printC = true;//PARAMS
     const int postprocessRes = 0;//PARAMS
+
+    SPZAcousticData::caseNames whichCase = SPZAcousticData::caseNames::lrPmls;//TODO: debug why noPmls is not working
+
     REAL alphaPML = 0;
     REAL rho = 1.3;
     REAL velocity = 340;
@@ -131,24 +139,41 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         std::cout<<"new nSamples: "<<nSamples<<std::endl;
     }
 
-    const int nPmls = SPZAcousticData::allPMLS? 8 : 2;
+    int nPmls = -1;
+    std::string meshFileName("iDontExist.geo");
     TPZVec<REAL> rhoVec(1,rho);
     TPZVec<REAL> velocityVec(1,velocity);
-    TPZVec<SPZAcousticData::pmltype > pmlTypeVec(nPmls, SPZAcousticData::pmltype::xp);
+    TPZVec<SPZAcousticData::pmltype > pmlTypeVec(0, SPZAcousticData::pmltype::xp);
     TPZVec<SPZAcousticData::boundtype > boundTypeVec(1, SPZAcousticData::boundtype::softwall);
-    if(SPZAcousticData::allPMLS){
-        pmlTypeVec[0] = SPZAcousticData::pmltype::xp;
-        pmlTypeVec[1] = SPZAcousticData::pmltype::xpyp;
-        pmlTypeVec[2] = SPZAcousticData::pmltype::yp;
-        pmlTypeVec[3] = SPZAcousticData::pmltype::xmyp;
-        pmlTypeVec[4] = SPZAcousticData::pmltype::xm;
-        pmlTypeVec[5] = SPZAcousticData::pmltype::xmym;
-        pmlTypeVec[6] = SPZAcousticData::pmltype::ym;
-        pmlTypeVec[7] = SPZAcousticData::pmltype::xpym;
-    }
-    else{
-        pmlTypeVec[0] = SPZAcousticData::pmltype::xm;
-        pmlTypeVec[1] = SPZAcousticData::pmltype::xp;
+    switch(whichCase){
+        case SPZAcousticData::caseNames::allPmls:
+            nPmls = 8;
+            pmlTypeVec.Resize(nPmls);
+            pmlTypeVec[0] = SPZAcousticData::pmltype::xp;
+            pmlTypeVec[1] = SPZAcousticData::pmltype::xpyp;
+            pmlTypeVec[2] = SPZAcousticData::pmltype::yp;
+            pmlTypeVec[3] = SPZAcousticData::pmltype::xmyp;
+            pmlTypeVec[4] = SPZAcousticData::pmltype::xm;
+            pmlTypeVec[5] = SPZAcousticData::pmltype::xmym;
+            pmlTypeVec[6] = SPZAcousticData::pmltype::ym;
+            pmlTypeVec[7] = SPZAcousticData::pmltype::xpym;
+            meshFileName = "wellMeshPML.geo";
+            break;
+        case SPZAcousticData::caseNames::lrPmls:
+            nPmls = 2;
+            pmlTypeVec.Resize(nPmls);
+            pmlTypeVec[0] = SPZAcousticData::pmltype::xm;
+            pmlTypeVec[1] = SPZAcousticData::pmltype::xp;
+            meshFileName = "wellMesh.geo";
+            break;
+        case SPZAcousticData::caseNames::noPmls:
+            nPmls = 0;
+            pmlLength = -1;
+            pmlTypeVec.Resize(nPmls);
+            meshFileName = "wellMesh.geo";
+            break;
+        default:
+            DebugStop();
     }
     boundTypeVec[0] = SPZAcousticData::boundtype::softwall;
 
@@ -158,10 +183,6 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     boost::posix_time::ptime t1_g =
             boost::posix_time::microsec_clock::local_time();
     TPZGeoMesh *gmesh = nullptr;
-    std::string meshFileName("wellMesh.geo");
-    if(SPZAcousticData::allPMLS == true){
-        meshFileName = "wellMeshPML.geo";
-    }
     TPZVec<int> matIdVec;
     CreateGMesh(gmesh, meshFileName, matIdVec, printG, elSize, length,
                 height, pmlLength, prefix);
@@ -177,27 +198,10 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         matIdVec[iMat+1] = matIdVecCp[iMat];
     }
 
-    int64_t sourceNodeIndex = -1;
     {
         const REAL sourcePosX = length/2.;
         const REAL sourcePosY = height/2.;
-        REAL minDist = 1e6;
-        for(int iNode = 0; iNode < gmesh->NNodes(); iNode++){
-            const TPZGeoNode & currentNode = gmesh->NodeVec()[iNode];
-            const REAL xNode = currentNode.Coord(0);
-            const REAL yNode = currentNode.Coord(1);
-            const REAL currentDist =
-                    (sourcePosX - xNode)*(sourcePosX - xNode) + (sourcePosY - yNode)*(sourcePosY - yNode);
-            if(currentDist < minDist){
-                minDist = currentDist;
-                sourceNodeIndex = currentNode.Id();
-            }
-        }
-        TPZVec<int64_t> nodeIdVec(1,sourceNodeIndex);
-        TPZGeoElRefLess<pzgeom::TPZGeoPoint > *zeroDEl =
-                new TPZGeoElRefLess<pzgeom::TPZGeoPoint >(nodeIdVec, matIdSource,
-                                                          *gmesh);
-        gmesh->BuildConnectivity();
+        CreateSourceNode(gmesh, matIdSource, sourcePosX, sourcePosX);
     }
 
     boost::posix_time::ptime t2_g =
@@ -249,7 +253,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         TPZMatAcousticsPml *matPml = dynamic_cast<TPZMatAcousticsPml *>(itMap.second);
         TPZMatAcousticsFourier *matH1 = dynamic_cast<TPZMatAcousticsFourier *>(itMap.second);
         if (matH1 != nullptr && matPml == nullptr) {
-            if(matH1->Id() == matIdVec[0]){//TODO: fazer isso de maneira menos tosca. queremos pular o elemento da fonte
+            if(matH1->Id() == matIdSource){
                 matSource.insert(matH1->Id());
                 continue;
             }
@@ -334,6 +338,21 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
 
     const REAL aFactor = log(50)/(2*M_PI/wSample);
     TPZFMatrix<STATE> frequencySolution(nSamples-1,2);
+
+    auto source = [wZero,peakTime,amplitude](const STATE &currentW, STATE & val){
+        val = 0.;
+        val += -1. * SPZAlwaysComplex<STATE>::type(0,1)  * amplitude * currentW * M_SQRT2/wZero;
+        val*= exp(SPZAlwaysComplex<STATE>::type(0,1)  * currentW * peakTime - (currentW/wZero)*(currentW/wZero));
+    };
+
+    {
+        TPZMatAcousticsFourier *mat = dynamic_cast<TPZMatAcousticsFourier *>(cmesh->MaterialVec()[matIdSource]);
+        if(mat == nullptr){
+            DebugStop();
+        }
+        mat->SetSource(source);
+    }
+
     for(int iW = 0; iW < nSamples-1; iW++){
 
 #ifdef USING_SKYLINE
@@ -379,17 +398,19 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         //pml elements
         TPZAutoPointer<TPZStructMatrix> structMatrixPtr = an.StructMatrix();
         //assemble pml
-        structMatrixPtr->SetMaterialIds(matsPml);
-        for(auto itMap : matsPml) {
-            TPZMatAcousticsPml *mat = dynamic_cast<TPZMatAcousticsPml *>(cmesh->FindMaterial(itMap));
-            if (mat != nullptr) {
-                mat->SetW(currentW);
-            } else {
-                DebugStop();
+        if(nPmls > 0){
+            structMatrixPtr->SetMaterialIds(matsPml);
+            for(auto itMap : matsPml) {
+                TPZMatAcousticsPml *mat = dynamic_cast<TPZMatAcousticsPml *>(cmesh->FindMaterial(itMap));
+                if (mat != nullptr) {
+                    mat->SetW(currentW);
+                } else {
+                    DebugStop();
+                }
             }
+            structMatrixPtr->Assemble(matFinal,rhsFake,nullptr);
         }
 
-        structMatrixPtr->Assemble(matFinal,rhsFake,nullptr);
 
 
         structMatrixPtr->SetMaterialIds(matSource);
@@ -398,14 +419,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         if(matSourcePtr == nullptr){
             DebugStop();
         }
-
-        STATE currentSource = 0;
-//        currentSource += -2. * SPZAlwaysComplex<STATE>::type(0,1)  * amplitude * currentW;
-//        currentSource *= exp(0.5 + SPZAlwaysComplex<STATE>::type(0,1)  * currentW * peakTime - (currentW/wZero)*(currentW/wZero));
-//        currentSource *= sqrt(2 * M_PI)/(wZero);
-        currentSource += -1. * SPZAlwaysComplex<STATE>::type(0,1)  * amplitude * currentW * M_SQRT2/wZero;
-        currentSource *= exp(SPZAlwaysComplex<STATE>::type(0,1)  * currentW * peakTime - (currentW/wZero)*(currentW/wZero));
-        matSourcePtr->SetSourceFunc(currentSource);//FONTE IGUAL A DO COMSOL
+        matSourcePtr->SetW(currentW);//FONTE IGUAL A DO COMSOL
         //assemble load vector
         an.AssembleResidual();
         //solve system
@@ -572,6 +586,27 @@ CreateGMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matI
     }
 
     return;
+}
+
+void CreateSourceNode(TPZGeoMesh * &gmesh, const int &matIdSource, const REAL &sourcePosX, const REAL &sourcePosY) {
+    int64_t sourceNodeIndex = -1;
+    REAL minDist = 1e6;
+    for(int iNode = 0; iNode < gmesh->NNodes(); iNode++){
+        const TPZGeoNode & currentNode = gmesh->NodeVec()[iNode];
+        const REAL xNode = currentNode.Coord(0);
+        const REAL yNode = currentNode.Coord(1);
+        const REAL currentDist =
+                (sourcePosX - xNode)*(sourcePosX - xNode) + (sourcePosY - yNode)*(sourcePosY - yNode);
+        if(currentDist < minDist){
+            minDist = currentDist;
+            sourceNodeIndex = currentNode.Id();
+        }
+    }
+    TPZVec<int64_t> nodeIdVec(1,sourceNodeIndex);
+    TPZGeoElRefLess<pzgeom::TPZGeoPoint > *zeroDEl =
+            new TPZGeoElRefLess<pzgeom::TPZGeoPoint >(nodeIdVec, matIdSource,
+                                                      *gmesh);
+    gmesh->BuildConnectivity();
 }
 
 void FilterBoundaryEquations(TPZCompMesh *cmeshHCurl,

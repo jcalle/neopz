@@ -25,17 +25,19 @@ public:
     int VariableIndex(const std::string &name) override;
     int NSolutionVariables(int var) override;
     void Solution(TPZMaterialData &data, int var, TPZVec<STATE> &Solout) override;
-    void SetExactSol(void (*exactSol)(const TPZVec<REAL> &, TPZVec<STATE> &, TPZFMatrix<STATE> &));
 
-    void SetSourceFunc(const STATE &fSourceFunc);
+    void SetSource(const std::function<void (const STATE &w, STATE &val)> &source);
 
     void SetAssemblingMatrix(EWhichMatrix mat);
+    STATE GetW() const;
+
+    void SetW(STATE fW);
+
 protected:
+    STATE fW;
     REAL fRho;
     REAL fVelocity;
-    void (*fExactSol)(const TPZVec<REAL> &coord, TPZVec<STATE> &result,
-                  TPZFMatrix<STATE> &grad);
-    STATE fSourceFunc;
+    std::function<void (const STATE &time, STATE &val)> fSource;
 
 private:
     EWhichMatrix fAssembling;

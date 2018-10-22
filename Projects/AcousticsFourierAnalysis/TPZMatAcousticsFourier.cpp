@@ -2,24 +2,25 @@
 // Created by Francisco Teixeira Orlandini on 3/6/18.
 //
 
+#include "TPZMatAcousticsPml.h"
 #include <pzaxestools.h>
 #include <pzvec_extras.h>
 #include "TPZMatAcousticsFourier.h"
 #include "pzbndcond.h"
 
-TPZMatAcousticsFourier::TPZMatAcousticsFourier() : TPZDiscontinuousGalerkin(), fRho(-1), fVelocity(-1), fAssembling(NDefined){
+TPZMatAcousticsFourier::TPZMatAcousticsFourier() : TPZDiscontinuousGalerkin(), fRho(-1), fVelocity(-1), fW(-1), fAssembling(NDefined){
 
 }
-TPZMatAcousticsFourier::TPZMatAcousticsFourier(int id) : TPZDiscontinuousGalerkin(id), fRho(-1), fVelocity(-1),
+TPZMatAcousticsFourier::TPZMatAcousticsFourier(int id) : TPZDiscontinuousGalerkin(id), fRho(-1), fVelocity(-1), fW(-1),
                                                fAssembling(NDefined){
 
 }
 TPZMatAcousticsFourier::TPZMatAcousticsFourier(int id, const REAL &rho, const REAL &velocity) :
-        TPZDiscontinuousGalerkin(id), fRho(rho), fVelocity(velocity) , fAssembling(NDefined){
+        TPZDiscontinuousGalerkin(id), fRho(rho), fVelocity(velocity) , fW(-1), fAssembling(NDefined){
 
 }
 TPZMatAcousticsFourier::TPZMatAcousticsFourier(const TPZMatAcousticsFourier &mat) : TPZDiscontinuousGalerkin(mat),
-                                                                     fRho(mat.fRho), fVelocity(mat.fVelocity),
+                                                                     fRho(mat.fRho),  fW(mat.fW),fVelocity(mat.fVelocity),
                                                                      fAssembling(NDefined){
 
 }
@@ -61,8 +62,10 @@ void TPZMatAcousticsFourier::Contribute(TPZMaterialData &data, REAL weight, TPZF
     if(nshape > 1){
         DebugStop();
     }
+    STATE sourceVal;
+    fSource(GetW(),sourceVal);
     for(int i = 0; i < nshape; i++){
-        ef(i,0) += weight * phi(i,0) * fSourceFunc;
+        ef(i,0) += weight * phi(i,0) * sourceVal;
     }//for i
 
 }
@@ -142,10 +145,14 @@ void TPZMatAcousticsFourier::ContributeBCInterface(TPZMaterialData &data, TPZMat
     DebugStop();
 }
 
-void TPZMatAcousticsFourier::SetExactSol(void (*exactSol)(const TPZVec<REAL> &, TPZVec<STATE> &, TPZFMatrix<STATE> &)) {
-    TPZMatAcousticsFourier::fExactSol = exactSol;
+void TPZMatAcousticsFourier::SetSource(const std::function<void(const STATE &omega, STATE &val)> &source) {
+    fSource = source;
 }
 
-void TPZMatAcousticsFourier::SetSourceFunc(const STATE &sourceFunc) {
-    fSourceFunc = sourceFunc;
+STATE TPZMatAcousticsFourier::GetW() const {
+    return fW;
+}
+
+void TPZMatAcousticsFourier::SetW(STATE fW) {
+    TPZMatAcousticsFourier::fW = fW;
 }
