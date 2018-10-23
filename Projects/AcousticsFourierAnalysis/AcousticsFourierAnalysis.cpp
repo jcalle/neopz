@@ -113,15 +113,15 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     const bool printC = true;//PARAMS
     const int postprocessRes = 0;//PARAMS
 
-    SPZAcousticData::caseNames whichCase = SPZAcousticData::caseNames::lrPmls;//TODO: debug why noPmls is not working
+    SPZAcousticData::caseNames whichCase = SPZAcousticData::caseNames::noPmls;//TODO: debug why noPmls is not working
 
-    REAL alphaPML = 0;
+    REAL alphaPML = 10;
     REAL rho = 1.3;
     REAL velocity = 340;
     REAL peakTime = 1./100;
     REAL amplitude = 1;
     REAL totalTime = 12   * peakTime;
-    REAL elSize = 2 *M_PI*velocity / (10 *wZero),length = 10,height = 10,pmlLength = 5;
+    REAL elSize = 2 *M_PI*velocity / (10 *wZero),length = 20,height = 10,pmlLength = 5;
 
     ////////////////////////////////////////////////////////////////////////
     const int64_t nTimeSteps = std::ceil(totalTime/(0.2 *elSize / velocity));
@@ -201,7 +201,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     {
         const REAL sourcePosX = length/2.;
         const REAL sourcePosY = height/2.;
-        CreateSourceNode(gmesh, matIdSource, sourcePosX, sourcePosX);
+        CreateSourceNode(gmesh, matIdSource, sourcePosX, sourcePosY);
     }
 
     boost::posix_time::ptime t2_g =
