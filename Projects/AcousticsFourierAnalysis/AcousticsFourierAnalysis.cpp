@@ -42,12 +42,12 @@ namespace SPZAcousticData{
 
     //TODO:Remove this atrocity
     enum caseNames{
-        allPmls=0, lrPmls, noPmls
+        allPmls=0, lrPmls, noPmls, concentricMesh
     };
 }
 void
 CreateGMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec, const bool &print,
-            const REAL &elSize, const REAL &length, const REAL &height, const REAL &pmlLength, const std::string &prefix);
+            TPZVec<std::string> paramsName, TPZVec<REAL>paramsVal, REAL elSize, bool isHighOrder, const std::string &prefix);
 
 void CreateSourceNode(TPZGeoMesh * &gmesh, const int &matIdSource, const REAL &sourcePosX, const REAL &sourcePosY);
 
@@ -72,7 +72,7 @@ CreateCMesh(TPZCompMesh *&cmesh, TPZGeoMesh *gmesh, int pOrder, void (&loadVec)(
             const TPZVec< SPZAcousticData::pmltype > &pmlTypeVec,
             const TPZVec<SPZAcousticData::boundtype> &boundTypeVec);
 
-void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix, const REAL &wZero);
+void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix, const REAL &wZero,SPZAcousticData::caseNames whichCase);
 
 
 int main(int argc, char *argv[]) {
@@ -84,7 +84,8 @@ int main(int argc, char *argv[]) {
     const int nDivIni = 4; //PARAMS
     const int nPcycles = 1;
     const int nHcycles = 1;
-    const REAL wZero = 100 * 2 *M_PI;
+    SPZAcousticData::caseNames whichCase = SPZAcousticData::caseNames::concentricMesh;
+    const REAL wZero = 18 * 1000 * 2 *M_PI;
     boost::posix_time::ptime t1 =
             boost::posix_time::microsec_clock::local_time();
     for (int iP = 0; iP < nPcycles; ++iP, ++pOrder) {
@@ -93,7 +94,7 @@ int main(int argc, char *argv[]) {
             std::cout << iH+1<<"/"<<nHcycles<<": Beginning simulation with nEl = "
                       << nDiv * nDiv * 2
                       <<" and p = "<<pOrder<< std::endl;
-            RunSimulation(nDiv, pOrder, prefix,wZero);
+            RunSimulation(nDiv, pOrder, prefix,wZero,whichCase);
             nDiv *= 2;
             std::cout << "************************************" << std::endl;
         }
@@ -104,7 +105,7 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix, const REAL &wZero) {
+void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix, const REAL &wZero, SPZAcousticData::caseNames whichCase) {
     // PARAMETROS FISICOS DO PROBLEMA
     const int nThreads = 8; //PARAMS
     const bool l2error = true; //PARAMS
@@ -113,40 +114,39 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     const bool printC = true;//PARAMS
     const int postprocessRes = 0;//PARAMS
 
-    SPZAcousticData::caseNames whichCase = SPZAcousticData::caseNames::noPmls;//TODO: debug why noPmls is not working
 
+    int nPmls = -1;
+    REAL pmlLength = 0;
+    std::string meshFileName("iDontExist.geo");
+    TPZVec<REAL> rhoVec(1,0.);
+    TPZVec<REAL> velocityVec(1,0.);
+    TPZVec<SPZAcousticData::pmltype > pmlTypeVec(0, SPZAcousticData::pmltype::xp);
+    TPZVec<SPZAcousticData::boundtype > boundTypeVec(1, SPZAcousticData::boundtype::softwall);
+    TPZVec<std::string> paramsName(1,"");
+    TPZVec<REAL>paramsVal(1,0.);
+    bool isHighOrder = false;
     REAL alphaPML = 10;
-    REAL rho = 1.3;
-    REAL velocity = 340;
     REAL peakTime = 1./100;
     REAL amplitude = 1;
     REAL totalTime = 12   * peakTime;
-    REAL elSize = 2 *M_PI*velocity / (10 *wZero),length = 20,height = 10,pmlLength = 5;
-
-    ////////////////////////////////////////////////////////////////////////
-    const int64_t nTimeSteps = std::ceil(totalTime/(0.2 *elSize / velocity));
-    const REAL deltaT = totalTime/nTimeSteps;
-    const REAL cfl = velocity * deltaT/(elSize);
-
-    ////////////////////////////////////////////////////////////////////////
-    int nSamples = 100;
-    const REAL wMax = 3 * wZero;
-    REAL wSample = wMax/nSamples;
-    if(2 * M_PI /wSample < totalTime){
-        std::cout<<"sampling is not good. hmmmmmmm."<<std::endl;
-        nSamples = (int)std::ceil(wMax / (2*M_PI/(1.001*totalTime)));
-        wSample = wMax/nSamples;
-        std::cout<<"new nSamples: "<<nSamples<<std::endl;
-    }
-
-    int nPmls = -1;
-    std::string meshFileName("iDontExist.geo");
-    TPZVec<REAL> rhoVec(1,rho);
-    TPZVec<REAL> velocityVec(1,velocity);
-    TPZVec<SPZAcousticData::pmltype > pmlTypeVec(0, SPZAcousticData::pmltype::xp);
-    TPZVec<SPZAcousticData::boundtype > boundTypeVec(1, SPZAcousticData::boundtype::softwall);
+    REAL sourcePosX = -1;
+    REAL sourcePosY = -1;
     switch(whichCase){
         case SPZAcousticData::caseNames::allPmls:
+            paramsName.resize(3);
+            paramsVal.resize(3);
+            paramsName[0] = "length";
+            paramsVal[0] = 20.;
+            paramsName[1] = "height";
+            paramsVal[1] = 20.;
+            paramsName[2] = "pml_length";
+            paramsVal[2] = 5;
+            sourcePosX = paramsVal[0]/2;
+            sourcePosY = paramsVal[1]/2;
+            rhoVec.Resize(1);
+            rhoVec[0] = 1.3;
+            velocityVec.Resize(1);
+            velocityVec[0] = 340;
             nPmls = 8;
             pmlTypeVec.Resize(nPmls);
             pmlTypeVec[0] = SPZAcousticData::pmltype::xp;
@@ -160,6 +160,20 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
             meshFileName = "wellMeshPML.geo";
             break;
         case SPZAcousticData::caseNames::lrPmls:
+            paramsName.resize(3);
+            paramsVal.resize(3);
+            paramsName[0] = "length";
+            paramsVal[0] = 20.;
+            paramsName[1] = "height";
+            paramsVal[1] = 20.;
+            paramsName[2] = "pml_length";
+            paramsVal[2] = 5;
+            sourcePosX = paramsVal[0]/2;
+            sourcePosY = paramsVal[1]/2;
+            rhoVec.Resize(1);
+            rhoVec[0] = 1.3;
+            velocityVec.Resize(1);
+            velocityVec[0] = 340;
             nPmls = 2;
             pmlTypeVec.Resize(nPmls);
             pmlTypeVec[0] = SPZAcousticData::pmltype::xm;
@@ -167,10 +181,49 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
             meshFileName = "wellMesh.geo";
             break;
         case SPZAcousticData::caseNames::noPmls:
+            paramsName.resize(3);
+            paramsVal.resize(3);
+            paramsName[0] = "length";
+            paramsVal[0] = 20.;
+            paramsName[1] = "height";
+            paramsVal[1] = 20.;
+            paramsName[2] = "pml_length";
+            paramsVal[2] = 5;
+            sourcePosX = paramsVal[0]/2;
+            sourcePosY = paramsVal[1]/2;
+            rhoVec.Resize(1);
+            rhoVec[0] = 1.3;
+            velocityVec.Resize(1);
+            velocityVec[0] = 340;
             nPmls = 0;
             pmlLength = -1;
             pmlTypeVec.Resize(nPmls);
             meshFileName = "wellMesh.geo";
+            break;
+        case SPZAcousticData::caseNames::concentricMesh:
+            isHighOrder = true;
+            paramsName.resize(3);
+            paramsVal.resize(3);
+            paramsName[0] = "r1";
+            paramsVal[0] = 0.055;
+            paramsName[1] = "r2";
+            paramsVal[1] = 0.005;
+            paramsName[2] = "r3";
+            paramsVal[2] = 0.050;
+            sourcePosX = 0.;
+            sourcePosY = 0.;
+            rhoVec.Resize(3);
+            rhoVec[0] = 1000;
+            rhoVec[1] = 7850;
+            rhoVec[2] = 1000;
+            velocityVec.Resize(3);
+            velocityVec[0] = 1500;
+            velocityVec[1] = 5960;
+            velocityVec[2] = 1500;
+            nPmls = 0;
+            pmlLength = -1;
+            pmlTypeVec.Resize(nPmls);
+            meshFileName = "concentricMesh.geo";
             break;
         default:
             DebugStop();
@@ -179,13 +232,42 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
 
 
 
+
+    REAL length = 20,height = 10;
+    REAL elSize = -1;//    2 *M_PI*velocity / (10 *wZero),
+    int64_t nTimeSteps = -1;
+    {
+        REAL minVelocity = 1e12;
+        for (int i = 0; i < velocityVec.size(); ++i) {
+            if(velocityVec[i] < minVelocity){
+                minVelocity = velocityVec[i];
+            }
+        }
+        elSize =  2 *M_PI*minVelocity / (10 *wZero);
+        nTimeSteps = std::ceil(totalTime/(0.2 *elSize / minVelocity));
+    }
+
+    const REAL deltaT = totalTime/nTimeSteps;
+
+    ////////////////////////////////////////////////////////////////////////
+    int nSamples = 100;
+    const REAL wMax = 3 * wZero;
+    REAL wSample = wMax/nSamples;
+    if(2 * M_PI /wSample < totalTime){
+        std::cout<<"sampling is not good. hmmmmmmm."<<std::endl;
+        nSamples = (int)std::ceil(wMax / (2*M_PI/(1.001*totalTime)));
+        wSample = wMax/nSamples;
+        std::cout<<"new nSamples: "<<nSamples<<std::endl;
+    }
+
+
+
     std::cout<<"Creating gmesh... ";
     boost::posix_time::ptime t1_g =
             boost::posix_time::microsec_clock::local_time();
     TPZGeoMesh *gmesh = nullptr;
     TPZVec<int> matIdVec;
-    CreateGMesh(gmesh, meshFileName, matIdVec, printG, elSize, length,
-                height, pmlLength, prefix);
+    CreateGMesh(gmesh, meshFileName, matIdVec, printG, paramsName,paramsVal,elSize, isHighOrder, prefix);
 
     int matIdSource = 0;
     for (int iMat = 0; iMat< matIdVec.size(); iMat++){
@@ -198,11 +280,8 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
         matIdVec[iMat+1] = matIdVecCp[iMat];
     }
 
-    {
-        const REAL sourcePosX = length/2.;
-        const REAL sourcePosY = height/2.;
-        CreateSourceNode(gmesh, matIdSource, sourcePosX, sourcePosY);
-    }
+    CreateSourceNode(gmesh, matIdSource, sourcePosX, sourcePosY);
+
 
     boost::posix_time::ptime t2_g =
             boost::posix_time::microsec_clock::local_time();
@@ -516,23 +595,29 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
 
 void
 CreateGMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec, const bool &print,
-            const REAL &elSize, const REAL &length, const REAL &height, const REAL &pmlLength, const std::string &prefix) {
+            TPZVec<std::string> paramsName, TPZVec<REAL>paramsVal, REAL elSize, bool isHighOrder, const std::string &prefix) {
 
     std::ostringstream str_elSize;
-    str_elSize << std::setprecision(20) << elSize;
-    std::ostringstream str_length;
-    str_length<< std::setprecision(20) << length;
-    std::ostringstream str_height;
-    str_height<< std::setprecision(20) << height;
-    std::ostringstream str_pmlLength;
-    str_pmlLength<< std::setprecision(20) << pmlLength;
+    str_elSize << std::setprecision(16) << elSize;
 
     std::string command = "gmsh " + mshFileName + " -2 -match ";
     command += " -v 3 ";
-    command += " -setnumber length "+str_length.str();
-    command += " -setnumber height "+str_height.str();
+#ifdef PZDEBUG
+    if(paramsName.size() != paramsVal.size()){
+        DebugStop();
+    }
+#endif
     command += " -setnumber el_size "+str_elSize.str();
-    command += " -setnumber pml_length "+str_pmlLength.str();
+    const int nParams = paramsName.size();
+    for(int i = 0; i < nParams; i++){
+        std::ostringstream val;
+        val <<std::setprecision(16)<< paramsVal[i];
+        command += " -setnumber "+paramsName[i]+" "+val.str();
+    }
+
+    if(isHighOrder){
+        command += " -order 2";
+    }
     command += " -o " + prefix + "wellMesh.msh";
     std::cout<<"Generating mesh with: "<<std::endl<<command<<std::endl;
 
