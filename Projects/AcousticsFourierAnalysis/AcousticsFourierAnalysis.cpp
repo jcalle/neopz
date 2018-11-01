@@ -85,7 +85,8 @@ int main(int argc, char *argv[]) {
     const int nPcycles = 1;
     const int nHcycles = 1;
     SPZAcousticData::caseNames whichCase = SPZAcousticData::caseNames::concentricMesh;
-    const REAL wZero = 18 * 1000 * 2 *M_PI;
+    const REAL wZero = whichCase == SPZAcousticData::caseNames::concentricMesh ?
+            18 * 1000 * 2 *M_PI : 100 * 2 * M_PI;
     boost::posix_time::ptime t1 =
             boost::posix_time::microsec_clock::local_time();
     for (int iP = 0; iP < nPcycles; ++iP, ++pOrder) {
@@ -110,9 +111,9 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     const int nThreads = 8; //PARAMS
     const bool l2error = true; //PARAMS
     const bool genVTK = true; //PARAMS
-    const bool printG = false;//PARAMS
+    const bool printG = true;//PARAMS
     const bool printC = true;//PARAMS
-    const int postprocessRes = 0;//PARAMS
+    const int postprocessRes = 1;//PARAMS
 
 
     int nPmls = -1;
@@ -165,7 +166,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
             paramsName[0] = "length";
             paramsVal[0] = 20.;
             paramsName[1] = "height";
-            paramsVal[1] = 20.;
+            paramsVal[1] = 10.;
             paramsName[2] = "pml_length";
             paramsVal[2] = 5;
             sourcePosX = paramsVal[0]/2;
@@ -186,9 +187,9 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
             paramsName[0] = "length";
             paramsVal[0] = 20.;
             paramsName[1] = "height";
-            paramsVal[1] = 20.;
+            paramsVal[1] = 10.;
             paramsName[2] = "pml_length";
-            paramsVal[2] = 5;
+            paramsVal[2] = -1;
             sourcePosX = paramsVal[0]/2;
             sourcePosY = paramsVal[1]/2;
             rhoVec.Resize(1);

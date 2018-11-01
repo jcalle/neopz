@@ -165,5 +165,5 @@ boundary[] = CombinedBoundary{ Surface{allsurfaces[]}; } ; // Boundary of all th
 Physical Surface("water_inner",1) = {s_s_1,s_c1_1,s_c1_2,s_c1_3,s_c1_4};
 Physical Surface("casing",2) 	  = {s_c2_1,s_c2_2,s_c2_3,s_c2_4} ;//pml domain
 Physical Surface("water_outer",3) = {s_c3_1,s_c3_2,s_c3_3,s_c3_4} ;//pml domain
-Physical Surface("boundary", 4)   = boundary[];
+Physical Line("boundary", 4)   = boundary[];
 Coherence;
