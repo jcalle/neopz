@@ -41,8 +41,9 @@ class TPZInterfaceElement : public TPZCompEl {
 	TPZManVector<REAL,3> fCenterNormal;
     
     /** @brief Pointer to the integration rule */
-    TPZIntPoints *fIntegrationRule;
-	
+  //  TPZIntPoints *fIntegrationRule;
+    virtual void InitializeIntegrationRule() override;
+
 	/** @brief Informs the connects that this element is no longer connected to it. */
 	void DecreaseElConnected();
 	
@@ -63,8 +64,14 @@ protected:
 							 TPZVec<REAL> &IntPoint);
     
     /** @brief Compute the required geometric data for the interface element */
-    void ComputeRequiredData(TPZMaterialData &data);
-	
+    virtual void ComputeRequiredData(TPZMaterialData &data,
+                             TPZVec<REAL> &qsi);
+    
+    virtual void ComputeRequiredData(TPZVec<REAL> &intpointtemp, TPZVec<TPZTransform<> > &trvec, TPZVec<TPZMaterialData> &datavec){
+        DebugStop();
+    }
+    
+    
 public:
 	
 	/** @brief Extract connects from element el */
@@ -149,19 +156,19 @@ public:
 	/** @brief Destructor */
 	~TPZInterfaceElement();
 	
-	virtual int IsInterface() { return 1; }
+	virtual int IsInterface() override { return 1; }
 	
 	
 	/** @brief Set neighbors. */
 	void SetLeftRightElements(TPZCompElSide & left, TPZCompElSide & right);
 	
 	/** @brief Makes a clone of this */
-	virtual TPZCompEl *Clone(TPZCompMesh &mesh) const {
+	virtual TPZCompEl *Clone(TPZCompMesh &mesh) const override{
 		return new TPZInterfaceElement(mesh, *this);
 	}
 	
 	/** @see class TPZCompEl */
-	virtual TPZCompEl *ClonePatchEl(TPZCompMesh &mesh,std::map<int64_t,int64_t> &gl2lcConMap, std::map<int64_t,int64_t> &gl2lcElMap) const
+	virtual TPZCompEl *ClonePatchEl(TPZCompMesh &mesh,std::map<int64_t,int64_t> &gl2lcConMap, std::map<int64_t,int64_t> &gl2lcElMap) const override
 	{
 		return new TPZInterfaceElement(mesh, *this, gl2lcConMap,gl2lcElMap);
 	}
@@ -209,7 +216,7 @@ public:
 	void Normal(TPZVec<REAL>&qsi, TPZVec<REAL> &normal);
 	
 	/** @brief Returns the number from connectivities of the element */
-	virtual int NConnects() const;
+	virtual int NConnects() const override;
 	
 	/** @brief Returns the number from connectivities of the element related to right neighbour */
 	int NRightConnects() const;
@@ -218,21 +225,21 @@ public:
 	int NLeftConnects() const;
 	
 	/** @brief Its return the connects of the left and right element associates */
-	int64_t ConnectIndex(int i) const;
+	int64_t ConnectIndex(int i) const override;
 	
 	/** @brief This function should not be called */
-	void SetConnectIndex(int node, int64_t index);
+	void SetConnectIndex(int node, int64_t index) override;
 
     /** @brief adds the connect indexes associated with base shape functions to the set */
-    virtual void BuildCornerConnectList(std::set<int64_t> &connectindexes) const;
+    virtual void BuildCornerConnectList(std::set<int64_t> &connectindexes) const override;
 	
 	/** @brief Returns the dimension from the element interface */
-	int Dimension() const {
+	int Dimension() const override{
 		return this->Reference()->Dimension();
 	}
 	
 	/** @brief Type of the element */
-	MElementType Type() { return EInterface; }
+	MElementType Type() override { return EInterface; }
 	
 	/**
 	 * @brief Loads the solution within the internal data structure of the element
@@ -241,7 +248,7 @@ public:
 	 * Is used to initialize the solution of connect objects with dependency
 	 * Is also used to load the solution within SuperElements
 	 */
-	virtual void LoadSolution(){
+	virtual void LoadSolution() override{
 		//NOTHING TO BE DONE HERE
 	}
 	
@@ -250,13 +257,13 @@ public:
 	 * @param ek element matrix
 	 * @param ef element right hand side
 	 */
-	virtual void CalcStiff(TPZElementMatrix &ek, TPZElementMatrix &ef);
+	virtual void CalcStiff(TPZElementMatrix &ek, TPZElementMatrix &ef) override;
 	
 	/**
 	 * @brief CalcResidual only computes the element residual
 	 * @param ef element residual
 	 */
-	virtual void CalcResidual(TPZElementMatrix &ef);
+	virtual void CalcResidual(TPZElementMatrix &ef) override;
 	
 	/**
 	 * @brief Computes solution and its derivatives in the local coordinate qsi.
@@ -272,7 +279,7 @@ public:
 	virtual void ComputeSolution(TPZVec<REAL> &qsi,
 								 TPZVec<REAL> &normal,
 								 TPZSolVec &leftsol, TPZGradSolVec &dleftsol,TPZFMatrix<REAL> &leftaxes,
-								 TPZSolVec &rightsol, TPZGradSolVec &drightsol,TPZFMatrix<REAL> &rightaxes);
+								 TPZSolVec &rightsol, TPZGradSolVec &drightsol,TPZFMatrix<REAL> &rightaxes) override;
 	
 	/**
 	 * @brief Computes solution and its derivatives in local coordinate qsi
@@ -284,7 +291,7 @@ public:
 	 * @param dsol solution derivatives
 	 */
 	virtual void ComputeSolution(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi, TPZFMatrix<REAL> &dphix,
-								 const TPZFMatrix<REAL> &axes, TPZSolVec &sol, TPZGradSolVec &dsol);
+								 const TPZFMatrix<REAL> &axes, TPZSolVec &sol, TPZGradSolVec &dsol) override;
 	
 	/**
 	 * @brief Computes solution and its derivatives in the local coordinate qsi.
@@ -294,7 +301,7 @@ public:
 	 * @param axes axes associated with the derivative of the solution
 	 */
 	virtual void ComputeSolution(TPZVec<REAL> &qsi,
-								 TPZSolVec &sol, TPZGradSolVec &dsol,TPZFMatrix<REAL> &axes);
+								 TPZSolVec &sol, TPZGradSolVec &dsol,TPZFMatrix<REAL> &axes) override;
 	
     /**
      * @brief Computes solution and its derivatives in the local coordinate qsi.
@@ -302,18 +309,18 @@ public:
      * @param data contains all elements to compute the solution
      */
     virtual void ComputeSolution(TPZVec<REAL> &qsi,
-                                 TPZMaterialData &data);
+                                 TPZMaterialData &data) override;
     
 	void VetorialProd(TPZVec<REAL> &ivet,TPZVec<REAL> &jvet,TPZVec<REAL> &kvet);
 	
 	/** @brief Prints attributes of the object */
-	void Print(std::ostream &out = std::cout) const;
+	void Print(std::ostream &out = std::cout) const override;
 	
 	/**
 	 * @see Base class for comments
 	 * @brief Interface elements does not have graphical representation
 	 */
-	virtual void CreateGraphicalElement(TPZGraphMesh & graphmesh, int dimension){
+	virtual void CreateGraphicalElement(TPZGraphMesh & graphmesh, int dimension) override{
 		//Nothing to be done here
 	}
 	
@@ -342,7 +349,7 @@ public:
      * @param flux [in] value of the interpolated flux values
      */
     virtual void EvaluateError(std::function<void(const TPZVec<REAL> &loc,TPZVec<STATE> &val,TPZFMatrix<STATE> &deriv)> func,
-                               TPZVec<REAL> &errors, bool store_error);
+                               TPZVec<REAL> &errors, bool store_error) override;
 	
 	/** @brief ComputeError computes the element error estimator */
 	virtual void ComputeErrorFace(int errorid,
@@ -350,7 +357,7 @@ public:
 								  TPZVec<STATE> &errorR);
 	
 	/** @brief Integrate a variable over the element. */
-	virtual void Integrate(int variable, TPZVec<STATE> & value);
+	virtual void Integrate(int variable, TPZVec<STATE> & value) override;
 	
 	void IntegrateInterface(int variable, TPZVec<REAL> & value);
 	
@@ -362,13 +369,16 @@ public:
 	
 	/** @brief Returns the unique identifier for reading/writing objects to streams */
 	public:
-virtual int ClassId() const;
+    
+    int ComputeIntegrationOrder() const override;
+    
+virtual int ClassId() const override;
 
 	/** @brief Saves the element data to a stream */
-	virtual void Write(TPZStream &buf, int withclassid) const;
+	virtual void Write(TPZStream &buf, int withclassid) const override;
 	
 	/** @brief Reads the element data from a stream */
-	virtual void Read(TPZStream &buf, void *context);
+	virtual void Read(TPZStream &buf, void *context) override;
 	
 };
 

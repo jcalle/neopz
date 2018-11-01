@@ -16,8 +16,6 @@
 #include <set>               // for set
 #include <type_traits>       // for enable_if, is_same
 #include <vector>            // for vector
-#include "pzadmchunk.h"      // for TPZAdmChunkVector
-#include "pzchunk.h"         // for TPZChunkVector
 #include "pzmanvector.h"     // for TPZManVector
 #include "pzvec.h"           // for TPZVec
 #include "tpzautopointer.h"  // for TPZAutoPointer
@@ -33,6 +31,12 @@ template <int Num, class T> class TFad;
 static uint64_t fCurrentVersion = 1; //TODO:AQUIFRANTake this away
 
 #define TPZostream std::ostream
+
+template<class T, int EXP>
+class TPZChunkVector;
+
+template <class T, int EXP>
+class TPZAdmChunkVector;
 
 /**
  * @ingroup save
@@ -229,38 +233,6 @@ public:
         if (nel) this->Write(&temp[0], vec.NElements());
     }
 
-    template <class T, int EXP>
-    void Write(const TPZChunkVector<T, EXP> &vec) {
-        int64_t c, nc = vec.NElements();
-        this->Write(&nc);
-        for (c = 0; c < nc; c++)
-            vec[c].Write(*this, 0);
-    }
-
-    template <class T, int EXP,
-    typename std::enable_if<!(std::is_same<std::string, T>::value || is_arithmetic_pz<T>::value), int>::type* = nullptr>
-    void Write(const TPZAdmChunkVector<T, EXP> &vec) {
-        int64_t c, nc = vec.NElements();
-        this->Write(&nc);
-        for (c = 0; c < nc; c++)
-            vec[c].Write(*this, 0);
-        this->Write(&vec.fCompactScheme);
-        Write(vec.fFree);
-        Write(vec.fNFree);
-    }
-
-    template <class T, int EXP,
-    typename std::enable_if<(std::is_same<std::string, T>::value || is_arithmetic_pz<T>::value), int>::type* = nullptr>
-    void Write(const TPZAdmChunkVector<T, EXP> &vec) {
-        int64_t c, nc = vec.NElements();
-        this->Write(&nc);
-        for (c = 0; c < nc; c++)
-            this->Write(&vec[c]);
-        this->Write(&vec.fCompactScheme);
-        Write(vec.fFree, true);
-        Write(vec.fNFree, true);
-    }
-
     template <class T, class U> void Write(const std::map<T, U> &vec) {
         int64_t sz = vec.size();
         TPZManVector<T> keyVec(sz);
@@ -366,31 +338,6 @@ public:
         if (nc) this->Read(&vec[0], nc);
     }
 
-    template <class T, int EXP>
-    void Read(TPZChunkVector<T, EXP> &vec, void *context) {
-        int64_t c, nc;
-        this->Read(&nc, 1);
-        vec.Resize(nc);
-        for (c = 0; c < nc; c++) {
-            vec[c].Read(*this, context);
-        }
-    }
-
-    template <class T, int EXP,
-    typename std::enable_if<!(std::is_same<std::string, T>::value || is_arithmetic_pz<T>::value), int>::type* = nullptr>
-    void Read(TPZAdmChunkVector<T, EXP> &vec, void *context) {
-        int64_t c, nc;
-        this->Read(&nc, 1);
-        vec.Resize(nc);
-        for (c = 0; c < nc; c++)
-            vec[c].Read(*this, context);
-        int compactScheme;
-        this->Read(&compactScheme, 1);
-        vec.fCompactScheme = (typename TPZAdmChunkVector<T, EXP>::CompactScheme) compactScheme;
-        Read(vec.fFree);
-        Read(vec.fNFree);
-    }
-
     template <class T, class U> void Read(std::map<T, U> &vec) {
         TPZManVector<T> keyVec;
         this->Read(keyVec);
@@ -474,8 +421,8 @@ template <class T> void TPZStream::ReadPointers(TPZVec<T *> &vec) {
     uint64_t nObjects;
     this->Read(&nObjects);
     vec.Resize(nObjects);
-    for (uint64_t i = 0; i < nObjects; ++i) {
-        vec[(const uint64_t)i] = dynamic_cast<T *>(TPZPersistenceManager::GetInstance(this));
+    for (int64_t i = 0; i < nObjects; ++i) {
+        vec[(const int64_t)(i)] = dynamic_cast<T *>(TPZPersistenceManager::GetInstance(this));
     }
 }
 
@@ -498,7 +445,7 @@ void TPZStream::ReadPointers(std::map<int, TPZAutoPointer<T>> &map) {
     int key;
     for (uint64_t i = 0; i < nObjects; ++i) {
         Read(&key);
-        map[key] = dynamic_cast<TPZAutoPointer<T>>(TPZPersistenceManager::GetAutoPointer(this));
+        map[key] = TPZAutoPointerDynamicCast<T>(TPZPersistenceManager::GetAutoPointer(this));
     }
 }
 

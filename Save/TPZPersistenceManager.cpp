@@ -196,7 +196,11 @@ unsigned int TPZPersistenceManager::OpenRead(const std::string &fileName,
         //@TODO parallelize
         for (const auto &restoreClass : TPZSavable::RestoreClassSet()) {
 #ifdef PZDEBUG
-            //std::cout << restoreClass->Restore()->ClassId() << "\t" << typeid(*restoreClass->Restore()).name() << std::endl;
+//            std::cout << restoreClass->Restore()->ClassId() << "\t" << typeid(*restoreClass->Restore()).name();
+//            if (restoreClass->GetTranslator()){
+//                std::cout << "\t" << typeid(*restoreClass->GetTranslator()).name();
+//            }
+//            std::cout << std::endl;
 #endif
             TPZSavable *savable = restoreClass->Restore();
             //@TODO ensure thread-safety
@@ -262,7 +266,7 @@ unsigned int TPZPersistenceManager::OpenRead(const std::string &fileName,
     int64_t objId;
     int classId;
     unsigned int objSize;
-    for (uint64_t i = 0; i < nObjects; i++) {
+    for (int64_t i = 0; i < nObjects; i++) {
         mpStream->Read(&objId);
         mpStream->Read(&classId);
         mpStream->Read(&objSize);
@@ -280,14 +284,14 @@ unsigned int TPZPersistenceManager::OpenRead(const std::string &fileName,
     while (versionIt != mVersionHistory.end()) {
         std::map<std::string, uint64_t> nextVersion = *versionIt;
         //@TODO parallelize
-        for (uint64_t i = 0; i < nObjects; i++) {
+        for (int64_t i = 0; i < nObjects; i++) {
             auto chunk = mChunksVec[i];
             chunk->mOldVersion = chunk->mNewVersion;
             chunk->mOldStream = chunk->mNewStream;
             chunk->mNewStream.clear();
         }
         //@TODO parallelize (it's already thread-safe)
-        for (uint64_t i = 0; i < nObjects; i++) {
+        for (int64_t i = 0; i < nObjects; i++) {
             TPZAutoPointer<TPZChunkInTranslation> chunk = mChunksVec[i];
             int classId = chunk->GetClassId();
             if (classId != -1) { // this class still exists in this version
@@ -301,6 +305,7 @@ unsigned int TPZPersistenceManager::OpenRead(const std::string &fileName,
             }
         }
         currentVersionInfo = nextVersion;
+        nObjects = mChunksVec.size();
         versionIt++;
     }
     // allocate
@@ -339,6 +344,17 @@ unsigned int TPZPersistenceManager::OpenRead(const std::string &fileName,
     mNextMainObjIndex = 0;
     return nMainObjects;
 }
+
+int64_t TPZPersistenceManager::NewChunkInTranslation() {
+    auto nChunks = mChunksVec.size();
+    mChunksVec.resize(nChunks + 1);
+    return nChunks;
+}
+
+void TPZPersistenceManager::SetChunk(const int64_t& objId, TPZAutoPointer<TPZChunkInTranslation> chunk) {
+    mChunksVec[objId] = chunk;
+}
+
 
 TPZRestoredInstance *TPZPersistenceManager::NewRestoredInstance() {
     auto nObjects = mObjVec.size();
@@ -393,10 +409,31 @@ TPZAutoPointer<TPZSavable> TPZPersistenceManager::GetAutoPointer(const int64_t &
     return autoPointer;
 }
 
+std::shared_ptr<TPZSavable> TPZPersistenceManager::GetSharedPointer(const int64_t &objId) {
+    if (objId != -1) {
+        if (!mObjVec[objId].IsAlreadyRead()) {
+            mObjVec[objId].SetRead();
+            mObjVec[objId].GetPointerToMyObj()->Read(mChunksVec[objId]->mNewStream, NULL);
+            if (mChunksVec[objId]->mNewStream.Size() != 0) {
+                DebugStop();
+            }
+        }
+        return mObjVec[objId].GetSharedPtrToMyObj();
+    }
+    std::shared_ptr<TPZSavable> sharedPtr;
+    return sharedPtr;
+}
+
 TPZAutoPointer<TPZSavable> TPZPersistenceManager::GetAutoPointer(TPZStream *stream) {
     int64_t objId;
     stream->Read(&objId);
     return GetAutoPointer(objId);
+}
+
+std::shared_ptr<TPZSavable> TPZPersistenceManager::GetSharedPointer(TPZStream *stream) {
+    int64_t objId;
+    stream->Read(&objId);
+    return GetSharedPointer(objId);
 }
 
 void TPZPersistenceManager::CloseRead() {

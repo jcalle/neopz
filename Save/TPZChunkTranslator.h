@@ -8,18 +8,34 @@
 #ifndef TPZCHUNKTRANSLATOR_H
 #define TPZCHUNKTRANSLATOR_H
 
-#include "TPZChunkInTranslation.h"
+#include <map>
+#include <string>
 
+class TPZChunkInTranslation;
 
 class TPZChunkTranslator {
+  
     
 public:
+  
+    virtual ~TPZChunkTranslator();
+  
     virtual void UpdateStream(TPZChunkInTranslation &chunk, const std::map<std::string, uint64_t> &toVersion) {
-        UpdateAttributes(chunk, toVersion);
+        this->UpdateAttributes(chunk, toVersion);
     }
     
     virtual void UpdateAttributes(TPZChunkInTranslation &chunk, const std::map<std::string, uint64_t> &toVersion)=0;
     
+    virtual void SetClassId(int classid){
+        TPZChunkTranslator::classid = classid;
+    }
+    
+    virtual int GetClassId() const {
+        return classid;
+    }
+    
+private :
+    static int classid;
 };
 
 #endif /* TPZCHUNKTRANSLATOR_H */

@@ -448,7 +448,7 @@ void TPZCompEl::BuildConnectList(std::set<int64_t> &indepconnectlist,
     }
 }
 
-void TPZCompEl::BuildConnectList(TPZStack<int64_t> &connectlist) {
+void TPZCompEl::BuildConnectList(TPZStack<int64_t> &connectlist) const {
     int64_t ncon = connectlist.NElements();
     if (ncon) {
         std::sort(&connectlist[0], &connectlist[0]+ncon);
@@ -1106,6 +1106,11 @@ TPZVec<STATE> TPZCompEl::IntegrateSolution(const std::string &varname, const std
     return result;
 }
 
+int TPZCompEl::ComputeIntegrationOrder() const {
+    DebugStop();
+	return 0;
+}
+
 void TPZCompEl::SetIntegrationRule(TPZIntPoints *intrule)
 {
     if (fIntegrationRule) {
@@ -1114,6 +1119,20 @@ void TPZCompEl::SetIntegrationRule(TPZIntPoints *intrule)
     fIntegrationRule = intrule;
 }
 
-int TPZCompEl::ClassId() const{
+int TPZCompEl::StaticClassId() {
     return Hash("TPZCompEl");
+}
+
+
+int TPZCompEl::ClassId() const{
+    return StaticClassId();
+}
+
+void TPZCompEl::SetCreateFunctions(TPZCompMesh* mesh) {
+    mesh->SetAllCreateFunctionsContinuous();
+}
+
+TPZGeoEl* TPZCompEl::Reference() const {
+    if (fMesh == NULL || fMesh->Reference() == NULL) return NULL;
+    return (fReferenceIndex == -1) ? NULL : fMesh->Reference()->ElementVec()[fReferenceIndex];
 }

@@ -74,9 +74,7 @@ public:
 	virtual ~TPZInterpolatedElement();
 	
 	/** @brief Set create function in TPZCompMesh to create elements of this type */
-	virtual void SetCreateFunctions(TPZCompMesh *mesh){
-		mesh->SetAllCreateFunctionsContinuous();
-	}
+	virtual void SetCreateFunctions(TPZCompMesh *mesh);
         
         int ClassId() const;
 	
@@ -224,7 +222,7 @@ public:
 	 * @{
 	 */
 	
-private:
+public:
 	/**
 	 * @brief Computes solution and its derivatives in the local coordinate qsi.
 	 * @param qsi master element coordinate

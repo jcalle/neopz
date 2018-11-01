@@ -11,6 +11,7 @@
 #include "pzstring.h"
 //#include "pzelastoplasticanalysis.h"
 #include "pzcreateapproxspace.h"
+#include "pzmultiphysicselement.h" 
 
 #include <map>
 #include <set>
@@ -95,13 +96,9 @@ void TPZPostProcAnalysis::SetCompMesh(TPZCompMesh *pRef)
 
 void TPZPostProcAnalysis::SetPostProcessVariables(TPZVec<int> & matIds, TPZVec<std::string> &varNames)
 {
-	//int j;
+
     int nMat, matNumber;
-
-
 	TPZCompMesh * pcMainMesh = fpMainMesh;
-	
-	//TPZGeoMesh * pgmesh = pcMainMesh->Reference();
 
 	TPZCompMeshReferred * pcPostProcMesh = dynamic_cast<TPZCompMeshReferred *>(this->Mesh());
     
@@ -112,40 +109,6 @@ void TPZPostProcAnalysis::SetPostProcessVariables(TPZVec<int> & matIds, TPZVec<s
     if (pcPostProcMesh->ReferredMesh() == pcMainMesh) {
         return;
     }
-
-    /*
-	TPZStack<int> avlMatIds;
-	int64_t nel = pgmesh->NElements(), i;	
-	for(i = 0; i < nel; i++)
-	{
-		int matId = pgmesh->ElementVec()[i]->MaterialId();
-		int isMatPostProc = 0;
-		int isMatAvl = 0;
-		j = 0;
-		nMat = matIds.NElements();
-		while(j < nMat && !isMatPostProc)
-		{
-			if(matId == matIds[j])isMatPostProc = 1;
-			j++;
-		}
-		
-		if(!isMatPostProc)
-		{
-			nMat = avlMatIds.NElements();
-			j = 0;
-			while(j < nMat && !isMatAvl)
-			{
-				if(matId == avlMatIds[j])isMatAvl = 1;
-				j++;
-			}
-			
-			if(!isMatAvl)
-			{
-				avlMatIds.Push(matId);
-			}
-		}
-	}
-	*/
 	nMat = matIds.NElements();
 	for(int i = 0; i < nMat; i++)
 	{
@@ -163,13 +126,12 @@ void TPZPostProcAnalysis::SetPostProcessVariables(TPZVec<int> & matIds, TPZVec<s
 		matNumber = pcPostProcMesh->InsertMaterialObject(pPostProcMat);
 
 	}
-	
-	//pcPostProcMesh->AutoBuild();
-	//pcPostProcMesh->AutoBuildDisc();
     
 	AutoBuildDisc();
 	
 	pcPostProcMesh->LoadReferred(pcMainMesh);
+    
+    pcPostProcMesh->ExpandSolution();
 }
 
 void TPZPostProcAnalysis::AutoBuildDisc() 
@@ -178,15 +140,25 @@ void TPZPostProcAnalysis::AutoBuildDisc()
 	int64_t i, nelem = elvec.NElements();
 	int neltocreate = 0;
 	int64_t index;
+    
     // build a data structure indicating which geometric elements will be post processed
     fpMainMesh->LoadReferences();
     std::map<TPZGeoEl *,TPZCompEl *> geltocreate;
+    TPZCompMeshReferred * pcPostProcMesh = dynamic_cast<TPZCompMeshReferred *>(this->Mesh());
     for (i=0; i<nelem; i++) {
-        if (!elvec[i]) {
+        TPZGeoEl * gel = elvec[i];
+        if (!gel) {
             continue;
         }
-        if (elvec[i]->Reference()) {
-            geltocreate[elvec[i]] = elvec[i]->Reference();
+        
+        TPZMaterial * mat = pcPostProcMesh->FindMaterial(gel->MaterialId());
+        if(!mat)
+        {
+            continue;
+        }
+        
+        if (gel->Reference()) {
+            geltocreate[elvec[i]] = gel->Reference();
         }
     }
     Mesh()->Reference()->ResetReference();
@@ -220,29 +192,38 @@ void TPZPostProcAnalysis::AutoBuildDisc()
         TPZCompEl *celref = it->second;
         int nc = cel->NConnects();
         int ncref = celref->NConnects();
-        if (nc != ncref) {
-            DebugStop();
-        }
         TPZInterpolationSpace *celspace = dynamic_cast<TPZInterpolationSpace *>(cel);
         TPZInterpolationSpace *celrefspace = dynamic_cast<TPZInterpolationSpace *>(celref);
-        int porder = celrefspace->GetPreferredOrder();
-//        if (porder != 2) {
-//            std::cout << "I should stop porder = " << porder << std::endl;
-//        }
+        int porder;
+        if (!celrefspace) {
+            TPZMultiphysicsElement *celrefmf = dynamic_cast<TPZMultiphysicsElement *>(celref);
+            if (celrefmf){
+                celrefspace = dynamic_cast<TPZInterpolationSpace *>(celrefmf->Element(0));
+            } else {
+                DebugStop();
+            }
+        }
+        
+        if (celrefspace) {
+            porder = celrefspace->GetPreferredOrder();
+        } else {
+            DebugStop();
+        }
+
         celspace->SetPreferredOrder(porder);
         for (int ic=0; ic<nc; ic++) {
-            int conorder = celref->Connect(ic).Order();
-            cel->Connect(ic).SetOrder(conorder,cel->ConnectIndex(ic));
-            int nshape = celspace->NConnectShapeF(ic,conorder);
+            cel->Connect(ic).SetOrder(porder,cel->ConnectIndex(ic));
+            int nshape = celspace->NConnectShapeF(ic,porder);
             cel->Connect(ic).SetNShape(nshape);
         }
+        
         TPZIntPoints &intrule = celspace->GetIntegrationRule();
-        TPZVec<int> intorder(gel->Dimension(),0);
-        const TPZIntPoints &intruleref = celrefspace->GetIntegrationRule();
-        intruleref.GetOrder(intorder);
-        intrule.SetOrder(intorder);
+        const TPZIntPoints &intruleref = celref->GetIntegrationRule();
+        TPZIntPoints * cloned_rule = intruleref.Clone();
+        cel->SetIntegrationRule(cloned_rule);
+        
 #ifdef PZDEBUG
-        if (intrule.NPoints() != intruleref.NPoints()) {
+        if (cel->GetIntegrationRule().NPoints() != intruleref.NPoints()) {
             DebugStop();
         }
 #endif
@@ -268,6 +249,8 @@ void TPZPostProcAnalysis::AutoBuildDisc()
         LOGPZ_DEBUG(PPAnalysisLogger, sout.str())
     }
 #endif
+    
+#ifdef PZDEBUG
 	if(matnotfound.size())
 	{
 		std::cout << "Post-processing mesh was created without these materials: ";
@@ -278,6 +261,7 @@ void TPZPostProcAnalysis::AutoBuildDisc()
 		}
 		std::cout << std::endl;
 	}
+#endif
 	
 }
 

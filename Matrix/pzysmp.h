@@ -44,9 +44,13 @@ class TPZVerySparseMatrix;
 template<class TVar>
 class TPZFYsmpMatrix : public TPZMatrix<TVar> {
 	
+#ifdef USING_MKL
+    friend class TPZPardisoControl<TVar>;
+#endif
+    
 	public :
 	
-	/** @brief An auxiliary structure to hold the data of the subset \n of equations used to multiply in a multitrheaded environment */
+	/** @brief An auxiliary structure to hold the data of the subset \n of equations used to multiply in a multi-threaded environment */
 	/**
 	 In future versions this structure should be defined in a derived class
 	 */
@@ -210,9 +214,7 @@ protected:
 	
 	int   fSymmetric;
 	
-#ifdef USING_MKL
-    friend class TPZPardisoControl<TVar>;
-    
+#ifdef USING_MKL    
     TPZPardisoControl<TVar> fPardisoControl;
 #endif
 protected:

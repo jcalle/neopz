@@ -143,9 +143,7 @@ ENABLE_TESTING()
 			# add_subdirectory(adaptivity_refactor)
 						
 			add_subdirectory(Cubo_do_Nathan)
-
-			#add_subdirectory(PyramidHdivTests)
-			
+	
 			add_subdirectory(HyperElasticityFAD)
 
 			#Increment singular shape function: SingularShapeFunction
@@ -186,10 +184,8 @@ ENABLE_TESTING()
 			endif()
 			#collaborative project (NH GH PD, SG, OD) 18-04-2015
 			#add_subdirectory(iRMS)
-
 			add_subdirectory(Elasticity2D)
 			add_subdirectory(DrillPipe)
-			add_subdirectory(MHM)			
 
             if (USING_LAPACK)
 			    add_subdirectory(Hdiv3DCurved)

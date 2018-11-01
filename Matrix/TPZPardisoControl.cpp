@@ -13,6 +13,7 @@
 #include "mkl_pardiso.h"
 #include "pzsysmp.h"
 #include "pzysmp.h"
+#include "pzlog.h"
 
 #define ISM_new
 
@@ -25,7 +26,7 @@ fNonSymmetricSystem(0), fSymmetricSystem(0)
 {
     fPardisoControl = new TPZManVector<long long,64>(64,0);
     fHandle = &fPardisoControl.operator->()->operator[](0);
-    fMatrixType = MatrixType();
+//    fMatrixType = MatrixType();
 }
 
 
@@ -38,7 +39,7 @@ TPZPardisoControl<TVar>::TPZPardisoControl(MSystemType systemtype, MProperty pro
 {
     fPardisoControl = new TPZManVector<long long,64>(64,0);
     fHandle = &fPardisoControl.operator->()->operator[](0);
-    fMatrixType = MatrixType();
+//    fMatrixType = MatrixType();
 }
 
 /// change the matrix type
@@ -237,27 +238,28 @@ void TPZPardisoControl<TVar>::Decompose()
 #ifndef ISM_new
     fParam[4 ] = 1; // user permutation PERM
 #else
-//TODO: fix this, FRAN
+    //TODO: fix this, FRAN
     fParam[10] = 0;
-    fParam[12] = 0;
+//    fParam[12] = 0;
 //    /// analyse and factor the equations
 //    // LU preconditioned CGS (10*L+K) where K={1:CGS,2:CG} and L=10^-L stopping threshold
+//
 //    if (fProperty == EIndefinite) {
 //        if(fSystemType == ESymmetric){ // The factorization is always computed as required by phase.
-//            fParam[3 ] = 10*7+2;
+//            fParam[3 ] = 0;//10*7+2;
 //            fParam[10] = 1;
 //            fParam[12] = 1;
 //        }else{ // CGS iteration replaces the computation of LU. The preconditioner is LU that was computed at a previous step (the first step or last step with a failure) in a sequence of solutions needed for identical sparsity patterns.
 //            fParam[3 ] = 10*7+1;
-//            fParam[10] = 0;
-//            fParam[12] = 0;
+//            fParam[10] = 1;
+//            fParam[12] = 1;
 //        }
 //    }else{
 //
 //        if(fSystemType == ESymmetric){ // CGS iteration for symmetric positive definite matrices replaces the computation of LLT. The preconditioner is LLT that was computed at a previous step (the first step or last step with a failure) in a sequence of solutions needed for identical sparsity patterns.
 //            fParam[3 ] = 10*7+2;
-//            fParam[10] = 1;
-//            fParam[12] = 1;
+//            fParam[10] = 0;
+//            fParam[12] = 0;
 //        }else{
 //            fParam[3 ] = 10*7+1;
 //            fParam[10] = 1;

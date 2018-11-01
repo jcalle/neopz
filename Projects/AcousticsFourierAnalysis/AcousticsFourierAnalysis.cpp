@@ -126,7 +126,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     TPZVec<REAL>paramsVal(1,0.);
     bool isHighOrder = false;
     REAL alphaPML = 10;
-    REAL peakTime = 1./100;
+    REAL peakTime = 2 * M_PI /wZero;
     REAL amplitude = 1;
     REAL totalTime = 12   * peakTime;
     REAL sourcePosX = -1;
@@ -250,14 +250,14 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     const REAL deltaT = totalTime/nTimeSteps;
 
     ////////////////////////////////////////////////////////////////////////
-    int nSamples = 100;
+    int nSamples = 150;
     const REAL wMax = 3 * wZero;
     REAL wSample = wMax/nSamples;
     if(2 * M_PI /wSample < totalTime){
         std::cout<<"sampling is not good. hmmmmmmm."<<std::endl;
-        nSamples = (int)std::ceil(wMax / (2*M_PI/(1.001*totalTime)));
-        wSample = wMax/nSamples;
-        std::cout<<"new nSamples: "<<nSamples<<std::endl;
+//        nSamples = (int)std::ceil(wMax / (2*M_PI/(1.001*totalTime)));
+//        wSample = wMax/nSamples;
+//        std::cout<<"new nSamples: "<<nSamples<<std::endl;
     }
 
 
@@ -675,16 +675,21 @@ CreateGMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matI
 
 void CreateSourceNode(TPZGeoMesh * &gmesh, const int &matIdSource, const REAL &sourcePosX, const REAL &sourcePosY) {
     int64_t sourceNodeIndex = -1;
-    REAL minDist = 1e6;
-    for(int iNode = 0; iNode < gmesh->NNodes(); iNode++){
-        const TPZGeoNode & currentNode = gmesh->NodeVec()[iNode];
-        const REAL xNode = currentNode.Coord(0);
-        const REAL yNode = currentNode.Coord(1);
-        const REAL currentDist =
-                (sourcePosX - xNode)*(sourcePosX - xNode) + (sourcePosY - yNode)*(sourcePosY - yNode);
-        if(currentDist < minDist){
-            minDist = currentDist;
-            sourceNodeIndex = currentNode.Id();
+    REAL minDist = 1e12;
+    //////
+    for(int iEl = 0; iEl < gmesh->NElements(); iEl++){
+        const TPZGeoEl & currentEl = *(gmesh->ElementVec()[iEl]);
+        const int nNodes = currentEl.NCornerNodes();
+        for(int iNode = 0; iNode < nNodes; iNode++){
+            const TPZGeoNode & currentNode = currentEl.Node(iNode);
+            const REAL xNode = currentNode.Coord(0);
+            const REAL yNode = currentNode.Coord(1);
+            const REAL currentDist =
+                    (sourcePosX - xNode)*(sourcePosX - xNode) + (sourcePosY - yNode)*(sourcePosY - yNode);
+            if(currentDist < minDist){
+                minDist = currentDist;
+                sourceNodeIndex = currentNode.Id();
+            }
         }
     }
     TPZVec<int64_t> nodeIdVec(1,sourceNodeIndex);

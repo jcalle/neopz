@@ -342,7 +342,7 @@ void Configuration_Affine(){
 void Configuration_Non_Affine(){
     
     TPZStack<SimulationCase> simulations;
-    
+    bool IsNonAffineQ = true;
     // Formulations over the cube
     struct SimulationCase common;
 
@@ -360,6 +360,8 @@ void Configuration_Non_Affine(){
     common.gamma_ids.Push(-1);    // Gamma_D outer surface
     common.gamma_ids.Push(-2);    // Gamma_D inner surface
     
+    if (IsNonAffineQ) {
+        
 //        //     // Primal Formulation over the solid cube
 //        struct SimulationCase H1Case_1 = common;
 //        H1Case_1.IsHdivQ = false;
@@ -368,34 +370,125 @@ void Configuration_Non_Affine(){
 //        H1Case_1.dump_folder = "H1_H_non_affine_cube";
 //        simulations.Push(H1Case_1);
 
-//    //    // Dual Formulation n = 0
-//    struct SimulationCase HdivCase_1 = common;
-//    HdivCase_1.IsHdivQ = true;
-//    HdivCase_1.mesh_type = "linear";
-//    HdivCase_1.n_acc_terms = 0;
-//    HdivCase_1.elemen_type = 1;
-//    HdivCase_1.dump_folder = "Hdiv_n_0_H_non_affine_cube";
-//    simulations.Push(HdivCase_1);
-
-//    //    // Dual Formulation n = 1
-//    struct SimulationCase HdivCase_2 = common;
-//    HdivCase_2.IsHdivQ = true;
-//    HdivCase_2.mesh_type = "linear";
-//    HdivCase_2.n_acc_terms = 1;
-//    HdivCase_2.elemen_type = 1;
-//    HdivCase_2.dump_folder = "Hdiv_n_1_H_non_affine_cube";
-//    simulations.Push(HdivCase_2);
-
-    //    // Dual Formulation n = 2
-    struct SimulationCase HdivCase_3 = common;
-    HdivCase_3.IsHdivQ = true;
-    HdivCase_3.mesh_type = "linear";
-    HdivCase_3.n_acc_terms = 2;
-    HdivCase_3.elemen_type = 1;
-    HdivCase_3.dump_folder = "Hdiv_n_2_H_non_affine_cube";
-    simulations.Push(HdivCase_3);
-    
-
+        //    // Dual Formulation n = 0
+        struct SimulationCase HdivCase_1 = common;
+        HdivCase_1.IsHdivQ = true;
+        HdivCase_1.mesh_type = "linear";
+        HdivCase_1.n_acc_terms = 0;
+        HdivCase_1.elemen_type = 1;
+        HdivCase_1.dump_folder = "Hdiv_n_0_H_non_affine_cube";
+        simulations.Push(HdivCase_1);
+//
+//        //    // Dual Formulation n = 1
+//        struct SimulationCase HdivCase_2 = common;
+//        HdivCase_2.IsHdivQ = true;
+//        HdivCase_2.mesh_type = "linear";
+//        HdivCase_2.n_acc_terms = 1;
+//        HdivCase_2.elemen_type = 1;
+//        HdivCase_2.dump_folder = "Hdiv_n_1_H_non_affine_cube";
+//        simulations.Push(HdivCase_2);
+//
+//        //    // Dual Formulation n = 2
+//        struct SimulationCase HdivCase_3 = common;
+//        HdivCase_3.IsHdivQ = true;
+//        HdivCase_3.mesh_type = "linear";
+//        HdivCase_3.n_acc_terms = 2;
+//        HdivCase_3.elemen_type = 1;
+//        HdivCase_3.dump_folder = "Hdiv_n_2_H_non_affine_cube";
+//        simulations.Push(HdivCase_3);
+        
+    }
+    else{
+        
+        common.UsePardisoQ = true;
+        common.UseFrontalQ = false;
+        common.UseGmshMeshQ = true;
+        common.n_h_levels = 2;
+        common.n_p_levels = 2;
+        common.int_order  = 10;
+        common.n_threads  = 10;
+        common.NonAffineQ = IsNonAffineQ;
+        common.domain_type = "cube";
+        common.conv_summary = "convergence_summary";
+        common.omega_ids.Push(1);     // Domain
+        common.gamma_ids.Push(-1);    // Gamma_D outer surface
+        common.gamma_ids.Push(-2);    // Gamma_D inner surface
+        
+//        //     // Primal Formulation over the solid cube
+//        struct SimulationCase H1Case_1 = common;
+//        H1Case_1.IsHdivQ = false;
+//        H1Case_1.mesh_type = "linear";
+//        H1Case_1.elemen_type = 0;
+//        H1Case_1.dump_folder = "H1_T_affine_cube";
+//        simulations.Push(H1Case_1);
+//        H1Case_1.elemen_type = 1;
+//        H1Case_1.dump_folder = "H1_H_affine_cube";
+//        simulations.Push(H1Case_1);
+//        H1Case_1.elemen_type = 2;
+//        H1Case_1.dump_folder = "H1_P_affine_cube";
+//        simulations.Push(H1Case_1);
+//
+//        //    // Dual Formulation n = 0
+//        struct SimulationCase HdivCase_1 = common;
+//        HdivCase_1.IsHdivQ = true;
+//        HdivCase_1.mesh_type = "linear";
+//        HdivCase_1.n_acc_terms = 0;
+//        HdivCase_1.elemen_type = 0;
+//        HdivCase_1.dump_folder = "Hdiv_n_0_T_affine_cube";
+//        simulations.Push(HdivCase_1);
+//        HdivCase_1.elemen_type = 1;
+//        HdivCase_1.dump_folder = "Hdiv_n_0_H_affine_cube";
+//        simulations.Push(HdivCase_1);
+//        HdivCase_1.elemen_type = 2;
+//        HdivCase_1.dump_folder = "Hdiv_n_0_P_affine_cube";
+//        simulations.Push(HdivCase_1);
+//
+//        //    // Dual Formulation n = 1
+//        struct SimulationCase HdivCase_2 = common;
+//        HdivCase_2.IsHdivQ = true;
+//        HdivCase_2.mesh_type = "linear";
+//        HdivCase_2.n_acc_terms = 1;
+//        HdivCase_2.elemen_type = 0;
+//        HdivCase_2.dump_folder = "Hdiv_n_1_T_affine_cube";
+//        simulations.Push(HdivCase_2);
+//        HdivCase_2.elemen_type = 1;
+//        HdivCase_2.dump_folder = "Hdiv_n_1_H_affine_cube";
+//        simulations.Push(HdivCase_2);
+//        HdivCase_2.elemen_type = 2;
+//        HdivCase_2.dump_folder = "Hdiv_n_1_P_affine_cube";
+//        simulations.Push(HdivCase_2);
+//
+//        //    // Dual Formulation n = 2
+//        struct SimulationCase HdivCase_3 = common;
+//        HdivCase_3.IsHdivQ = true;
+//        HdivCase_3.mesh_type = "linear";
+//        HdivCase_3.n_acc_terms = 2;
+//        HdivCase_3.elemen_type = 0;
+//        HdivCase_3.dump_folder = "Hdiv_n_2_T_affine_cube";
+//        simulations.Push(HdivCase_3);
+//        HdivCase_3.elemen_type = 1;
+//        HdivCase_3.dump_folder = "Hdiv_n_2_H_affine_cube";
+//        simulations.Push(HdivCase_3);
+//        HdivCase_3.elemen_type = 2;
+//        HdivCase_3.dump_folder = "Hdiv_n_2_P_affine_cube";
+//        simulations.Push(HdivCase_3);
+        
+        //    // Dual Formulation n = 3
+        struct SimulationCase HdivCase_4 = common;
+        HdivCase_4.IsHdivQ = true;
+        HdivCase_4.mesh_type = "linear";
+        HdivCase_4.n_acc_terms = 3;
+        HdivCase_4.elemen_type = 0;
+        HdivCase_4.dump_folder = "Hdiv_n_3_T_affine_cube";
+//        simulations.Push(HdivCase_4);
+        HdivCase_4.elemen_type = 1;
+        HdivCase_4.dump_folder = "Hdiv_n_3_H_affine_cube";
+        simulations.Push(HdivCase_4);
+        HdivCase_4.elemen_type = 2;
+        HdivCase_4.dump_folder = "Hdiv_n_3_P_affine_cube";
+//        simulations.Push(HdivCase_4);
+        
+    }
     
     ComputeCases(simulations);
 }
@@ -1427,13 +1520,13 @@ TPZCompMesh * PrimalMesh(TPZGeoMesh * geometry, int p, SimulationCase sim_data, 
         
         TPZMaterial * volume = new TPZPrimalPoisson(sim_data.omega_ids[iv]);
         
-        TPZDummyFunction<STATE> * rhs_exact = new TPZDummyFunction<STATE>(f);
+        TPZDummyFunction<STATE> * rhs_exact = new TPZDummyFunction<STATE>(f, 5);
         rhs_exact->SetPolynomialOrder(sim_data.int_order);
         TPZAutoPointer<TPZFunction<STATE> > rhs = rhs_exact;
         volume->SetForcingFunction(rhs);
         
         
-        TPZDummyFunction<STATE> * analytic = new TPZDummyFunction<STATE>(Analytic);
+        TPZDummyFunction<STATE> * analytic = new TPZDummyFunction<STATE>(Analytic, 5);
         analytic->SetPolynomialOrder(sim_data.int_order);
         TPZAutoPointer<TPZFunction<STATE> > analytic_full = analytic;
         volume->SetForcingFunctionExact(analytic_full);
@@ -1441,7 +1534,7 @@ TPZCompMesh * PrimalMesh(TPZGeoMesh * geometry, int p, SimulationCase sim_data, 
         cmesh->InsertMaterialObject(volume);
         
         for (int ib = 0; ib < nboundaries; ib++) {
-            TPZDummyFunction<STATE> * analytic_bc = new TPZDummyFunction<STATE>(Solution);
+            TPZDummyFunction<STATE> * analytic_bc = new TPZDummyFunction<STATE>(Solution, 5);
             analytic_bc->SetPolynomialOrder(sim_data.int_order);
             TPZAutoPointer< TPZFunction<STATE> > solution = analytic_bc;
             
@@ -1506,13 +1599,13 @@ TPZCompMesh *DualMesh(TPZGeoMesh * geometry, int p, SimulationCase sim_data, TPZ
         
         TPZMaterial * volume = new TPZDualPoisson(sim_data.omega_ids[iv]);
         
-        TPZDummyFunction<STATE> * rhs_exact = new TPZDummyFunction<STATE>(f);
+        TPZDummyFunction<STATE> * rhs_exact = new TPZDummyFunction<STATE>(f, 5);
         rhs_exact->SetPolynomialOrder(sim_data.int_order);
         TPZAutoPointer<TPZFunction<STATE> > rhs = rhs_exact;
         volume->SetForcingFunction(rhs);
         
         
-        TPZDummyFunction<STATE> * analytic = new TPZDummyFunction<STATE>(Analytic);
+        TPZDummyFunction<STATE> * analytic = new TPZDummyFunction<STATE>(Analytic, 5);
         analytic->SetPolynomialOrder(sim_data.int_order);
         TPZAutoPointer<TPZFunction<STATE> > analytic_full = analytic;
         volume->SetForcingFunctionExact(analytic_full);
@@ -1521,7 +1614,7 @@ TPZCompMesh *DualMesh(TPZGeoMesh * geometry, int p, SimulationCase sim_data, TPZ
         
         for (int ib = 0; ib < nboundaries; ib++) {
             
-            TPZDummyFunction<STATE> * analytic_bc = new TPZDummyFunction<STATE>(Solution);
+            TPZDummyFunction<STATE> * analytic_bc = new TPZDummyFunction<STATE>(Solution, 5);
             analytic_bc->SetPolynomialOrder(sim_data.int_order);
             TPZAutoPointer< TPZFunction<STATE> > solution = analytic_bc;
             
@@ -1733,17 +1826,17 @@ TPZCompMesh * qMesh(TPZGeoMesh * geometry, int p, SimulationCase sim_data){
         TPZMaterial * volume = new TPZDualPoisson(sim_data.omega_ids[iv]);
         set_vol.insert(sim_data.omega_ids[iv]);
         
-        TPZDummyFunction<STATE> * rhs_exact = new TPZDummyFunction<STATE>(f);
+        TPZDummyFunction<STATE> * rhs_exact = new TPZDummyFunction<STATE>(f, 5);
         rhs_exact->SetPolynomialOrder(sim_data.int_order);
         TPZAutoPointer<TPZFunction<STATE> > rhs = rhs_exact;
         volume->SetForcingFunction(rhs);
         
-        TPZDummyFunction<STATE> * analytic_bc = new TPZDummyFunction<STATE>(Solution);
+        TPZDummyFunction<STATE> * analytic_bc = new TPZDummyFunction<STATE>(Solution, 5);
         analytic_bc->SetPolynomialOrder(sim_data.int_order);
         TPZAutoPointer<TPZFunction<STATE> > solution = analytic_bc;
         volume->SetForcingFunction(solution);
         
-        TPZDummyFunction<STATE> * analytic = new TPZDummyFunction<STATE>(Analytic);
+        TPZDummyFunction<STATE> * analytic = new TPZDummyFunction<STATE>(Analytic, 5);
         analytic->SetPolynomialOrder(sim_data.int_order);
         TPZAutoPointer<TPZFunction<STATE> > analytic_full = analytic;
         volume->SetForcingFunctionExact(analytic_full);
@@ -1806,18 +1899,18 @@ TPZCompMesh * pMesh(TPZGeoMesh * geometry, int p, SimulationCase sim_data){
         
         TPZMaterial * volume = new TPZMatPoisson3d(sim_data.omega_ids[iv]);
         
-        TPZDummyFunction<STATE> * rhs_exact = new TPZDummyFunction<STATE>(f);
+        TPZDummyFunction<STATE> * rhs_exact = new TPZDummyFunction<STATE>(f, 5);
         rhs_exact->SetPolynomialOrder(sim_data.int_order);
         TPZAutoPointer<TPZFunction<STATE> > rhs = rhs_exact;
         volume->SetForcingFunction(rhs);
         
-        TPZDummyFunction<STATE> * analytic_bc = new TPZDummyFunction<STATE>(Solution);
+        TPZDummyFunction<STATE> * analytic_bc = new TPZDummyFunction<STATE>(Solution, 5);
         analytic_bc->SetPolynomialOrder(sim_data.int_order);
         TPZAutoPointer<TPZFunction<STATE> > solution = analytic_bc;
         volume->SetForcingFunction(solution);
         
         
-        TPZDummyFunction<STATE> * analytic = new TPZDummyFunction<STATE>(Analytic);
+        TPZDummyFunction<STATE> * analytic = new TPZDummyFunction<STATE>(Analytic, 5);
         analytic->SetPolynomialOrder(sim_data.int_order);
         TPZAutoPointer<TPZFunction<STATE> > analytic_full = analytic;
         volume->SetForcingFunctionExact(analytic_full);
@@ -1888,7 +1981,7 @@ TPZGeoMesh * MakeCubeFromLinearQuadrilateralFaces(int ndiv, SimulationCase  & si
     GeoMesh_point->SetDimension(0);
     
     TPZHierarquicalGrid CreateGridFrom(GeoMesh_point);
-    TPZAutoPointer<TPZFunction<REAL> > ParFunc = new TPZDummyFunction<REAL>(Parametricfunction_x);
+    TPZAutoPointer<TPZFunction<REAL> > ParFunc = new TPZDummyFunction<REAL>(Parametricfunction_x, 5);
     CreateGridFrom.SetParametricFunction(ParFunc);
     CreateGridFrom.SetFrontBackMatId(front, front);
     
@@ -1896,7 +1989,7 @@ TPZGeoMesh * MakeCubeFromLinearQuadrilateralFaces(int ndiv, SimulationCase  & si
     TPZGeoMesh * GeoMesh_line = CreateGridFrom.ComputeExtrusion(t, dt, n);
 
     TPZHierarquicalGrid CreateGridFrom2(GeoMesh_line);
-    TPZAutoPointer<TPZFunction<REAL> > ParFunc2 = new TPZDummyFunction<REAL>(Parametricfunction_y);
+    TPZAutoPointer<TPZFunction<REAL> > ParFunc2 = new TPZDummyFunction<REAL>(Parametricfunction_y, 5);
     CreateGridFrom2.SetParametricFunction(ParFunc2);
     CreateGridFrom2.SetFrontBackMatId(front, front);
     
@@ -1905,7 +1998,7 @@ TPZGeoMesh * MakeCubeFromLinearQuadrilateralFaces(int ndiv, SimulationCase  & si
     
     TPZHierarquicalGrid CreateGridFrom3(GeoMesh_surface);
     GeoMesh_surface->SetDimension(2);
-    TPZAutoPointer<TPZFunction<REAL> > ParFunc3 = new TPZDummyFunction<REAL>(Parametricfunction_z);
+    TPZAutoPointer<TPZFunction<REAL> > ParFunc3 = new TPZDummyFunction<REAL>(Parametricfunction_z, 5);
     CreateGridFrom3.SetParametricFunction(ParFunc3);
     CreateGridFrom3.SetFrontBackMatId(back, back);
     
@@ -1986,7 +2079,7 @@ TPZGeoMesh * MakeCubeFromLinearTriangularFaces(int ndiv, SimulationCase  & sim_d
         GeoMesh_point->SetDimension(0);
         
         TPZHierarquicalGrid CreateGridFrom(GeoMesh_point);
-        TPZAutoPointer<TPZFunction<REAL> > ParFunc = new TPZDummyFunction<REAL>(Parametricfunction_x);
+        TPZAutoPointer<TPZFunction<REAL> > ParFunc = new TPZDummyFunction<REAL>(Parametricfunction_x, 5);
         CreateGridFrom.SetParametricFunction(ParFunc);
         CreateGridFrom.SetFrontBackMatId(front, front);
         
@@ -1994,7 +2087,7 @@ TPZGeoMesh * MakeCubeFromLinearTriangularFaces(int ndiv, SimulationCase  & sim_d
         TPZGeoMesh * GeoMesh_line = CreateGridFrom.ComputeExtrusion(t, dt, n);
         
         TPZHierarquicalGrid CreateGridFrom2(GeoMesh_line);
-        TPZAutoPointer<TPZFunction<REAL> > ParFunc2 = new TPZDummyFunction<REAL>(Parametricfunction_y);
+        TPZAutoPointer<TPZFunction<REAL> > ParFunc2 = new TPZDummyFunction<REAL>(Parametricfunction_y, 5);
         CreateGridFrom2.SetParametricFunction(ParFunc2);
         CreateGridFrom2.SetFrontBackMatId(front, front);
         CreateGridFrom2.SetTriangleExtrusion();
@@ -2004,7 +2097,7 @@ TPZGeoMesh * MakeCubeFromLinearTriangularFaces(int ndiv, SimulationCase  & sim_d
         
         TPZHierarquicalGrid CreateGridFrom3(GeoMesh_surface);
         GeoMesh_surface->SetDimension(2);
-        TPZAutoPointer<TPZFunction<REAL> > ParFunc3 = new TPZDummyFunction<REAL>(Parametricfunction_z);
+        TPZAutoPointer<TPZFunction<REAL> > ParFunc3 = new TPZDummyFunction<REAL>(Parametricfunction_z, 5);
         CreateGridFrom3.SetParametricFunction(ParFunc3);
         CreateGridFrom3.SetFrontBackMatId(back, back);
         CreateGridFrom3.SetTriangleExtrusion();
@@ -2069,7 +2162,7 @@ TPZGeoMesh * MakeCube(SimulationCase  & sim_data){
     GeoMesh_point->SetDimension(0);
 
     TPZHierarquicalGrid CreateGridFrom(GeoMesh_point);
-    TPZAutoPointer<TPZFunction<REAL> > ParFunc = new TPZDummyFunction<REAL>(Parametricfunction_x);
+    TPZAutoPointer<TPZFunction<REAL> > ParFunc = new TPZDummyFunction<REAL>(Parametricfunction_x, 5);
     CreateGridFrom.SetParametricFunction(ParFunc);
     CreateGridFrom.SetFrontBackMatId(front, front);
 
@@ -2077,7 +2170,7 @@ TPZGeoMesh * MakeCube(SimulationCase  & sim_data){
     TPZGeoMesh * GeoMesh_line = CreateGridFrom.ComputeExtrusion(t, dt, n);
 
     TPZHierarquicalGrid CreateGridFrom2(GeoMesh_line);
-    TPZAutoPointer<TPZFunction<REAL> > ParFunc2 = new TPZDummyFunction<REAL>(Parametricfunction_y);
+    TPZAutoPointer<TPZFunction<REAL> > ParFunc2 = new TPZDummyFunction<REAL>(Parametricfunction_y, 5);
     CreateGridFrom2.SetParametricFunction(ParFunc2);
     CreateGridFrom2.SetFrontBackMatId(front, front);
 
@@ -2086,7 +2179,7 @@ TPZGeoMesh * MakeCube(SimulationCase  & sim_data){
 
     TPZHierarquicalGrid CreateGridFrom3(GeoMesh_surface);
     GeoMesh_surface->SetDimension(2);
-    TPZAutoPointer<TPZFunction<REAL> > ParFunc3 = new TPZDummyFunction<REAL>(Parametricfunction_z);
+    TPZAutoPointer<TPZFunction<REAL> > ParFunc3 = new TPZDummyFunction<REAL>(Parametricfunction_z, 5);
     CreateGridFrom3.SetParametricFunction(ParFunc3);
     CreateGridFrom3.SetFrontBackMatId(back, back);
 
@@ -3372,7 +3465,7 @@ TPZGeoMesh * ExtrudedGIDMesh(TPZGeoMesh * gmesh, SimulationCase sim_data, TPZMan
     
     
     TPZHierarquicalGrid CreateGridFrom2D(gmesh);
-    TPZAutoPointer<TPZFunction<REAL> > ParFuncZ = new TPZDummyFunction<REAL>(ParametricfunctionZ);
+    TPZAutoPointer<TPZFunction<REAL> > ParFuncZ = new TPZDummyFunction<REAL>(ParametricfunctionZ, 5);
     CreateGridFrom2D.SetParametricFunction(ParFuncZ);
     CreateGridFrom2D.SetFrontBackMatId(bc_B,bc_T);
     if(IsTetrahedronMeshQ){

@@ -73,9 +73,22 @@ public:
     }
     
     /**
+     * Computes a 2x2 matrix inverse analitically being used during 2 parameters optimization
+     */
+    static void A2x2Inverse(TPZFMatrix<REAL> &A, TPZFMatrix<REAL> &Ainv){
+        
+#ifdef PZDEBUG
+        if ((A.Rows() != 2 && A.Cols() != 2) || (Ainv.Rows() != 2 && Ainv.Cols() != 2)) {
+            DebugStop();
+        }
+#endif
+        Ainv(0,0)= A(1,1)/(-(A(0,1)*A(1,0)) + A(0,0)*A(1,1));
+        Ainv(0,1)= -(A(0,1)/(-(A(0,1)*A(1,0)) + A(0,0)*A(1,1)));
+        Ainv(1,0)= -(A(1,0)/(-(A(0,1)*A(1,0)) + A(0,0)*A(1,1)));
+        Ainv(1,1)= A(0,0)/(-(A(0,1)*A(1,0)) + A(0,0)*A(1,1));
+    }
+    /**
      * Computes a 3x3 matrix inverse analitically being used during 3 parameters optimization
-     * @param HWCylCoords
-     * @param PrincipalCoords
      */
     static void A3x3Inverse(TPZFMatrix<REAL> &A, TPZFMatrix<REAL> &Ainv){
         
@@ -95,16 +108,6 @@ public:
         Ainv(2,2)= (A(0,1)*A(1,0) - A(0,0)*A(1,1))/(A(0,2)*A(1,1)*A(2,0) - A(0,1)*A(1,2)*A(2,0) - A(0,2)*A(1,0)*A(2,1) + A(0,0)*A(1,2)*A(2,1) + A(0,1)*A(1,0)*A(2,2) - A(0,0)*A(1,1)*A(2,2));
         
     }
-
-public:
-    
-    TPZHWTools();
-    
-    TPZHWTools(const TPZHWTools& orig);
-    
-    virtual ~TPZHWTools();
-
-private:
     
     /// Computes the rotation matrix
     static void GetRotMatrix(TPZFMatrix<REAL> &Rot) {
@@ -121,6 +124,21 @@ private:
         Rot(2, 1) = M_SQRT1_2;
         Rot(2, 2) = -M_SQRT1_2;
     }
+    
+    /// Computes the inverse of the rotation matrix
+    static void GetRotInvMatrix(TPZFMatrix<REAL> &RotInv) {
+        TPZFMatrix<REAL> Rot(3,3);
+        GetRotMatrix(Rot);
+        A3x3Inverse(Rot, RotInv);
+    }
+
+public:
+    
+    TPZHWTools();
+    
+    TPZHWTools(const TPZHWTools& orig);
+    
+    virtual ~TPZHWTools();
     
 };
 

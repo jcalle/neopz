@@ -414,7 +414,24 @@ void TPZStructMatrixOR::Serial_Assemble(TPZFMatrix<STATE> & rhs, TPZAutoPointer<
         el->CalcResidual(ef);
 
         calcresidual.stop();
-
+#ifdef LOG4CXX
+        if(loggerel->isDebugEnabled())
+        {
+            std::stringstream sout;
+            TPZGeoEl *gel = el->Reference();
+            if (gel) {
+                TPZManVector<REAL> center(gel->Dimension()), xcenter(3, 0.);
+                gel->CenterPoint(gel->NSides() - 1, center);
+                gel->X(center, xcenter);
+                sout << "Residual for computational element index " << el->Index() << " material id " << gel->MaterialId() << std::endl;
+                sout << "Residual for geometric element " << gel->Index() << " center " << xcenter << std::endl;
+            } else {
+                sout << "Residual for computational element without associated geometric element index " << el->Index() << "\n";
+            }
+            ef.Print(sout);
+            LOGPZ_DEBUG(loggerel, sout.str())
+        }
+#endif
         assemble.start();
 
         if (!ef.HasDependency()) {
@@ -810,6 +827,16 @@ void *TPZStructMatrixOR::ThreadData::ThreadAssembly(void *threaddata) {
     if (loggerCheck->isDebugEnabled()) {
         std::stringstream sout;
         sout << "nextel = " << nextel << " numprocessed = " << numprocessed << " submitted " << data->fSubmitted.size() << std::endl;
+        LOGPZ_DEBUG(loggerCheck, sout.str())
+    }
+#endif
+#ifdef LOG4CXX
+    if (loggerCheck->isDebugEnabled()) {
+        std::stringstream sout;
+        if (data->fGlobMatrix) {
+            data->fGlobMatrix->Print("Matriz de Rigidez: ", sout, EMathematicaInput);
+        }
+        data->fGlobRhs->Print("Right hand side", sout, EMathematicaInput);
         LOGPZ_DEBUG(loggerCheck, sout.str())
     }
 #endif

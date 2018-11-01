@@ -999,16 +999,34 @@ void TLaplaceExample1::uxy(const TPZVec<TVar> &x, TPZVec<TVar> &disp) const
     TVar r = sqrt(r2);
     disp[0] = xloc[0]*(TVar)(0.);
     switch (fExact) {
+        case EConst:
+            disp[0] += 1.;
+            break;
+        case EX:
+            disp[0] += xloc[0];
+            break;
         case ESinSin:
         {
             disp[0] += (TVar)(1.);
             for(int i=0; i<fDimension; i++) disp[0] *= sin((TVar)M_PI*xloc[i]);
         }
             break;
+        case E10SinSin:
+        {
+            disp[0] += (TVar)(1.);
+            for(int i=0; i<fDimension; i++) disp[0] *= sin((TVar)M_PI*xloc[i]*10.);
+        }
+            break;
+        case ESinDist:
+        {
+            disp[0] += (TVar)(1.);
+            for(int i=0; i<fDimension; i++) disp[0] *= sin((TVar)M_PI*xloc[i]*1.1);
+        }
+            break;
         case ECosCos:
         {
             disp[0] += (TVar)(1.);
-            for(int i=0; i<fDimension; i++) disp[0] *= cos((TVar)M_PI*xloc[i]);
+            for(int i=0; i<fDimension; i++) disp[0] *= cos((TVar)M_PI*xloc[i]/2.);
         }
             break;
         case EArcTan:
@@ -1027,17 +1045,18 @@ void TLaplaceExample1::uxy(const TPZVec<TVar> &x, TPZVec<TVar> &disp) const
             else if(fDimension==3)
                 B *= 4;
             // Argument value (arc) to compute ArcTangent( arc )
-            TVar RCircle = 0.25;
-            TVar Force = 1.;
+            TVar RCircle = 0.5;
+            TVar Force = 20.;
             TVar arc = Force*(RCircle*RCircle-r2);
             TVar Prod = 1.;
             for (int i=0; i<fDimension; i++) {
                 Prod *= x[i]*(1.-x[i]);
             }
             TVar temp = 0.5*M_PI + atan(arc);
-            disp[0] = B*Prod*temp;
+            disp[0] = B*temp;
         }
             break;
+            
         default:
             disp[0] = 0.;
             break;
@@ -1059,16 +1078,34 @@ void TLaplaceExample1::uxy(const TPZVec<FADFADREAL > &x, TPZVec<FADFADREAL > &di
     TVar r = FADsqrt(r2);
     disp[0] = (TVar)(0.)*xloc[0];
     switch (fExact) {
+        case EConst:
+            disp[0] += 1.;
+            break;
+        case EX:
+            disp[0] += xloc[0];
+            break;
         case ESinSin:
         {
             disp[0] += (TVar)(1.);
             for(int i=0; i<fDimension; i++) disp[0] *= FADsin((TVar)M_PI*xloc[i]);
         }
             break;
+        case E10SinSin:
+        {
+            disp[0] += (TVar)(1.);
+            for(int i=0; i<fDimension; i++) disp[0] *= FADsin((TVar)M_PI*xloc[i]*10.);
+        }
+            break;
+        case ESinDist:
+        {
+            disp[0] += (TVar)(1.);
+            for(int i=0; i<fDimension; i++) disp[0] *= FADsin((TVar)M_PI*xloc[i]*1.1);
+        }
+            break;
         case ECosCos:
         {
             disp[0] += (TVar)(1.);
-            for(int i=0; i<fDimension; i++) disp[0] *= FADcos((TVar)M_PI*xloc[i]);
+            for(int i=0; i<fDimension; i++) disp[0] *= FADcos((TVar)M_PI*xloc[i]/2.);
         }
             break;
         case EArcTan:
@@ -1087,15 +1124,15 @@ void TLaplaceExample1::uxy(const TPZVec<FADFADREAL > &x, TPZVec<FADFADREAL > &di
             else if(fDimension==3)
                 B *= 4;
             // Argument value (arc) to compute ArcTangent( arc )
-            TVar RCircle = 0.25;
-            TVar Force = 1.;
+            TVar RCircle = 0.5;
+            TVar Force = 20.;
             TVar arc = Force*(RCircle*RCircle-r2);
             TVar Prod = 1.;
             for (int i=0; i<fDimension; i++) {
                 Prod *= x[i]*(1.-x[i]);
             }
             TVar temp = 0.5*M_PI + FADatan(arc);
-            disp[0] = B*Prod*temp;            
+            disp[0] = B*temp;
         }
             break;
         default:
@@ -1122,8 +1159,10 @@ void TLaplaceExample1::PermeabilityDummy(const TPZVec<REAL> &x, TPZVec<STATE> &r
     deriv.Zero();
     deriv(0,0) = Perm;
     deriv(1,1) = Perm;
-    deriv(2,0) = 1./Perm;
-    deriv(3,1) = 1./Perm;
+    deriv(2,2) = Perm;
+    deriv(3,0) = 1./Perm;
+    deriv(4,1) = 1./Perm;
+    deriv(5,2) = 1./Perm;
 }
 
 template<class TVar>
@@ -1147,17 +1186,16 @@ void TLaplaceExample1::graduxy(const TPZVec<TVar> &x, TPZVec<TVar> &grad) const
 void TLaplaceExample1::Solution(const TPZVec<REAL> &x, TPZVec<STATE> &u, TPZFMatrix<STATE> &gradu) const
 {
     TPZManVector<Fad<REAL>,3> xfad(x.size());
-    for(int i=0; i<2; i++)
+    for(int i=0; i<3; i++)
     {
-        Fad<REAL> temp = Fad<REAL>(2,i,x[i]);
+        Fad<REAL> temp = Fad<REAL>(3,i,x[i]);
         xfad[i] = temp;
     }
-    xfad[2] = x[2];
     TPZManVector<Fad<REAL>,3> result(1);
     uxy(xfad,result);
-    gradu.Redim(2,1);
+    gradu.Redim(3,1);
     u[0] = result[0].val();
-    for (int i=0; i<2; i++) {
+    for (int i=0; i<3; i++) {
         for (int j=0; j<1; j++)
         {
             gradu(i,j) = result[j].d(i);
@@ -1173,10 +1211,11 @@ void TLaplaceExample1::SigmaLoc(const TPZVec<TVar> &x, TPZFMatrix<TVar> &sigma) 
     TVar Perm;
     Permeability(x, Perm);
     graduxy(x,grad);
-    sigma.Resize(2,1);
+    sigma.Resize(3,1);
     sigma(0) = -Perm*grad[0];
     sigma(1) = -Perm*grad[1];
-    
+    sigma(2) = -Perm*grad[2];
+
 }
 
 template<class TVar>
@@ -1189,7 +1228,7 @@ void TLaplaceExample1::DivSigma(const TPZVec<TVar> &x, TVar &divsigma) const
     }
     TPZFNMatrix<3,Fad<TVar> > sigma(3,1);
     SigmaLoc(xfad,sigma);
-    divsigma = sigma(0).dx(0)+sigma(1).dx(1);
+    divsigma = sigma(0).dx(0)+sigma(1).dx(1)+sigma(2).dx(2);
     
 }
 

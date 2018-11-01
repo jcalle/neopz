@@ -3,7 +3,7 @@
  *    Step fiber waveguide
  *
  *********************************************************************/
-DefineConstant[scale = 4053667.9401158620603];
+DefineConstant[scale = 1];
 DefineConstant[factor = 1];
 DefineConstant[el_size = 0.008333333333];
 DefineConstant[r1 = 0.055];

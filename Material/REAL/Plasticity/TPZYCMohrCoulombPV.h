@@ -109,11 +109,11 @@ public:
      */
     TPZYCMohrCoulombPV & operator=(const TPZYCMohrCoulombPV &cp);
 
-    virtual int ClassId() const;
+    virtual int ClassId() const override;
 
-    void Read(TPZStream& buf, void* context);
+    void Read(TPZStream& buf, void* context) override;
 
-    void Write(TPZStream& buf, int withclassid) const;
+    void Write(TPZStream& buf, int withclassid) const override;
 
     /**
      * @brief Sets epsbar
@@ -125,10 +125,7 @@ public:
     /**
      * @brief Print Method
      */
-    void Print(std::ostream &out) const {
-        out << "TPZYCMohrCoulombPV\n";
-        out << "Still have to implement the print" << std::endl;
-    }
+    virtual void Print(std::ostream &out) const override;
 
     void SetElasticResponse(const TPZElasticResponse &ER) {
         fER = ER;
@@ -286,11 +283,11 @@ public:
     }
 
 
-    virtual void YieldFunction(const TPZVec<STATE>& sigma, STATE kprev, TPZVec<STATE>& yield) const{
+    virtual void YieldFunction(const TPZVec<STATE>& sigma, STATE kprev, TPZVec<STATE>& yield) const override{
         Phi(sigma, kprev, yield);
     }
     
-    virtual int GetNYield() const {
+    virtual int GetNYield() const override{
         return as_integer(NYield);
     }
 };

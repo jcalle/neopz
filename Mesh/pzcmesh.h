@@ -13,7 +13,7 @@
 #include <set>                    // for set
 #include "pzadmchunk.h"           // for TPZAdmChunkVector
 #include "pzblock.h"              // for TPZBlock
-#include "pzchunk.h"              // for TPZChunkVector
+#include "TPZChunkVector.h"              // for TPZChunkVector
 #include "pzconnect.h"            // for TPZConnect
 #include "pzcreateapproxspace.h"  // for TPZCreateApproximationSpace
 #include "pzgmesh.h"              // for TPZGeoMesh
@@ -25,8 +25,8 @@
 #include "tpzautopointer.h"       // for TPZAutoPointer
 #include "pzcheckgeom.h"		  // for TPZCheckGeom
 #include <functional>
+#include "pzcompel.h"
 
-class TPZCompEl;
 class TPZGeoEl;
 class TPZMaterial;
 class TPZStream;
@@ -180,6 +180,10 @@ public:
     
     TPZCompEl * Element(int64_t iel)
     {
+        return fElementVec[iel];
+    }
+
+    const TPZCompEl * Element(int64_t iel) const {
         return fElementVec[iel];
     }
 	

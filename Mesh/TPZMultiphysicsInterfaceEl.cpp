@@ -27,7 +27,7 @@
 #include "tpzgraphelpyramidmapped.h"
 #include "tpzgraphelt3d.h"
 #include "pzgraphel.h"
-
+#include "pzgraphmesh.h"
 
 
 TPZMultiphysicsInterfaceElement::TPZMultiphysicsInterfaceElement() : TPZRegisterClassId(&TPZMultiphysicsInterfaceElement::ClassId),
@@ -340,6 +340,15 @@ void TPZMultiphysicsInterfaceElement::CalcStiff(TPZElementMatrix &ek, TPZElement
     rightel->AffineTransform(rightcomptr);
        
     InitMaterialData(data);
+    if(data.fNeedsNeighborSol)
+    {
+        for (int i=0; i<datavecleft.size(); i++) {
+            datavecleft[i].fNeedsSol = true;
+        }
+        for (int i=0; i<datavecright.size(); i++) {
+            datavecright[i].fNeedsSol = true;
+        }
+    }
     int nmesh =datavecleft.size();
     for(int id = 0; id<nmesh; id++){
         datavecleft[id].fNeedsNormal=data.fNeedsNormal;
@@ -482,6 +491,20 @@ const TPZIntPoints & TPZMultiphysicsInterfaceElement::GetIntegrationRule()
         DebugStop();
     }
     return *fIntegrationRule;
+}
+
+
+int TPZMultiphysicsInterfaceElement::ComputeIntegrationOrder() const {
+
+    TPZMultiphysicsElement *left = dynamic_cast<TPZMultiphysicsElement *> (fLeftElSide.Element());
+    TPZMultiphysicsElement *right = dynamic_cast<TPZMultiphysicsElement *>(fRightElSide.Element());
+    if (!left || !right) return -1;
+    
+    int left_order = left->ComputeIntegrationOrder();
+    int right_order = right->ComputeIntegrationOrder();
+    int int_order = MAX(left_order, right_order);
+    
+    return int_order;
 }
 
 
