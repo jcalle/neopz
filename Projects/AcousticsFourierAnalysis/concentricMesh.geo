@@ -27,7 +27,7 @@ pi_val = 3.14159265358979323846264338327950288;
 ndiv_circle_arc = Ceil(pi_val/2 * dist3 / el_size)+1;
 
 minR = ((r1 < r2) ? r1 : r2 ) < r3 ? ((r1 < r2) ? r1 : r2 ) : r3;
-lcInner = minR/2.;
+lcInner = el_size;
 p_0 = newp; Point(p_0) = { 0 , 0 , 0 , lcInner};//center
 
 //inner circle
@@ -141,18 +141,18 @@ s_c3_3 = news; Surface (s_c3_3) = {c_c3_3};
 c_c3_4 = newll; Line Loop(c_c3_4) = {t_c3_4,a_c3_4,-t_c3_1, - a_c2_4};
 s_c3_4 = news; Surface (s_c3_4) = {c_c3_4};
 
-Transfinite Surface{s_c1_1,s_c1_2,s_c1_3,s_c1_4};//inner well
-Transfinite Surface{s_s_1};//inner square
-Transfinite Line{a_c1_1,a_c1_2,a_c1_3,a_c1_4} = ndiv_circle_arc;//inner well
-Transfinite Line{t_s_1,t_s_2,t_s_3,t_s_4} = ndiv_circle_arc;//inner square
-//Transfinite Line{t_c1_1,t_c1_2,t_c1_3,t_c1_4} = ndiv_circle_radii;//radii inner well
+//Transfinite Surface{s_c1_1,s_c1_2,s_c1_3,s_c1_4};//inner well
+//Transfinite Surface{s_s_1};//inner square
+//Transfinite Line{a_c1_1,a_c1_2,a_c1_3,a_c1_4} = ndiv_circle_arc;//inner well
+//Transfinite Line{t_s_1,t_s_2,t_s_3,t_s_4} = ndiv_circle_arc;//inner square
+////Transfinite Line{t_c1_1,t_c1_2,t_c1_3,t_c1_4} = ndiv_circle_radii;//radii inner well
 
-Transfinite Surface{s_c2_1,s_c2_2,s_c2_3,s_c2_4};//casing
-Transfinite Line{a_c2_1,a_c2_2,a_c2_3,a_c2_4} = ndiv_circle_arc;//casing
-//Transfinite Line{t_c2_1,t_c2_2,t_c2_3,t_c2_4} = 2;//ndiv_circle_radii-1;//radii casing well
+//Transfinite Surface{s_c2_1,s_c2_2,s_c2_3,s_c2_4};//casing
+//Transfinite Line{a_c2_1,a_c2_2,a_c2_3,a_c2_4} = ndiv_circle_arc;//casing
+////Transfinite Line{t_c2_1,t_c2_2,t_c2_3,t_c2_4} = 2;//ndiv_circle_radii-1;//radii casing well
 
-Transfinite Surface{s_c3_1,s_c3_2,s_c3_3,s_c3_4};//casing
-Transfinite Line{a_c3_1,a_c3_2,a_c3_3,a_c3_4} = ndiv_circle_arc;//casing
+//Transfinite Surface{s_c3_1,s_c3_2,s_c3_3,s_c3_4};//casing
+//Transfinite Line{a_c3_1,a_c3_2,a_c3_3,a_c3_4} = ndiv_circle_arc;//casing
 //Transfinite Line{t_c3_1,t_c3_2,t_c3_3,t_c3_4} = 3;//radii casing well
 
 //boundary
