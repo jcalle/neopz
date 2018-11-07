@@ -11,6 +11,9 @@
 #include "parameter_handler.h"
 
 struct SPZModalAnalysisData{
+
+  enum NedEl{ TypeOne = 1, TypeTwo = 2};
+
   enum PzCases{
     StepFiber = 1, RectangularWG = 2, HoleyFiber
   };
@@ -58,6 +61,7 @@ struct SPZModalAnalysisData{
     TPZVec<boundtype> boundTypeVec;
   };
   struct SPZPzOpts{
+      NedEl elType;
 // polynomial order of basis functions
       int pOrder;
 // generate vtk for fields visualisation

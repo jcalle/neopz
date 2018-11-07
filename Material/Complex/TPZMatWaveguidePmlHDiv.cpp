@@ -4,25 +4,16 @@
 
 #include <pzaxestools.h>
 #include <pzvec_extras.h>
-#include "TPZMatWaveguidePml.h"
+#include "TPZMatWaveguidePmlHDiv.h"
 
-TPZMatWaveguidePml::TPZMatWaveguidePml(const int id,const TPZMatModalAnalysis &mat,
+TPZMatWaveguidePmlHDiv::TPZMatWaveguidePmlHDiv(const int id,const TPZMatModalAnalysis &mat,
                                        const bool &att_x, REAL &pmlBeginX,
                                        const bool &att_y, REAL &pmlBeginY,
                                        const REAL &alphaMax, const REAL &d) :
-        TPZMatModalAnalysis(mat), fAttX (att_x), fAttY (att_y),
-        fPmlBeginX (pmlBeginX), fPmlBeginY (pmlBeginY),
-        fAlphaMax (alphaMax), fD (d)
-{
-    this->SetId(id);
-    if(fAlphaMax < 0) DebugStop(); //for the attenuation to happen
-                                   // this value must be positive
-    if(fD < 0) DebugStop(); // pml width must be positive
-    if(!fAttX && !fAttY) DebugStop();//a pml that doesnt attenuate
-                                     // in any direction?
+        TPZMatWaveguidePml(id,mat,att_x,pmlBeginX, att_y,pmlBeginY,alphaMax, d) {
 }
 
-void TPZMatWaveguidePml::Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef)
+void TPZMatWaveguidePmlHDiv::Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef)
 {
     /*****************CALCULATE S PML PARAMETERS*************************
      * In the current application, the waveguide's cross section is always
@@ -57,25 +48,55 @@ void TPZMatWaveguidePml::Contribute(TPZVec<TPZMaterialData> &datavec, REAL weigh
         gradPhiH1 ( iFunc , 1 ) = dphiH1 ( 1 , iFunc );
     }
 
-    /*********************CREATE HCURL FUNCTIONS*****************************/
-    TPZFNMatrix< 36 , REAL > phiHCurlAxes = datavec[ hcurlmeshindex ].phi;
-    TPZFNMatrix<40,REAL> curlPhiDAxes = datavec[ hcurlmeshindex ].dphix;
-
-    TPZFNMatrix<40,REAL> curlPhi, phiHCurl;
-
-    TPZAxesTools<REAL>::Axes2XYZ(phiHCurlAxes , phiHCurl , datavec[hcurlmeshindex].axes , false);
-
+    /*********************CREATE HDIV FUNCTIONS****************************/
+    TPZFNMatrix<12,REAL> phiScaHCurl = datavec[ hcurlmeshindex ].phi;
+    TPZManVector<REAL,3> xParametric = datavec[ h1meshindex ].xParametric;
+    
+    int phrq = datavec[ hcurlmeshindex ].fVecShapeIndex.NElements();
+    //  std::cout<<"x"<<std::endl<<x[0]<<" "<<x[1]<<" "<<x[2]<<std::endl;
+    
+    TPZFNMatrix< 36 , REAL > phiVecHDiv(phrq , 3 , 0.);
+    for (int iq = 0 ; iq < phrq ; iq++) {
+        int ivecind = datavec[ hcurlmeshindex ].fVecShapeIndex[iq].first;
+        int ishapeind = datavec[ hcurlmeshindex ].fVecShapeIndex[iq].second;
+        
+        phiVecHDiv(iq , 0) = phiScaHCurl(ishapeind , 0) * datavec[ hcurlmeshindex ].fNormalVec(0,ivecind);
+        phiVecHDiv(iq , 1) = phiScaHCurl(ishapeind , 0) * datavec[ hcurlmeshindex ].fNormalVec(1,ivecind);
+        phiVecHDiv(iq , 2) = phiScaHCurl(ishapeind , 0) * datavec[ hcurlmeshindex ].fNormalVec(2,ivecind);
+    }
+    
+    /*********************CALCULATE NORMAL VECTOR****************************/
     TPZManVector<REAL,3> ax1(3),ax2(3), elNormal(3);
     for (int i=0; i<3; i++) {
         ax1[i] = datavec[ hcurlmeshindex ].axes(0,i);
         ax2[i] = datavec[ hcurlmeshindex ].axes(1,i);
     }
     Cross(ax1, ax2, elNormal);
-    TPZFNMatrix<3,REAL> normalVec(1,3);
-    normalVec(0,0) = elNormal[0];
-    normalVec(0,1) = elNormal[1];
-    normalVec(0,2) = elNormal[2];
-    TPZAxesTools<REAL>::Axes2XYZ(curlPhiDAxes, curlPhi, normalVec);
+    
+    /*********************CREATE HCURL FUNCTIONS*****************************/
+    TPZFNMatrix< 36 , REAL > phiHCurl(phrq , 3 , 0.);
+    RotateForHCurl(elNormal , phiVecHDiv , phiHCurl);
+    /*********************COMPUTE CURL****************************/
+    TPZFMatrix<REAL> &dphiQdaxes = datavec[ hcurlmeshindex ].dphix;
+    TPZFNMatrix<3,REAL> dphiQ;
+    TPZAxesTools<REAL>::Axes2XYZ(dphiQdaxes, dphiQ, datavec[ hcurlmeshindex ].axes);
+    TPZFNMatrix<3,REAL> gradPhiForHCurl(phrq , 3 , 0.);
+    TPZFNMatrix<3,REAL> ivecHCurl(phrq , 3 , 0.);
+    TPZManVector<REAL,3> iVecHDiv(3,0.), ivecForCurl(3,0.);
+    for (int iPhi = 0; iPhi < phrq; iPhi++) {
+        int ivecind = datavec[ hcurlmeshindex ].fVecShapeIndex[iPhi].first;
+        int ishapeind = datavec[ hcurlmeshindex ].fVecShapeIndex[iPhi].second;
+        iVecHDiv[0] = datavec[ hcurlmeshindex ].fNormalVec(0,ivecind);
+        iVecHDiv[1] = datavec[ hcurlmeshindex ].fNormalVec(1,ivecind);
+        iVecHDiv[2] = datavec[ hcurlmeshindex ].fNormalVec(2,ivecind);
+        Cross(elNormal, iVecHDiv, ivecForCurl);
+        for (int i = 0; i<dphiQ.Rows(); i++) {
+            gradPhiForHCurl(iPhi,i) = dphiQ(i,ishapeind);
+            ivecHCurl(iPhi,i) = ivecForCurl[i];
+        }
+    }
+    TPZFNMatrix<40,REAL> curlPhi;
+    ComputeCurl(gradPhiForHCurl, ivecHCurl, curlPhi);
 
     const REAL k0 = fScaleFactor * 2*M_PI/fLambda;
     /*****************ACTUAL COMPUTATION OF CONTRIBUTION****************/
@@ -88,7 +109,7 @@ void TPZMatWaveguidePml::Contribute(TPZVec<TPZMaterialData> &datavec, REAL weigh
     for (int iVec = 0; iVec < nHCurlFunctions; iVec++) {
         for (int jVec = 0; jVec < nHCurlFunctions; jVec++) {
             STATE curlIzdotCurlJz = 0.;
-            curlIzdotCurlJz += curlPhi(2 , iVec) * curlPhi(2 , jVec);
+            curlIzdotCurlJz += curlPhi(iVec, 2) * curlPhi(jVec , 2);
             STATE phiIdotPhiJx = phiHCurl(iVec , 0) * phiHCurl(jVec , 0);
             STATE phiIdotPhiJy = phiHCurl(iVec , 1) * phiHCurl(jVec , 1);
 
@@ -170,13 +191,20 @@ void TPZMatWaveguidePml::Contribute(TPZVec<TPZMaterialData> &datavec, REAL weigh
 
 
 
-void TPZMatWaveguidePml::Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout)
+void TPZMatWaveguidePmlHDiv::Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout)
 {
 
     TPZVec<STATE> et(3,0.);
     TPZVec<STATE> ez(1,0.);
-
-    et = datavec[ hcurlmeshindex ].sol[0];
+    TPZManVector<STATE,3> ax1(3),ax2(3), normal(3);
+    for (int i=0; i<3; i++) {
+        ax1[i] = datavec[hcurlmeshindex].axes(0,i);
+        ax2[i] = datavec[hcurlmeshindex].axes(1,i);
+    }
+    //ROTATE FOR HCURL
+    Cross(ax1, ax2, normal);
+    
+    Cross(normal,datavec[ hcurlmeshindex ].sol[0], et);
     ez = datavec[ h1meshindex ].sol[0];
     switch (var) {
         case 0:{//et
@@ -217,16 +245,4 @@ void TPZMatWaveguidePml::Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZ
             DebugStop();
             break;
     }
-}
-
-int TPZMatWaveguidePml::IntegrationRuleOrder(TPZVec<int> &elPMaxOrder) const
-{
-    int pmax = 0;
-    for (int ip=0;  ip<elPMaxOrder.size(); ip++)
-    {
-        if(elPMaxOrder[ip] > pmax) pmax = elPMaxOrder[ip];
-    }
-    const int integrationorder = 4+2*pmax;
-
-    return  integrationorder;
 }

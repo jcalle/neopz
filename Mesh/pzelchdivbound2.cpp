@@ -191,10 +191,8 @@ TPZCompElHDivBound2<TSHAPE>::TPZCompElHDivBound2() : TPZIntelGen<TSHAPE>(),fneig
 template<class TSHAPE>
 TPZCompElHDivBound2<TSHAPE>::~TPZCompElHDivBound2(){
     TPZGeoEl *gel = this->Reference();
-    if (gel->Reference() != this) {
-        // tototototo
+    if (gel && gel->Reference() != this) {
         return;
-        DebugStop();
     }
     int side = TSHAPE::NSides-1;
     TPZGeoElSide gelside(this->Reference(),side);
@@ -222,7 +220,9 @@ TPZCompElHDivBound2<TSHAPE>::~TPZCompElHDivBound2(){
         TPZConnect &c = intel->Connect(cindex);
         c.RemoveDepend();
     }
-    gel->ResetReference();
+    if (gel){
+        gel->ResetReference();
+    }
 
 }
 

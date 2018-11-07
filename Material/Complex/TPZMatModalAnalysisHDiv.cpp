@@ -1,4 +1,4 @@
-#include "TPZMatMFHDivRotH1.h"
+#include "TPZMatModalAnalysisHDiv.h"
 #include <pzaxestools.h>
 #include <pzvec_extras.h>
 
@@ -12,29 +12,29 @@ static LoggerPtr logger(Logger::getLogger("pz.material.fran"));
 
 
 
-TPZMatMFHDivRotH1::TPZMatMFHDivRotH1(int id, REAL freq, const STATE &ur, const STATE &er  ) :
-TPZMatModalAnalysis(id,freq,ur,er)
+TPZMatModalAnalysisHDiv::TPZMatModalAnalysisHDiv(int id, REAL freq, const STATE &ur, const STATE &er, const REAL &scale  ) :
+TPZMatModalAnalysis(id,freq,ur,er,scale)
 {
 }
 
-TPZMatMFHDivRotH1::TPZMatMFHDivRotH1(int id) : TPZMatModalAnalysis(id)
+TPZMatModalAnalysisHDiv::TPZMatModalAnalysisHDiv(int id) : TPZMatModalAnalysis(id)
 {
 }
 
 /** @brief Default constructor */
-TPZMatMFHDivRotH1::TPZMatMFHDivRotH1() : TPZMatModalAnalysis()
+TPZMatModalAnalysisHDiv::TPZMatModalAnalysisHDiv() : TPZMatModalAnalysis()
 {
 }
 
 
-TPZMatMFHDivRotH1::TPZMatMFHDivRotH1(const TPZMatMFHDivRotH1 &mat) : TPZMatModalAnalysis(mat){
+TPZMatModalAnalysisHDiv::TPZMatModalAnalysisHDiv(const TPZMatModalAnalysisHDiv &mat) : TPZMatModalAnalysis(mat){
 }
 
-TPZMatMFHDivRotH1::~TPZMatMFHDivRotH1()
+TPZMatModalAnalysisHDiv::~TPZMatModalAnalysisHDiv()
 {
     
 }
-void TPZMatMFHDivRotH1::RotateForHCurl(TPZVec<REAL> normal , TPZFMatrix<REAL> vHdiv , TPZFMatrix<REAL> &vHcurl ){
+void TPZMatModalAnalysisHDiv::RotateForHCurl(TPZVec<REAL> normal , TPZFMatrix<REAL> vHdiv , TPZFMatrix<REAL> &vHcurl ){
     int nFunctions = vHdiv.Rows();
     vHcurl.Resize( vHdiv.Rows(), vHdiv.Cols());
     vHcurl.Zero();
@@ -46,7 +46,7 @@ void TPZMatMFHDivRotH1::RotateForHCurl(TPZVec<REAL> normal , TPZFMatrix<REAL> vH
         vHcurl(i,2) = normal[0]*vHdiv(i,1) - vHdiv(i,0)*normal[1];
     }
 }
-void TPZMatMFHDivRotH1::ComputeCurl(TPZFMatrix<REAL> gradScalarPhi , TPZFMatrix<REAL> ivecHCurl , TPZFMatrix<REAL> &curlPhi ){
+void TPZMatModalAnalysisHDiv::ComputeCurl(TPZFMatrix<REAL> gradScalarPhi , TPZFMatrix<REAL> ivecHCurl , TPZFMatrix<REAL> &curlPhi ){
     int nFunctions = gradScalarPhi.Rows();
     curlPhi.Resize( nFunctions , 3);
     curlPhi.Zero();
@@ -59,7 +59,7 @@ void TPZMatMFHDivRotH1::ComputeCurl(TPZFMatrix<REAL> gradScalarPhi , TPZFMatrix<
     }
 }
 
-void TPZMatMFHDivRotH1::ContributeValidateFunctions(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef)
+void TPZMatModalAnalysisHDiv::ContributeValidateFunctions(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef)
 {
     if( isTesting == false ){
         DebugStop();
@@ -195,7 +195,7 @@ void TPZMatMFHDivRotH1::ContributeValidateFunctions(TPZVec<TPZMaterialData> &dat
     }
 }
 
-void TPZMatMFHDivRotH1::Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef)
+void TPZMatModalAnalysisHDiv::Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef)
 {
     isTesting = false;
     if( isTesting == true ){
@@ -361,7 +361,7 @@ void TPZMatMFHDivRotH1::Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight
     }
 }
 
-void TPZMatMFHDivRotH1::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef, TPZBndCond &bc)
+void TPZMatModalAnalysisHDiv::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef, TPZBndCond &bc)
 {
     return;
     if( isTesting ) return;
@@ -440,7 +440,7 @@ void TPZMatMFHDivRotH1::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL weig
 }
 
 /** @brief Returns the solution associated with the var index based on the finite element approximation */
-void TPZMatMFHDivRotH1::Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout)
+void TPZMatModalAnalysisHDiv::Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout)
 {
     
     TPZVec<STATE> et(3,0.);

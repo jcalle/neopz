@@ -1,10 +1,10 @@
 /**
- * @file TPZMatMFHDivRotH1.h
- * @brief Header file for class TPZMatMFHDivRotH1.\n
+ * @file TPZMatModalAnalysisHDiv.h
+ * @brief Header file for class TPZMatModalAnalysisHDiv.\n
  */
 
-#ifndef TPZMATMFHDIVROTH1_H
-#define TPZMATMFHDIVROTH1_H
+#ifndef TPZMATNMODALANALYSISHDIV_H
+#define TPZMATNMODALANALYSISHDIV_H
 
 #include "TPZMatModalAnalysis.h"
 
@@ -15,26 +15,26 @@
  * It used a 2D Hcurl space for the transversal components of the electric field and an 1D
  * H1 space for the longitudinal component.
  */
-class  TPZMatMFHDivRotH1 : public TPZMatModalAnalysis
+class  TPZMatModalAnalysisHDiv : public virtual TPZMatModalAnalysis
 {
     
 public:
     
-    TPZMatMFHDivRotH1(int id, REAL freq, const STATE &ur, const STATE &er);
+    TPZMatModalAnalysisHDiv(int id, REAL freq, const STATE &ur, const STATE &er, const REAL &scale = 1.);
     
-    TPZMatMFHDivRotH1(int id);
+    TPZMatModalAnalysisHDiv(int id);
     
     /** @brief Default constructor */
-    TPZMatMFHDivRotH1();
+    TPZMatModalAnalysisHDiv();
     
     /** @brief Creates a material object based on the referred object and inserts it in the vector of material pointers of the mesh. */
     /** Upon return vectorindex contains the index of the material object within the vector */
-    TPZMatMFHDivRotH1(const TPZMatMFHDivRotH1 &mat);
+    TPZMatModalAnalysisHDiv(const TPZMatModalAnalysisHDiv &mat);
     /** @brief Default destructor */
-    virtual ~TPZMatMFHDivRotH1();
+    virtual ~TPZMatModalAnalysisHDiv();
     
     /** @brief Returns the name of the material */
-    virtual std::string Name() { return "TPZMatMFHDivRotH1"; }
+    virtual std::string Name() { return "TPZMatModalAnalysisHDiv"; }
     
 public:
     virtual void ContributeValidateFunctions(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef);

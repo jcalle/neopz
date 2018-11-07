@@ -45,7 +45,8 @@
 #include "TPZMatWaveguideCutOffAnalysis.h"
 #include "TPZMatModalAnalysis.h"
 #include "TPZGmshReader.h"
-#include "TPZMatMFHDivRotH1.h"
+#include "TPZMatModalAnalysisHDiv.h"
+#include "pzintel.h"
 
 enum meshTypeE { createRectangular = 1, createTriangular, createZigZag };
 
@@ -71,22 +72,22 @@ void CreateGMeshCircularWaveguide(TPZGeoMesh *&gmesh, const meshTypeE meshType,
                                   const REAL rDomain, const int nDiv);
 
 const bool usingGMSH = false;
-const bool usingHDivRot = false;
+const bool usingHDivRot = true;
 
 int main(int argc, char *argv[]) {
 #ifdef LOG4CXX
     InitializePZLOG();
 #endif
 	
-	  const bool isRectangularWG = true;//true = rectangular , false = circular
+    const bool isRectangularWG = true;//true = rectangular , false = circular
     const bool isCutOff = false;//analysis of cutoff frequencies for eigenmodes
     const meshTypeE meshType = createTriangular;
     int pOrder = 1;           // polynomial order of basis functions
     bool genVTK = false;      // generate vtk for fields visualisation
     bool l2error = false;     // TODO: implement error analysis
     bool exportEigen = false; // export eigen values
-    const int nThreads = 4;
-    bool optimizeBandwidth = false; //whether to renumber equations (OFF for debugging purposes)
+    const int nThreads = 8;
+    bool optimizeBandwidth = true; //whether to renumber equations (OFF for debugging purposes)
     bool filterEquations = true; //whether to impose dirichlet conditions removing boundary equations
 	
 	TPZManVector<REAL, 2> geoParams(1,-1);
@@ -182,10 +183,9 @@ void RunSimulation(bool isRectangularWG, bool isCutOff, const meshTypeE meshType
     }
     an.SetStructuralMatrix(strmtrx);
 
-    const int nSolutions = 2;// neq >= 10 ? 10 : neq;
+    const int nSolutions = 10;// neq >= 10 ? 10 : neq;
     TPZLapackWrapper<STATE> solver;
     solver.SetAsGeneralised(true);
-    solver.SetAbsoluteValue(false);
     an.SetSolver(solver);
 
     std::cout << "Assembling..." << std::endl;
@@ -742,6 +742,23 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh,
     cmeshHCurl->AutoBuild();
     cmeshHCurl->CleanUpUnconnectedNodes();
 
+    if (usingHDivRot)
+    {
+        int64_t nel = cmeshHCurl->NElements();
+        for (int64_t el = 0; el<nel; el++) {
+            TPZCompEl *cel = cmeshHCurl->Element(el);
+            if(!cel) continue;
+            TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+            int nc = intel->NConnects();
+            if (nc <=1) {
+                continue;
+            }
+            TPZGeoEl *gel = intel->Reference();
+            int ns = gel->NSides();
+            intel->ForceSideOrder(ns-1, pOrder -1);
+        }
+        cmeshHCurl->ExpandSolution();
+    }
     TPZMatModalAnalysis *matMultiPhysics = NULL;
     TPZVec<TPZCompMesh *> meshVec(2);
     if (isCutOff) {
@@ -751,7 +768,7 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh,
     } else {
         TPZMatModalAnalysis *dummy = NULL;
         if(!usingHDivRot) dummy = new TPZMatModalAnalysis(matId, f0, ur, er,scale);
-        else dummy = new TPZMatMFHDivRotH1(matId, f0, ur, er);
+        else dummy = new TPZMatModalAnalysisHDiv(matId, f0, ur, er,scale);
         TPZMaterial::gBigNumber = 1e30;
         matMultiPhysics = dummy;
     }

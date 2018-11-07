@@ -38,12 +38,14 @@
 #include <TPZSlepcEPSHandler.h>
 #include <TPZSlepcSTHandler.h>
 #include <Complex/TPZMatWaveguidePml.h>
+#include <Complex/TPZMatWaveguidePmlHDiv.h>
 #include <tpzgeoblend.h>
 
 #endif
 #include "parameter_handler.h"
 #include "TPZMatWaveguideCutOffAnalysis.h"
 #include "TPZMatModalAnalysis.h"
+#include "TPZMatModalAnalysisHDiv.h"
 #include "pzintel.h"
 #include "TPZGmshReader.h"
 #include "SPZModalAnalysisDataReader.h"
@@ -95,7 +97,8 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
                  TPZVec<SPZModalAnalysisData::boundtype> &boundTypeVec,
                  TPZVec<SPZModalAnalysisData::pmltype> &pmlTypeVec, bool refineP = false,
                  TPZVec<std::function<bool (const TPZVec<REAL> &)>> refineRules =
-                         TPZVec<std::function<bool (const TPZVec<REAL> &)>>(0,nullptr));
+                         TPZVec<std::function<bool (const TPZVec<REAL> &)>>(0,nullptr),
+                         SPZModalAnalysisData::NedEl elType = SPZModalAnalysisData::NedEl::TypeOne);
 
 void FilterBoundaryEquations(TPZVec<TPZCompMesh *> cmeshMF,
                              TPZVec<long> &activeEquations, int &neq,
@@ -421,7 +424,7 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
     CreateCMesh(meshVec, gmesh, simData.pzOpts.pOrder, matIdVec, simData.physicalOpts.urVec, simData.physicalOpts.erVec,
                 simData.physicalOpts.lambda, simData.physicalOpts.isCutOff, simData.pzOpts.prefix,
                 simData.pzOpts.exportCMesh, simData.pzOpts.scaleFactor, simData.physicalOpts.alphaMax, boundTypeVec,
-                pmlTypeVec, reallyRefineP, refineRulesP); // funcao para criar a malha computacional
+                pmlTypeVec, reallyRefineP, refineRulesP, simData.pzOpts.elType); // funcao para criar a malha computacional
     boost::posix_time::ptime t2_c =
         boost::posix_time::microsec_clock::local_time();
     std::cout<<"Created! "<<t2_c-t1_c<<std::endl;
@@ -586,7 +589,6 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
             TPZConnect &con = meshVec[k]->ConnectVec()[icon];
             con.RemoveDepend();
         }
-        meshVec[k]->SetReference(nullptr);
         delete meshVec[k];
         meshVec[k] = nullptr;
     }
@@ -2076,7 +2078,8 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
                  const bool &print, const REAL &scale, const REAL &alphaMax,
                  TPZVec<SPZModalAnalysisData::boundtype> &boundTypeVec,
                  TPZVec<SPZModalAnalysisData::pmltype> &pmlTypeVec, bool refineP,
-                 TPZVec<std::function<bool (const TPZVec<REAL> &)>> refineRules) {
+                 TPZVec<std::function<bool (const TPZVec<REAL> &)>> refineRules, SPZModalAnalysisData::NedEl elType) {
+    bool usingNedelecTypeTwo = elType == SPZModalAnalysisData::NedEl::TypeTwo ? true : false;
     const int dim = 2;
 
     TPZManVector<int, 8> volMatIdVec(matIdVec.size() - boundTypeVec.size() - pmlTypeVec.size());
@@ -2124,7 +2127,8 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
 
     const int outerMaterialPos = volMatIdVec.size() - 1;
     TPZCompMesh *cmeshH1 = new TPZCompMesh(gmesh);
-    cmeshH1->SetDefaultOrder(pOrder); // seta ordem polimonial de aproximacao
+    if(usingNedelecTypeTwo) cmeshH1->SetDefaultOrder(pOrder + 1); // seta ordem polimonial de aproximacao
+    else cmeshH1->SetDefaultOrder(pOrder); // seta ordem polimonial de aproximacao
     cmeshH1->SetDimModel(dim);        // seta dimensao do modelo
     // Inserindo material na malha
     const int nState = 1;
@@ -2175,9 +2179,30 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
         cmeshHCurl->InsertMaterialObject(bcond);
     }
 
-    cmeshHCurl->SetAllCreateFunctionsHCurl(); // define espaco de aproximacao
-    cmeshHCurl->AutoBuild(set);
-    cmeshHCurl->CleanUpUnconnectedNodes();
+    if(usingNedelecTypeTwo) {
+        cmeshHCurl->SetAllCreateFunctionsHDiv();
+        cmeshHCurl->AutoBuild(set);
+        cmeshHCurl->CleanUpUnconnectedNodes();
+        int64_t nel = cmeshHCurl->NElements();
+        for (int64_t el = 0; el<nel; el++) {
+            TPZCompEl *cel = cmeshHCurl->Element(el);
+            if(!cel) continue;
+            TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+            int nc = intel->NConnects();
+            if (nc <=1) {
+                continue;
+            }
+            TPZGeoEl *gel = intel->Reference();
+            int ns = gel->NSides();
+            intel->ForceSideOrder(ns-1, pOrder -1);
+        }
+        cmeshHCurl->ExpandSolution();
+    }
+    else {
+        cmeshHCurl->SetAllCreateFunctionsHCurl(); // define espaco de aproximacao
+        cmeshHCurl->AutoBuild(set);
+        cmeshHCurl->CleanUpUnconnectedNodes();
+    }
 
     TPZCompMesh *cmeshMF = new TPZCompMesh(gmesh);
     TPZManVector<TPZMatModalAnalysis *, 8> matMultiPhysics(volMatIdVec.size() + pmlMatIdVec.size());
@@ -2189,7 +2214,9 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
         }
     } else {
         for (int i = 0; i < volMatIdVec.size(); ++i) {
-            matMultiPhysics[i] = new TPZMatModalAnalysis(volMatIdVec[i], f0, urVec[i], erVec[i], 1. / scale);
+            if(usingNedelecTypeTwo) matMultiPhysics[i] =
+                    new TPZMatModalAnalysisHDiv(volMatIdVec[i], f0, urVec[i], erVec[i], 1. / scale);
+            else matMultiPhysics[i] = new TPZMatModalAnalysis(volMatIdVec[i], f0, urVec[i], erVec[i], 1. / scale);
             cmeshMF->InsertMaterialObject(matMultiPhysics[i]);
         }
     }
@@ -2279,13 +2306,22 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
                 d = xMax - xMin;
                 break;
         }
-
-        matMultiPhysics[volMatIdVec.size() + i] =
-                new TPZMatWaveguidePml(pmlMatIdVec[i],
-                                       *matMultiPhysics[outerMaterialPos],
-                                       attx, xBegin,
-                                       atty, yBegin,
-                                       alphaMax, d);
+        if(usingNedelecTypeTwo){
+            matMultiPhysics[volMatIdVec.size() + i] =
+                    new TPZMatWaveguidePmlHDiv(pmlMatIdVec[i],
+                                           *matMultiPhysics[outerMaterialPos],
+                                           attx, xBegin,
+                                           atty, yBegin,
+                                           alphaMax, d);
+        }
+        else{
+            matMultiPhysics[volMatIdVec.size() + i] =
+                    new TPZMatWaveguidePml(pmlMatIdVec[i],
+                                           *matMultiPhysics[outerMaterialPos],
+                                           attx, xBegin,
+                                           atty, yBegin,
+                                           alphaMax, d);
+        }
         cmeshMF->InsertMaterialObject(matMultiPhysics[volMatIdVec.size() + i]);
     }
 

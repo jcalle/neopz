@@ -14,6 +14,8 @@ SPZModalAnalysisDataReader::SPZModalAnalysisDataReader(ParameterHandler &param,c
 void SPZModalAnalysisDataReader::DeclareParameters() {
   prm.enter_subsection("NeoPZ options");
   {
+      prm.declare_entry("Nedelec family", "1", Patterns::Integer(1,2),"Whether to use Nedelec elements"
+                        "of the first kind (mixed order) or of the second kind (full order).");
       prm.declare_entry("Using NeoPZ mesh", "true",Patterns::Bool(),
                         "Whether to use NeoPZ simulation case instead of providing a .geo/.msh file.\n"
                         "If it is true, the mesh is specified in Which NeoPZ mesh and the corresponding settings are in\n"
@@ -391,6 +393,15 @@ void SPZModalAnalysisDataReader::ReadParameters(SPZModalAnalysisData &data) {
 
   prm.enter_subsection("NeoPZ options");
   {
+    {
+      const int elType = prm.get_integer("Nedelec family");
+      if(elType == 1){
+        data.pzOpts.elType = SPZModalAnalysisData::NedEl::TypeOne;
+      }
+      else{
+        data.pzOpts.elType = SPZModalAnalysisData::NedEl::TypeTwo;
+      }
+    }
     data.pzOpts.usingNeoPzMesh = prm.get_bool("Using NeoPZ mesh");
     if(data.pzOpts.usingNeoPzMesh){
       data.pzOpts.externGenMesh = false;

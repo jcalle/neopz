@@ -142,7 +142,7 @@ TPZIntelGen<TSHAPE>()
 template<class TSHAPE>
 TPZCompElHDiv<TSHAPE>::~TPZCompElHDiv(){
     TPZGeoEl *gel = this->Reference();
-    if (gel->Reference() != this) {
+    if (gel && gel->Reference() != this) {
         return;
     }
     for (int side=TSHAPE::NCornerNodes; side < TSHAPE::NSides; side++) {
@@ -157,9 +157,11 @@ TPZCompElHDiv<TSHAPE>::~TPZCompElHDiv(){
             TPZConnect &c = this->Connect(cindex);
             c.RemoveDepend();
         }
-        gelside.HigherLevelCompElementList3(celstack, 0, 1);
-        long ncel = celstack.size();
-        for (long el=0; el<ncel; el++) {
+        if (gelside.Element()){
+            gelside.HigherLevelCompElementList3(celstack, 0, 1);
+        }
+        int64_t ncel = celstack.size();
+        for (int64_t el=0; el<ncel; el++) {
             TPZCompElSide celside = celstack[el];
             TPZCompEl *celsmall = celside.Element();
             TPZGeoEl *gelsmall = celsmall->Reference();
@@ -175,7 +177,9 @@ TPZCompElHDiv<TSHAPE>::~TPZCompElHDiv(){
             c.RemoveDepend();
         }
     }
-    gel->ResetReference();
+    if (gel){
+        gel->ResetReference();
+    }
 }
 
 template<class TSHAPE>

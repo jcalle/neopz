@@ -8,26 +8,27 @@
 
 #include "TPZMatModalAnalysis.h"
 
-class TPZMatWaveguidePml : public TPZMatModalAnalysis {
+class TPZMatWaveguidePml : public virtual TPZMatModalAnalysis {
 public:
     TPZMatWaveguidePml(const int id,const TPZMatModalAnalysis &mat,
                        const bool &att_x, REAL &pmlBeginX,
                        const bool &att_y, REAL &pmlBeginY,
                        const REAL &alphaMax, const REAL &d);
-    ~TPZMatWaveguidePml();
+    ~TPZMatWaveguidePml() = default;
     void Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) override;
     void Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout) override;
     int IntegrationRuleOrder(TPZVec<int> &elPMaxOrder) const override;
-private:
-    TPZMatWaveguidePml(const TPZMatModalAnalysis &mat);//this does not exist
-    TPZMatWaveguidePml(int id);//this does not exist
-    TPZMatWaveguidePml();//this does not exist
+protected:
     const bool fAttX;
     const REAL fPmlBeginX;
     const bool fAttY;
     const REAL fPmlBeginY;
     const REAL fAlphaMax;
     const REAL fD;
+private:
+    TPZMatWaveguidePml(const TPZMatModalAnalysis &mat);//this does not exist
+    TPZMatWaveguidePml(int id);//this does not exist
+    TPZMatWaveguidePml();//this does not exist
 };
 
 
