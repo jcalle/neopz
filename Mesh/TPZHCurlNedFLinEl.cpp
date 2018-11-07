@@ -76,7 +76,41 @@ TPZHCurlNedFLinEl::TPZHCurlNedFLinEl(TPZCompMesh &mesh,
 
 TPZHCurlNedFLinEl::TPZHCurlNedFLinEl() { DebugStop(); }
 /** @brief Destructor, does nothing */
-TPZHCurlNedFLinEl::~TPZHCurlNedFLinEl() {}
+TPZHCurlNedFLinEl::~TPZHCurlNedFLinEl() {
+    TPZGeoEl *gel = this->Reference();
+    if (gel && gel->Reference() != this) {
+        return;
+    }
+    int side = TPZShapeLinear::NSides-1;
+    TPZGeoElSide gelside(this->Reference(),side);
+    TPZStack<TPZCompElSide> celstack;
+    TPZCompElSide largecel = gelside.LowerLevelCompElementList2(0);
+    if (largecel) {
+        int cindex = SideConnectLocId(0, side);
+        TPZConnect &c = this->Connect(cindex);
+        c.RemoveDepend();
+    }
+    gelside.HigherLevelCompElementList3(celstack, 0, 1);
+    long ncel = celstack.size();
+    for (long el=0; el<ncel; el++) {
+        TPZCompElSide celsidesmall = celstack[el];
+        TPZGeoElSide gelsidesmall = celsidesmall.Reference();
+        if (gelsidesmall.Dimension() != gel->Dimension()) {
+            continue;
+        }
+        TPZCompEl *cel = celsidesmall.Element();
+        TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+        if (!intel) {
+            DebugStop();
+        }
+        int cindex = intel->SideConnectLocId(0, celsidesmall.Side());
+        TPZConnect &c = intel->Connect(cindex);
+        c.RemoveDepend();
+    }
+    if (gel){
+        gel->ResetReference();
+    }
+}
 
 TPZHCurlNedFLinEl *TPZHCurlNedFLinEl::Clone(TPZCompMesh &mesh) const {
     DebugStop();
