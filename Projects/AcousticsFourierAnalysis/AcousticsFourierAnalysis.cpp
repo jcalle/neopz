@@ -42,7 +42,7 @@ namespace SPZAcousticData{
 
     //TODO:Remove this atrocity
     enum caseNames{
-        allPmls=0, lrPmls, noPmls, concentricMesh
+        allPmls=0, lrPmls, noPmls, concentricMesh, realWell1
     };
 }
 void
@@ -84,8 +84,8 @@ int main(int argc, char *argv[]) {
     const int nDivIni = 4; //PARAMS
     const int nPcycles = 1;
     const int nHcycles = 1;
-    SPZAcousticData::caseNames whichCase = SPZAcousticData::caseNames::concentricMesh;
-    const REAL wZero = whichCase == SPZAcousticData::caseNames::concentricMesh ?
+    SPZAcousticData::caseNames whichCase = SPZAcousticData::caseNames::realWell1;
+    const REAL wZero = (whichCase == SPZAcousticData::caseNames::concentricMesh) || (whichCase == SPZAcousticData::caseNames::realWell1) ?
             18 * 1000 * 2 *M_PI : 100 * 2 * M_PI;
     boost::posix_time::ptime t1 =
             boost::posix_time::microsec_clock::local_time();
@@ -225,6 +225,43 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
             pmlLength = -1;
             pmlTypeVec.Resize(nPmls);
             meshFileName = "concentricMesh.geo";
+            break;
+        case SPZAcousticData::caseNames::realWell1:
+            isHighOrder = true;
+            paramsName.resize(6);
+            paramsVal.resize(6);
+            paramsName[0] = "r1";
+            paramsVal[0] = 0.09525;
+            paramsName[1] = "r2";
+            paramsVal[1] = 0.01750;
+            paramsName[2] = "r3";
+            paramsVal[2] = 0.03725;
+            paramsName[3] = "r4";
+            paramsVal[3] = 0.01750;
+            paramsName[4] = "r5";
+            paramsVal[4] = 0.05000;
+            paramsName[5] = "r6";
+            paramsVal[5] = 0.78500;
+            sourcePosX = 0.;
+            sourcePosY = 0.;
+            rhoVec.Resize(6);
+            rhoVec[0] = 1000;
+            rhoVec[1] = 7850;
+            rhoVec[2] = 1000;
+            rhoVec[3] = 7850;
+            rhoVec[4] = 3150;
+            rhoVec[5] = 2750;
+            velocityVec.Resize(6);
+            velocityVec[0] = 1500;
+            velocityVec[1] = 5960;
+            velocityVec[2] = 1500;
+            velocityVec[3] = 5960;
+            velocityVec[4] = 3500;
+            velocityVec[5] = 5950;
+            nPmls = 0;
+            pmlLength = -1;
+            pmlTypeVec.Resize(nPmls);
+            meshFileName = "realWell.geo";
             break;
         default:
             DebugStop();
