@@ -272,11 +272,14 @@ allsurfaces[] = Surface '*'; // For recovering all volumes just after the box fo
 
 boundary[] = CombinedBoundary{ Surface{allsurfaces[]}; } ; // Boundary of all the volumes for your surface loop
 
-Physical Surface("water_inner",1) = {s_s_1,s_c1_1,s_c1_2,s_c1_3,s_c1_4};
-Physical Surface("column",2) 	  = {s_c2_1,s_c2_2,s_c2_3,s_c2_4} ;//pml domain
-Physical Surface("water_outer",3) = {s_c3_1,s_c3_2,s_c3_3,s_c3_4} ;//pml domain
-Physical Surface("casing",4) = {s_c4_1,s_c4_2,s_c4_3,s_c4_4} ;//pml domain
-Physical Surface("cement",5) = {s_c5_1,s_c5_2,s_c5_3,s_c5_4} ;//pml domain
-Physical Surface("rock",6) = {s_c6_1,s_c6_2,s_c6_3,s_c6_4} ;//pml domain
-Physical Line("boundary", 7)   = boundary[];
+Physical Surface("water",1) = {s_s_1,s_c1_1,s_c1_2,s_c1_3,s_c1_4,s_c3_1,s_c3_2,s_c3_3,s_c3_4};
+Physical Surface("steel",2) 	  = {s_c2_1,s_c2_2,s_c2_3,s_c2_4,s_c4_1,s_c4_2,s_c4_3,s_c4_4} ;//pml domain
+Physical Surface("cement",3) = {s_c5_1,s_c5_2,s_c5_3,s_c5_4} ;//pml domain
+Physical Surface("rock",4) = {s_c6_1,s_c6_2,s_c6_3,s_c6_4} ;//pml domain
+Physical Line("boundary", 5)   = boundary[];
+//Physical Surface("water",3) = {s_c3_1,s_c3_2,s_c3_3,s_c3_4} ;//pml domain
+//Physical Surface("casing",4) = {s_c4_1,s_c4_2,s_c4_3,s_c4_4} ;//pml domain
+//Physical Surface("cement",5) = {s_c5_1,s_c5_2,s_c5_3,s_c5_4} ;//pml domain
+//Physical Surface("rock",6) = {s_c6_1,s_c6_2,s_c6_3,s_c6_4} ;//pml domain
+//Physical Line("boundary", 7)   = boundary[];
 Coherence;

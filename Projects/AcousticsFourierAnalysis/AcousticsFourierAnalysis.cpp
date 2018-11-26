@@ -47,7 +47,8 @@ namespace SPZAcousticData{
 }
 void
 CreateGMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec, const bool &print,
-            TPZVec<std::string> paramsName, TPZVec<REAL>paramsVal, REAL elSize, bool isHighOrder, const std::string &prefix);
+            TPZVec<std::string> paramsName, TPZVec<REAL> paramsVal, REAL elSize, bool isHighOrder,
+            const std::string &prefix, std::map<std::string,int> &materialNames);
 
 void CreateSourceNode(TPZGeoMesh * &gmesh, const int &matIdSource, const REAL &sourcePosX, const REAL &sourcePosY);
 
@@ -68,12 +69,15 @@ void FilterBoundaryEquations(TPZCompMesh *cmeshHCurl,
 void
 CreateCMesh(TPZCompMesh *&cmesh, TPZGeoMesh *gmesh, int pOrder, void (&loadVec)(const TPZVec<REAL> &, TPZVec<STATE> &),
             const REAL &alphaPml, const std::string &prefix, const bool &print,
-            const TPZVec<int> &matIdVec, const TPZVec<REAL> &rhoVec,const TPZVec<REAL> &velocityVec,
+            const TPZVec<int> &matIdVec, const std::map<int,REAL> &rhoMap,const std::map<int,REAL> &velocityMap,
             const TPZVec< SPZAcousticData::pmltype > &pmlTypeVec,
             const TPZVec<SPZAcousticData::boundtype> &boundTypeVec);
 
 void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix, const REAL &wZero,SPZAcousticData::caseNames whichCase);
 
+
+void GetMaterialProperties(std::map<std::string,int> &materialNames, std::map<int,REAL> &rhoMap,
+                                                std::map<int,REAL> &velocityMap);
 
 int main(int argc, char *argv[]) {
 #ifdef LOG4CXX
@@ -119,8 +123,8 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     int nPmls = -1;
     REAL pmlLength = 0;
     std::string meshFileName("iDontExist.geo");
-    TPZVec<REAL> rhoVec(1,0.);
-    TPZVec<REAL> velocityVec(1,0.);
+    std::map<int,REAL> rhoVec;
+    std::map<int,REAL> velocityVec;
     TPZVec<SPZAcousticData::pmltype > pmlTypeVec(0, SPZAcousticData::pmltype::xp);
     TPZVec<SPZAcousticData::boundtype > boundTypeVec(1, SPZAcousticData::boundtype::softwall);
     TPZVec<std::string> paramsName(1,"");
@@ -144,10 +148,6 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
             paramsVal[2] = 5;
             sourcePosX = paramsVal[0]/2;
             sourcePosY = paramsVal[1]/2;
-            rhoVec.Resize(1);
-            rhoVec[0] = 1.3;
-            velocityVec.Resize(1);
-            velocityVec[0] = 340;
             nPmls = 8;
             pmlTypeVec.Resize(nPmls);
             pmlTypeVec[0] = SPZAcousticData::pmltype::xp;
@@ -171,10 +171,6 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
             paramsVal[2] = 5;
             sourcePosX = paramsVal[0]/2;
             sourcePosY = paramsVal[1]/2;
-            rhoVec.Resize(1);
-            rhoVec[0] = 1.3;
-            velocityVec.Resize(1);
-            velocityVec[0] = 340;
             nPmls = 2;
             pmlTypeVec.Resize(nPmls);
             pmlTypeVec[0] = SPZAcousticData::pmltype::xm;
@@ -192,10 +188,6 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
             paramsVal[2] = -1;
             sourcePosX = paramsVal[0]/2;
             sourcePosY = paramsVal[1]/2;
-            rhoVec.Resize(1);
-            rhoVec[0] = 1.3;
-            velocityVec.Resize(1);
-            velocityVec[0] = 340;
             nPmls = 0;
             pmlLength = -1;
             pmlTypeVec.Resize(nPmls);
@@ -213,14 +205,6 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
             paramsVal[2] = 0.050;
             sourcePosX = 0.;
             sourcePosY = 0.;
-            rhoVec.Resize(3);
-            rhoVec[0] = 1000;
-            rhoVec[1] = 7850;
-            rhoVec[2] = 1000;
-            velocityVec.Resize(3);
-            velocityVec[0] = 1500;
-            velocityVec[1] = 5960;
-            velocityVec[2] = 1500;
             nPmls = 0;
             pmlLength = -1;
             pmlTypeVec.Resize(nPmls);
@@ -244,20 +228,6 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
             paramsVal[5] = 0.78500;
             sourcePosX = 0.;
             sourcePosY = 0.;
-            rhoVec.Resize(6);
-            rhoVec[0] = 1000;
-            rhoVec[1] = 7850;
-            rhoVec[2] = 1000;
-            rhoVec[3] = 7850;
-            rhoVec[4] = 3150;
-            rhoVec[5] = 2750;
-            velocityVec.Resize(6);
-            velocityVec[0] = 1500;
-            velocityVec[1] = 5960;
-            velocityVec[2] = 1500;
-            velocityVec[3] = 5960;
-            velocityVec[4] = 3500;
-            velocityVec[5] = 5950;
             nPmls = 0;
             pmlLength = -1;
             pmlTypeVec.Resize(nPmls);
@@ -274,6 +244,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
     REAL length = 20,height = 10;
     REAL elSize = -1;//    2 *M_PI*velocity / (10 *wZero),
     int64_t nTimeSteps = -1;
+    REAL cfl = 0.2;
     {
         REAL minVelocity = 1e12;
         for (int i = 0; i < velocityVec.size(); ++i) {
@@ -282,7 +253,7 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
             }
         }
         elSize =  2 *M_PI*minVelocity / (10 *wZero);
-        nTimeSteps = std::ceil(totalTime/(0.2 *elSize / minVelocity));
+        nTimeSteps = std::ceil(totalTime/(cfl *elSize / minVelocity));
     }
 
     const REAL deltaT = totalTime/nTimeSteps;
@@ -305,8 +276,11 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
             boost::posix_time::microsec_clock::local_time();
     TPZGeoMesh *gmesh = nullptr;
     TPZVec<int> matIdVec;
-    CreateGMesh(gmesh, meshFileName, matIdVec, printG, paramsName,paramsVal,elSize, isHighOrder, prefix);
-
+    std::map<std::string,int> matNames;
+    CreateGMesh(gmesh, meshFileName, matIdVec, printG, paramsName, paramsVal, elSize,
+                isHighOrder, prefix, matNames);
+    //Get Material Properties
+    GetMaterialProperties(matNames, rhoVec, velocityVec);
     int matIdSource = 0;
     for (int iMat = 0; iMat< matIdVec.size(); iMat++){
         matIdSource += matIdVec[iMat];
@@ -631,9 +605,30 @@ void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix
 //    gmesh=nullptr;
 }
 
+void GetMaterialProperties(std::map<std::string,int> &materialNames, std::map<int,REAL> &rhoMap,
+        std::map<int,REAL> &velocityMap) {
+
+    std::map<std::string,std::pair<REAL,REAL>> dataBase;//rho,velocity
+    dataBase.insert(std::make_pair<>("water",std::make_pair<REAL,REAL>(1000,1500)));
+    dataBase.insert(std::make_pair<>("steel",std::make_pair<REAL,REAL>(7850,5960)));
+    dataBase.insert(std::make_pair<>("cement",std::make_pair<REAL,REAL>(3150,3500)));
+    dataBase.insert(std::make_pair<>("rock",std::make_pair<REAL,REAL>(2750,5950)));
+
+    for(auto &itMap : materialNames){
+        auto possibleMat = dataBase.find(itMap.first);
+        if(possibleMat == dataBase.end()){
+            PZError << "you are trying to create a nonexistent material."<<std::endl;
+            DebugStop();
+        }
+        rhoMap[itMap.second] = possibleMat->second.first;
+        velocityMap[itMap.second] = possibleMat->second.second;
+    }
+}
+
 void
 CreateGMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec, const bool &print,
-            TPZVec<std::string> paramsName, TPZVec<REAL>paramsVal, REAL elSize, bool isHighOrder, const std::string &prefix) {
+            TPZVec<std::string> paramsName, TPZVec<REAL> paramsVal, REAL elSize, bool isHighOrder,
+            const std::string &prefix, std::map<std::string,int> &materialNames) {
 
     std::ostringstream str_elSize;
     str_elSize << std::setprecision(16) << elSize;
@@ -693,7 +688,12 @@ CreateGMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matI
         matIdVec[imat] = kv.first;
         imat++;
     }
-
+    materialNames = meshReader.fPZMaterialId[2];
+//    for (auto& kv : meshReader.fMaterialDataVec[1]) {
+//        matIdVec[imat] = kv.first;
+//        imat++;
+//    }
+    //TODO: Get element size from gmsh mesh
     if(print){
         std::string meshFileName = prefix + "gmesh";
         const size_t strlen = meshFileName.length();
@@ -792,7 +792,7 @@ void FilterBoundaryEquations(TPZCompMesh *cmeshHCurl,
 void
 CreateCMesh(TPZCompMesh *&cmesh, TPZGeoMesh *gmesh, int pOrder, void (&loadVec)(const TPZVec<REAL> &, TPZVec<STATE> &),
             const REAL &alphaPml, const std::string &prefix, const bool &print,
-            const TPZVec<int> &matIdVec, const TPZVec<REAL> &rhoVec,const TPZVec<REAL> &velocityVec,
+            const TPZVec<int> &matIdVec, const std::map<int,REAL> &rhoVec,const std::map<int,REAL> &velocityVec,
             const TPZVec< SPZAcousticData::pmltype > &pmlTypeVec,
             const TPZVec<SPZAcousticData::boundtype> &boundTypeVec){
 
@@ -826,17 +826,21 @@ CreateCMesh(TPZCompMesh *&cmesh, TPZGeoMesh *gmesh, int pOrder, void (&loadVec)(
     TPZMatAcousticsFourier *matAcoustics = nullptr, *matOuter = nullptr;
     REAL rhoOuter=-1, velocityOuter=-1;
     for (int i = 0; i < volMatIdVec.size(); ++i) {
-        matAcoustics = new TPZMatAcousticsFourier(volMatIdVec[i], rhoVec[i], velocityVec[i]);
+        const REAL rho = rhoVec.at(volMatIdVec[i]);
+        const REAL velocity = velocityVec.at(volMatIdVec[i]);
+        matAcoustics = new TPZMatAcousticsFourier(volMatIdVec[i], rho, velocity);
         cmesh->InsertMaterialObject(matAcoustics);
         if(volMatIdVec[i] == outerMaterialIndex){
-            rhoOuter = rhoVec[i];
-            velocityOuter = velocityVec[i];
+            rhoOuter = rho;
+            velocityOuter = velocity;
             matOuter = matAcoustics;
         }
     }
 
     for (int i = 0; i < sourceMatIdVec.size(); ++i) {
-        matAcoustics = new TPZMatAcousticsFourier(sourceMatIdVec[i], rhoVec[i], velocityVec[i]);//rho and v wont be used
+        const REAL rho = rhoVec.at(volMatIdVec[i]);
+        const REAL velocity = velocityVec.at(volMatIdVec[i]);
+        matAcoustics = new TPZMatAcousticsFourier(sourceMatIdVec[i], rho, velocity);//rho and v wont be used
         matAcoustics->SetForcingFunction(loadVec, 4);
         cmesh->InsertMaterialObject(matAcoustics);
     }
