@@ -47,9 +47,9 @@ TPZGmshReader::~TPZGmshReader() {
 }//method
 
 
-TPZGeoMesh * TPZGmshReader::GeometricGmshMesh(std::string file_name, TPZGeoMesh *gmeshinput)
+TPZGeoMesh * TPZGmshReader::GeometricGmshMesh(std::string file_name, TPZGeoMesh *gmeshinput, bool verbosity)
 {
-    
+    fVerbose = verbosity;
     std::string string_temp;
     
     //  Mesh Creation
@@ -85,7 +85,7 @@ TPZGeoMesh * TPZGmshReader::GeometricGmshMesh(std::string file_name, TPZGeoMesh 
             {
                 read.getline(buf, 1024);
                 std::string str(buf);
-                std::cout << "Reading mesh format = " << str << std::endl;
+                if(fVerbose) std::cout << "Reading mesh format = " << str << std::endl;
                 
             }
             
@@ -112,13 +112,13 @@ TPZGeoMesh * TPZGmshReader::GeometricGmshMesh(std::string file_name, TPZGeoMesh 
                     
                     if(fPZMaterialId[dimension].find(name) == fPZMaterialId[dimension].end())
                     {
-                        std::cout << "Automatically associating " << name << " with material id " << id << std::endl;
+                        if(fVerbose) std::cout << "Automatically associating " << name << " with material id " << id << std::endl;
                         fPZMaterialId[dimension][name] = id;
                     }
                     else
                     {
                         int pzmatid = fPZMaterialId[dimension][name];
-                        std::cout << "Associating " << name << " with material id " << id <<
+                        if (fVerbose) std::cout << "Associating " << name << " with material id " << id <<
                     " with pz material id " << pzmatid << std::endl;
                     }
                     
@@ -136,7 +136,7 @@ TPZGeoMesh * TPZGmshReader::GeometricGmshMesh(std::string file_name, TPZGeoMesh 
                 std::string str_end(buf_end);
                 if(str_end == "$EndPhysicalNames" || str_end == "$EndPhysicalNames\r")
                 {
-                    std::cout << "Read mesh physical entities = " << n_entities << std::endl;
+                    if(fVerbose) std::cout << "Read mesh physical entities = " << n_entities << std::endl;
                 }
                 continue;
             }
@@ -179,7 +179,7 @@ TPZGeoMesh * TPZGmshReader::GeometricGmshMesh(std::string file_name, TPZGeoMesh 
                 std::string str_end(buf_end);
                 if(str_end == "$EndNodes" || str_end == "$EndNodes\r")
                 {
-                    std::cout << "Read mesh nodes = " <<  gmesh->NNodes() << std::endl;
+                    if(fVerbose) std::cout << "Read mesh nodes = " <<  gmesh->NNodes() << std::endl;
                 }
                 continue;
             }
@@ -201,7 +201,7 @@ TPZGeoMesh * TPZGmshReader::GeometricGmshMesh(std::string file_name, TPZGeoMesh 
                 std::string str_end(buf_end);
                 if(str_end == "$EndElements" || str_end == "$EndElements\r")
                 {
-                    std::cout << "Read mesh elements = " << gmesh->NElements() << std::endl;
+                    if(fVerbose) std::cout << "Read mesh elements = " << gmesh->NElements() << std::endl;
                 }
                 continue;
             }
@@ -210,10 +210,12 @@ TPZGeoMesh * TPZGmshReader::GeometricGmshMesh(std::string file_name, TPZGeoMesh 
         
     }
     
-    std::cout << "Read General Mesh Data -> done!" << std::endl;
-    std::cout << "Number of elements " << gmesh->NElements() << std::endl;
+    if(fVerbose) {
+        std::cout << "Read General Mesh Data -> done!" << std::endl;
+        std::cout << "Number of elements " << gmesh->NElements() << std::endl;
+    }
     gmesh->BuildConnectivity();
-    std::cout << "Geometric Mesh Connectivity -> done!" << std::endl;
+    if(fVerbose) std::cout << "Geometric Mesh Connectivity -> done!" << std::endl;
     return gmesh;
     
 }// End Method

@@ -68,7 +68,7 @@ public:
     ~TPZGmshReader();
     
     /** @brief Convert Gmsh msh files in a TPZGeoMesh object */
-    TPZGeoMesh * GeometricGmshMesh(std::string file_name, TPZGeoMesh *gmesh = NULL);
+    TPZGeoMesh * GeometricGmshMesh(std::string file_name, TPZGeoMesh *gmesh = NULL, bool verbosity = true);
     
     /** @brief Number of Materials */
     /** Number of volumetric materials */
@@ -104,9 +104,9 @@ public:
     
     /** @brief Insert elements following msh file format */
     bool InsertElement(TPZGeoMesh * gmesh, std::ifstream & line);
-    
+
 private:
-    
+    bool fVerbose = true;
     
 };
 
