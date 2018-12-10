@@ -32,52 +32,72 @@
 #include "TPZMatAcousticsPml.h"
 
 
-namespace SPZAcousticData{
-    enum pmltype{
-        xp=0,yp,xm,ym,xpyp,xmyp,xmym,xpym
-    };
-    enum boundtype{
+struct SPZAcousticData{
+//    enum pmltype{ TODO: tarefa pra 2019 (2020?)
+//        xp=0,yp,xm,ym,xpyp,xmyp,xmym,xpym
+//    };
+    enum EBoundType{
         softwall = 0, hardwall = 1
     };
-
-    //TODO:Remove this atrocity
-    enum caseNames{
-        allPmls=0, lrPmls, noPmls, concentricMesh, realWell1
+    enum ESimulationType{
+        transient = 0, frequencyDomain = 1
     };
-}
-void
-CreateGMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec, const bool &print,
-            TPZVec<std::string> paramsName, TPZVec<REAL> paramsVal, REAL nElemPerLambdaTimesOmega,
-            const std::string &prefix, TPZVec<REAL> &elSizes, std::map<int,REAL> &velocityMap, std::map<int,REAL> &rhoMap);
+    struct SPZSimulationSettings{
+        std::string resultsDir = "results/";
+        std::string meshName = "iDontExist.geo";
+        TPZVec<SPZAcousticData::EBoundType> boundType;
+        int nElemPerLambda;
+        REAL totalTime;
+        REAL cfl;
+        REAL nTimeSteps;
+        bool isCflBound;
+        int pOrder;
+    };
+    struct SPZSourceSettings{
+        REAL posX;
+        REAL posY;
+        REAL amplitude;
+        REAL peakTime;
+        REAL centralFrequency;
+    };
+    struct SPZFrequencyDomainSettings{
+        REAL wSample;
+        REAL wMax;
+        REAL alphaFreqShift;
+    };
+    struct SPZOutputSettings{
+        bool printGmesh;
+        bool printCmesh;
+        bool vtkSol;
+        int vtkResolution;
+    };
+
+    SPZSimulationSettings fSimulationSettings;
+    SPZSourceSettings fSourceSettings;
+    SPZFrequencyDomainSettings fFrequencyDomainSettings;
+};
+
+
+
+void CreateGMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec, const bool &print,
+        REAL nElemPerLambdaTimesOmega, const std::string &prefix, TPZVec<REAL> &elSizes,
+        std::map<int,REAL> &velocityMap, std::map<int,REAL> &rhoMap);
 
 void CreateSourceNode(TPZGeoMesh * &gmesh, const int &matIdSource, const REAL &sourcePosX, const REAL &sourcePosY);
 
-void loadVec(const TPZVec<REAL> &coord, TPZVec<STATE> &val) {
-    val.Resize(3, 0.);
-    //  val[0] = 3 - coord[1] * coord[1];
-    //  val[1] = 3 - coord[0] * coord[0];
-    val[0] = (2 * M_PI * M_PI + 1.) * M_PI *
-             cos(M_PI * coord[0]) * sin(M_PI * coord[1]);
-    val[1] = (2 * M_PI * M_PI + 1.) * M_PI * (-1.) *
-             sin(M_PI * coord[0]) * cos(M_PI * coord[1]);
-}
-
-void FilterBoundaryEquations(TPZCompMesh *cmeshHCurl,
-                             TPZVec<int64_t> &activeEquations, int &neq,
-                             int &neqOriginal);
+void FilterBoundaryEquations(TPZCompMesh *cmesh, TPZVec<int64_t> &activeEquations, int &neq, int &neqOriginal);
 
 void
 CreateCMesh(TPZCompMesh *&cmesh, TPZGeoMesh *gmesh, int pOrder, void (&loadVec)(const TPZVec<REAL> &, TPZVec<STATE> &),
-            const REAL &alphaPml, const std::string &prefix, const bool &print,
-            const TPZVec<int> &matIdVec, const std::map<int,REAL> &rhoMap,const std::map<int,REAL> &velocityMap,
-            const TPZVec< SPZAcousticData::pmltype > &pmlTypeVec,
-            const TPZVec<SPZAcousticData::boundtype> &boundTypeVec);
-
-void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix, const REAL &wZero,SPZAcousticData::caseNames whichCase);
-
+            const std::string &prefix, const bool &print, const TPZVec<int> &matIdVec,
+            const std::map<int,REAL> &rhoMap,const std::map<int,REAL> &velocityMap,
+//          const REAL &alphaPml, const TPZVec< SPZAcousticData::pmltype > &pmlTypeVec,
+            const TPZVec<SPZAcousticData::EBoundType> &boundTypeVec);
 
 void GetMaterialProperties(std::map<std::string,int> &materialNames, std::map<int,REAL> &rhoMap,
-                                                std::map<int,REAL> &velocityMap);
+                           std::map<int,REAL> &velocityMap);
+
+void RunSimulation(SPZAcousticData &simData);
 
 int main(int argc, char *argv[]) {
 #ifdef LOG4CXX
@@ -111,231 +131,15 @@ int main(int argc, char *argv[]) {
 }
 
 void RunSimulation(const int &nDiv, const int &pOrder, const std::string &prefix, const REAL &wZero, SPZAcousticData::caseNames whichCase) {
-    // PARAMETROS FISICOS DO PROBLEMA
-    const int nThreads = 8; //PARAMS
-    const bool l2error = true; //PARAMS
-    const bool genVTK = true; //PARAMS
-    const bool printG = true;//PARAMS
-    const bool printC = true;//PARAMS
-    const int postprocessRes = 0;//PARAMS
 
-
-    int nPmls = -1;
-    REAL pmlLength = 0;
-    std::string meshFileName("iDontExist.geo");
-    TPZVec<SPZAcousticData::pmltype > pmlTypeVec(0, SPZAcousticData::pmltype::xp);
-    TPZVec<SPZAcousticData::boundtype > boundTypeVec(1, SPZAcousticData::boundtype::softwall);
-    TPZVec<std::string> paramsName(1,"");
-    TPZVec<REAL>paramsVal(1,0.);
-    REAL alphaPML = 10;
-    REAL peakTime = 2 * M_PI /wZero;
-    REAL amplitude = 1;
-    REAL totalTime = 12   * peakTime;
-    REAL sourcePosX = -1;
-    REAL sourcePosY = -1;
-    REAL cfl = 0.2;
-    int64_t nTimeSteps = 600;
-    bool defineCfl = false;
-    REAL nElemPerLambdaTimesOmega = 10 * wZero;
-    int nSamples = 250;
-    const REAL wMax = 3 * wZero;
-
-    switch(whichCase){
-        case SPZAcousticData::caseNames::allPmls:
-            paramsName.resize(3);
-            paramsVal.resize(3);
-            paramsName[0] = "length";
-            paramsVal[0] = 20.;
-            paramsName[1] = "height";
-            paramsVal[1] = 20.;
-            paramsName[2] = "pml_length";
-            paramsVal[2] = 5;
-            sourcePosX = paramsVal[0]/2;
-            sourcePosY = paramsVal[1]/2;
-            nPmls = 8;
-            pmlTypeVec.Resize(nPmls);
-            pmlTypeVec[0] = SPZAcousticData::pmltype::xp;
-            pmlTypeVec[1] = SPZAcousticData::pmltype::xpyp;
-            pmlTypeVec[2] = SPZAcousticData::pmltype::yp;
-            pmlTypeVec[3] = SPZAcousticData::pmltype::xmyp;
-            pmlTypeVec[4] = SPZAcousticData::pmltype::xm;
-            pmlTypeVec[5] = SPZAcousticData::pmltype::xmym;
-            pmlTypeVec[6] = SPZAcousticData::pmltype::ym;
-            pmlTypeVec[7] = SPZAcousticData::pmltype::xpym;
-            meshFileName = "wellMeshPML.geo";
-            break;
-        case SPZAcousticData::caseNames::lrPmls:
-            paramsName.resize(3);
-            paramsVal.resize(3);
-            paramsName[0] = "length";
-            paramsVal[0] = 20.;
-            paramsName[1] = "height";
-            paramsVal[1] = 10.;
-            paramsName[2] = "pml_length";
-            paramsVal[2] = 5;
-            sourcePosX = paramsVal[0]/2;
-            sourcePosY = paramsVal[1]/2;
-            nPmls = 2;
-            pmlTypeVec.Resize(nPmls);
-            pmlTypeVec[0] = SPZAcousticData::pmltype::xm;
-            pmlTypeVec[1] = SPZAcousticData::pmltype::xp;
-            meshFileName = "wellMesh.geo";
-            break;
-        case SPZAcousticData::caseNames::noPmls:
-            paramsName.resize(3);
-            paramsVal.resize(3);
-            paramsName[0] = "length";
-            paramsVal[0] = 20.;
-            paramsName[1] = "height";
-            paramsVal[1] = 10.;
-            paramsName[2] = "pml_length";
-            paramsVal[2] = -1;
-            sourcePosX = paramsVal[0]/2;
-            sourcePosY = paramsVal[1]/2;
-            nPmls = 0;
-            pmlLength = -1;
-            pmlTypeVec.Resize(nPmls);
-            meshFileName = "wellMesh.geo";
-            break;
-        case SPZAcousticData::caseNames::concentricMesh:
-            paramsName.resize(3);
-            paramsVal.resize(3);
-            paramsName[0] = "r1";
-            paramsVal[0] = 0.055;
-            paramsName[1] = "r2";
-            paramsVal[1] = 0.005;
-            paramsName[2] = "r3";
-            paramsVal[2] = 0.050;
-            sourcePosX = 0.;
-            sourcePosY = 0.;
-            nPmls = 0;
-            pmlLength = -1;
-            pmlTypeVec.Resize(nPmls);
-            meshFileName = "concentricMesh.geo";
-            break;
-        case SPZAcousticData::caseNames::realWell1:
-            paramsName.resize(6);
-            paramsVal.resize(6);
-            paramsName[0] = "r1";
-            paramsVal[0] = 0.09525;
-            paramsName[1] = "r2";
-            paramsVal[1] = 0.01750;
-            paramsName[2] = "r3";
-            paramsVal[2] = 0.03725;
-            paramsName[3] = "r4";
-            paramsVal[3] = 0.01750;
-            paramsName[4] = "r5";
-            paramsVal[4] = 0.05000;
-            paramsName[5] = "r6";
-            paramsVal[5] = 0.78500;
-            sourcePosX = 0.;
-            sourcePosY = 0.;
-            nPmls = 0;
-            pmlLength = -1;
-            pmlTypeVec.Resize(nPmls);
-            meshFileName = "realWell.geo";
-            break;
-        default:
-            DebugStop();
-    }
-    boundTypeVec[0] = SPZAcousticData::boundtype::softwall;
-
-    TPZVec<REAL> elSizeVec(1,-1);
-
-    std::cout<<"Creating gmesh... ";
-    boost::posix_time::ptime t1_g =
-            boost::posix_time::microsec_clock::local_time();
-    TPZGeoMesh *gmesh = nullptr;
-    TPZVec<int> matIdVec;
-    std::map<int,REAL> rhoMap;
-    std::map<int,REAL> velocityMap;
-    CreateGMesh(gmesh, meshFileName, matIdVec, printG, paramsName, paramsVal, nElemPerLambdaTimesOmega,
-                prefix, elSizeVec, velocityMap, rhoMap );
-    ////////////////////////////////////////////////////////////////////////
-    //////////////////////////CREATE SOURCE GEO EL//////////////////////////
-    ////////////////////////////////////////////////////////////////////////
-    int matIdSource = 0;
-    for (int iMat = 0; iMat< matIdVec.size(); iMat++){
-        matIdSource += matIdVec[iMat];
-    }
-    TPZVec<int> matIdVecCp(matIdVec);
-    matIdVec.resize(matIdVec.size()+1);
-    matIdVec[0] = matIdSource;
-    for (int iMat = 0; iMat< matIdVecCp.size(); iMat++){
-        matIdVec[iMat+1] = matIdVecCp[iMat];
-    }
-
-    CreateSourceNode(gmesh, matIdSource, sourcePosX, sourcePosY);
-
-
-    boost::posix_time::ptime t2_g =
-            boost::posix_time::microsec_clock::local_time();
-    std::cout<<"Created! "<<t2_g-t1_g<<std::endl;
-    if(defineCfl)
-    {
-        if(cfl < 0){
-            std::cout<<"You have not set the CFL"<<std::endl;
-            DebugStop();
-            exit(1);
-        }
-        std::cout<<"Calculating time step for CFL = "<<std::setprecision(4)<<cfl<<std::endl;
-        boost::posix_time::ptime t1_c =
-                boost::posix_time::microsec_clock::local_time();
-        std::map<int,REAL> sizeMap;//matId, minElSize
-        int i = 0;
-        for(auto iVelocity : velocityMap){
-            auto matId = iVelocity.first;
-            sizeMap[matId] = elSizeVec[i];
-            i++;
-        }
-        REAL smallerTimeStep = 1e12;
-        for(auto iVelocity : velocityMap){
-            auto matId = iVelocity.first;
-            sizeMap[matId] = cfl * sizeMap[matId] / iVelocity.second;
-            if(sizeMap[matId] < smallerTimeStep) smallerTimeStep = sizeMap[matId];
-        }
-        nTimeSteps = std::ceil(totalTime/smallerTimeStep);
-        boost::posix_time::ptime t2_c =
-                boost::posix_time::microsec_clock::local_time();
-        std::cout<<"took "<<t2_c-t1_c<<std::endl;
-    }else{
-        if(nTimeSteps < 1){
-            std::cout<<"You have not set the number of time steps"<<std::endl;
-            DebugStop();
-            exit(1);
-        }
-        std::map<int,REAL> sizeMap;//matId, minElSize
-        int i = 0;
-        for(auto iVelocity : velocityMap){
-            auto matId = iVelocity.first;
-            sizeMap[matId] = elSizeVec[i];
-            i++;
-        }
-        for(auto iVelocity : velocityMap){
-            auto matId = iVelocity.first;
-            std::cout<<"material "<<matId<<"\telradius "<<sizeMap[matId]<<"\telradius_calc";
-            std::cout<<2*M_PI*iVelocity.second/nElemPerLambdaTimesOmega<<"\t velocity "<<iVelocity.second<<std::endl;
-            sizeMap[matId] = iVelocity.second * (totalTime/nTimeSteps)/ sizeMap[matId];
-            std::cout<<"CFL for material "<<matId<<" is:"<<sizeMap[matId]<<std::endl;
-        }
-    }
-    const REAL deltaT = totalTime/nTimeSteps;
-    std::cout<<"delta t = "<<deltaT<<std::endl;
+    ///////////TODO: MISSING
     REAL wSample = wMax/nSamples;
     if(2 * M_PI /wSample < totalTime){
         std::cout<<"sampling is not good. hmmmmmmm."<<std::endl;
     }
 
 
-    std::cout<<"Creating cmesh... ";
-    boost::posix_time::ptime t1_c =
-            boost::posix_time::microsec_clock::local_time();
-    TPZCompMesh *cmesh = NULL;
-    CreateCMesh(cmesh, gmesh, pOrder, loadVec, alphaPML, prefix, printC, matIdVec,
-                rhoMap, velocityMap, pmlTypeVec,boundTypeVec);
-    boost::posix_time::ptime t2_c =
-            boost::posix_time::microsec_clock::local_time();
-    std::cout<<"Created! "<<t2_c-t1_c<<std::endl;
+
 
     TPZAnalysis an(cmesh);
     // configuracoes do objeto de analise
