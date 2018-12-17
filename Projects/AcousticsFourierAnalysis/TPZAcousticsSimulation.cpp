@@ -1,4 +1,5 @@
 #include "TPZAcousticsSimulation.h"
+#include "TPZAcousticGeoMesher.h"
 #include "pzcheckgeom.h"
 #include "pzcmesh.h"
 #include "TPZGmshReader.h"
@@ -21,12 +22,16 @@ void TPZAcousticsSimulation::RunSimulation(){
     std::map<int,REAL> velocityMap;
     TPZVec<REAL> elSizeVec;
     {
-        std::string meshFileName = this->fSimData.fSimulationSettings.meshName;
-        bool &printG = this->fSimData.fOutputSettings.printGmesh;
+        std::string meshFileName = this->fSimData.fOutputSettings.resultsDir;
+        std::string prefix = this->fSimData.fSimulationSettings.meshName;
         REAL nElemPerLambdaTimesOmega = this->fSimData.fSimulationSettings.nElemPerLambda *
                                         this->fSimData.fSourceSettings.centralFrequency;
-        CreateGMesh(gmesh, meshFileName, matIdVec, printG, nElemPerLambdaTimesOmega,
-                    this->fSimData.fOutputSettings.resultsDir, elSizeVec, velocityMap, rhoMap );
+        TPZAcousticGeoMesher::CreateGMesh(gmesh, meshFileName, prefix, nElemPerLambdaTimesOmega, matIdVec, elSizeVec,
+                velocityMap, rhoMap);
+        bool &printGtxt = this->fSimData.fOutputSettings.printGmeshTxt;
+        bool &printGvtk = this->fSimData.fOutputSettings.printGmeshVtk;
+        std::string outFilesName = "geomesh";
+        TPZAcousticGeoMesher::PrintMesh(gmesh, outFilesName, prefix, printGvtk, printGtxt);
     }
     ////////////////////////////////////////////////////////////////////////
     //////////////////////////CREATE SOURCE GEO EL//////////////////////////
@@ -42,7 +47,8 @@ void TPZAcousticsSimulation::RunSimulation(){
         matIdVec[iMat+1] = matIdVecCp[iMat];
     }
 
-    CreateSourceNode(gmesh, matIdSource, this->fSimData.fSourceSettings.posX, this->fSimData.fSourceSettings.posY);
+    TPZAcousticGeoMesher::CreateSourceNode(gmesh, matIdSource, this->fSimData.fSourceSettings.posX,
+            this->fSimData.fSourceSettings.posY);
 
 
     boost::posix_time::ptime t2_g =
@@ -62,9 +68,10 @@ void TPZAcousticsSimulation::RunSimulation(){
     {
         const int &pOrder = this->fSimData.fSimulationSettings.pOrder;
         std::string &prefix =this->fSimData.fOutputSettings.resultsDir;
-        const bool &printC = this->fSimData.fOutputSettings.printCmesh;
+        const bool &printCtxt = this->fSimData.fOutputSettings.printCmeshTxt;
+        const bool &printCvtk = this->fSimData.fOutputSettings.printCmeshVtk;
 
-        CreateCMesh(cmesh, gmesh, pOrder, prefix, printC, matIdVec, rhoMap, velocityMap,
+        CreateCMesh(cmesh, gmesh, pOrder, prefix, printCvtk, matIdVec, rhoMap, velocityMap,
                 this->fSimData.fSimulationSettings.boundType);
     }
     boost::posix_time::ptime t2_c =
@@ -72,128 +79,6 @@ void TPZAcousticsSimulation::RunSimulation(){
     std::cout<<"Created! "<<t2_c-t1_c<<std::endl;
 
 
-}
-
-void TPZAcousticsSimulation::GetMaterialProperties(std::map<std::string,int> &materialNames, std::map<int,REAL> &rhoMap,
-                       std::map<int,REAL> &velocityMap){
-
-}
-
-void TPZAcousticsSimulation::CreateGMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec, const bool &print,
-    REAL nElemPerLambdaTimesOmega, const std::string &prefix, TPZVec<REAL> &elSizes,
-    std::map<int,REAL> &velocityMap, std::map<int,REAL> &rhoMap){
-    std::map<std::string,int> materialNames;
-    //FIRST RUN (JUST TO READ THE MATERIALS AND TO SET EL SIZE)
-    {
-        std::string command = "gmsh " + mshFileName + " -0 -v 0 -format msh2";
-        command += " -o " + prefix + "wellMesh.msh";
-        std::shared_ptr<FILE> pipe(popen(command.c_str(), "r"), pclose);
-        if (!pipe) throw std::runtime_error("popen() failed!");
-
-        TPZGmshReader meshReader;
-        gmesh = meshReader.GeometricGmshMesh(prefix+"wellMesh.msh", nullptr, false);
-        materialNames = meshReader.fPZMaterialId[2];
-        elSizes.Resize(materialNames.size());
-        GetMaterialProperties(materialNames, rhoMap, velocityMap);
-        int i =0;
-        for(auto iVelocity : velocityMap){
-            elSizes[i] = 2 *M_PI*iVelocity.second / nElemPerLambdaTimesOmega;
-            i++;
-        }
-        delete gmesh;
-        gmesh = nullptr;
-    }
-
-    std::string command = "gmsh " + mshFileName + " -2 -match -format msh2";
-    command += " -v 3 ";
-
-    for(int i = 0; i < elSizes.size(); i++){
-        std::ostringstream str_elSize;
-        str_elSize << std::setprecision(16) << elSizes[i];
-        command += " -setnumber el_size_"+std::to_string(i+1)+" "+str_elSize.str();
-    }
-    command += " -o " + prefix + "wellMesh.msh";
-    std::cout<<"Generating mesh with: "<<std::endl<<command<<std::endl;
-
-    std::array<char, 128> buffer;
-    std::string result;
-    std::shared_ptr<FILE> pipe(popen(command.c_str(), "r"), pclose);
-    if (!pipe) throw std::runtime_error("popen() failed!");
-    while (fgets(buffer.data(), 128, pipe.get()) != nullptr){
-        result += buffer.data();
-    }
-    std::cout<<result<<std::endl;
-
-
-    TPZGmshReader meshReader;
-    gmesh = meshReader.GeometricGmshMesh(prefix+"wellMesh.msh");
-#ifdef PZDEBUG
-    TPZCheckGeom * Geometrytest = new TPZCheckGeom(gmesh);
-    int isBadMeshQ = Geometrytest->PerformCheck();
-
-    if (isBadMeshQ) {
-        DebugStop();
-    }
-#endif
-    auto matIds = meshReader.fMaterialDataVec;
-    const int n1dMat = meshReader.fMatIdTranslate[1].size();
-    const int n2dMat = meshReader.fMatIdTranslate[2].size();
-    matIdVec.Resize(n2dMat+n1dMat);
-    int imat = 0;
-    ///at this point, the materials in the .geo must be declared in a crescent order
-    for (auto& kv : meshReader.fMatIdTranslate[2]) {
-        matIdVec[imat] = kv.first;
-        imat++;
-    }
-    for (auto& kv : meshReader.fMatIdTranslate[1]) {
-        matIdVec[imat] = kv.first;
-        imat++;
-    }
-//    for (auto& kv : meshReader.fMaterialDataVec[1]) {
-//        matIdVec[imat] = kv.first;
-//        imat++;
-//    }
-    if(print){
-        std::string meshFileName = prefix + "gmesh";
-        const size_t strlen = meshFileName.length();
-        meshFileName.append(".vtk");
-        std::ofstream outVTK(meshFileName.c_str());
-        meshFileName.replace(strlen, 4, ".txt");
-        std::ofstream outTXT(meshFileName.c_str());
-
-        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, outVTK, true);
-        gmesh->Print(outTXT);
-        outTXT.close();
-        outVTK.close();
-    }
-
-    return;
-}
-
-void TPZAcousticsSimulation::CreateSourceNode(TPZGeoMesh * &gmesh, const int &matIdSource, const REAL &sourcePosX, const REAL &sourcePosY){
-    int64_t sourceNodeIndex = -1;
-    REAL minDist = 1e12;
-    //////
-    for(int iEl = 0; iEl < gmesh->NElements(); iEl++){
-        const TPZGeoEl & currentEl = *(gmesh->ElementVec()[iEl]);
-        const int nNodes = currentEl.NCornerNodes();
-        for(int iNode = 0; iNode < nNodes; iNode++){
-            const TPZGeoNode & currentNode = currentEl.Node(iNode);
-            const REAL xNode = currentNode.Coord(0);
-            const REAL yNode = currentNode.Coord(1);
-            const REAL currentDist =
-                    (sourcePosX - xNode)*(sourcePosX - xNode) + (sourcePosY - yNode)*(sourcePosY - yNode);
-            if(currentDist < minDist){
-                minDist = currentDist;
-                sourceNodeIndex = currentNode.Id();
-            }
-        }
-    }
-    TPZVec<int64_t> nodeIdVec(1,sourceNodeIndex);
-    TPZGeoElRefLess<pzgeom::TPZGeoPoint > *zeroDEl =
-            new TPZGeoElRefLess<pzgeom::TPZGeoPoint >(nodeIdVec, matIdSource,
-                                                      *gmesh);
-    gmesh->BuildConnectivity();
 }
 
 void TPZAcousticsSimulation::FilterBoundaryEquations(TPZCompMesh *cmesh, TPZVec<int64_t> &activeEquations, int &neq, int &neqOriginal){

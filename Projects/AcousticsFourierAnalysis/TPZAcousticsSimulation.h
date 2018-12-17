@@ -33,8 +33,10 @@ struct SPZAcousticData{
     };
     struct SPZOutputSettings{
 		std::string resultsDir = "results/";
-        bool printGmesh;
-        bool printCmesh;
+        bool printGmeshVtk;
+        bool printGmeshTxt;
+        bool printCmeshTxt;
+        bool printCmeshVtk;
         bool vtkSol;
         int vtkResolution;
     };
@@ -70,12 +72,6 @@ public:
 
 	static void GetMaterialProperties(std::map<std::string,int> &materialNames, std::map<int,REAL> &rhoMap,
                            std::map<int,REAL> &velocityMap);
-
-	void CreateGMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdVec, const bool &print,
-        REAL nElemPerLambdaTimesOmega, const std::string &prefix, TPZVec<REAL> &elSizes,
-        std::map<int,REAL> &velocityMap, std::map<int,REAL> &rhoMap);
-
-	void CreateSourceNode(TPZGeoMesh * &gmesh, const int &matIdSource, const REAL &sourcePosX, const REAL &sourcePosY);
 
 protected:
 
