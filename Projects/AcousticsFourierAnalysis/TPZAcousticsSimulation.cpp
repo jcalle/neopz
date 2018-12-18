@@ -1,5 +1,6 @@
 #include "TPZAcousticsSimulation.h"
 #include "TPZAcousticGeoMesher.h"
+#include "TPZAcousticCompMesher.h"
 #include "pzcheckgeom.h"
 #include "pzcmesh.h"
 #include "TPZGmshReader.h"
@@ -63,15 +64,16 @@ void TPZAcousticsSimulation::RunSimulation(){
     std::cout<<"Creating cmesh... ";
     boost::posix_time::ptime t1_c =
             boost::posix_time::microsec_clock::local_time();
+    bool isAxisymmetric = false;
+    TPZAcousticCompMesher compMesh(&geoMesh, isAxisymmetric);
     TPZCompMesh *cmesh = NULL;
     {
         const int &pOrder = this->fSimData.fSimulationSettings.pOrder;
-        std::string &prefix =this->fSimData.fOutputSettings.resultsDir;
         const bool &printCtxt = this->fSimData.fOutputSettings.printCmeshTxt;
         const bool &printCvtk = this->fSimData.fOutputSettings.printCmeshVtk;
 
-        CreateCMesh(cmesh, gmesh, pOrder, prefix, printCvtk, matIdVec, rhoMap, velocityMap,
-                this->fSimData.fSimulationSettings.boundType);
+        compMesh.CreateFourierMesh(pOrder);
+
     }
     boost::posix_time::ptime t2_c =
             boost::posix_time::microsec_clock::local_time();

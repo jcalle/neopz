@@ -1,9 +1,13 @@
+#ifndef TPZACOUSTICGEOMESHER
+#define TPZACOUSTICGEOMESHER
+
+
 #include <map>
 #include "pzvec.h"
 class TPZGeoMesh;
 
 /**
- * A utilitary class that interfaces with gmsh executable  in the context of acoustic simulations. It also handles the
+ * A class that interfaces with gmsh executable  in the context of acoustic simulations. It also handles the
  * generation of a NeoPZ geometric mesh.
  *
  */
@@ -53,18 +57,20 @@ public:
      *
      * @return Materials' velocities indexed by material id
      */
-    std::map<int,REAL> GetVelocityMap(){ return fVelocityMap;}
+    std::map<int,REAL> GetVelocityMap() const { return fVelocityMap;}
     /**
      *
      * @return Materials' densities indexed by material id
      */
-     std::map<int,REAL> GetDensityMap(){ return fRhoMap;}
+     std::map<int,REAL> GetDensityMap() const { return fRhoMap;}
 
      /**
       *
       * @return Materials' element sizes indexed by material id
       */
-     std::map<int,REAL> GetElSizes();
+     std::map<int,REAL> GetElSizes() const;
+
+     TPZGeoMesh *GetMesh() const{return fGmesh; }
 protected:
     void ReadMeshMaterials();
     /**
@@ -115,3 +121,5 @@ protected:
       */
      TPZVec<REAL> fElSizes;
 };
+
+#endif //TPZACOUSTICGEOMESHER
