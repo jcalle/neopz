@@ -18,20 +18,18 @@ void TPZAcousticsSimulation::RunSimulation(){
             boost::posix_time::microsec_clock::local_time();
     TPZGeoMesh *gmesh = nullptr;
     TPZVec<int> matIdVec;
-    std::map<int,REAL> rhoMap;
-    std::map<int,REAL> velocityMap;
-    TPZVec<REAL> elSizeVec;
+    std::string meshFileName = this->fSimData.fOutputSettings.resultsDir;
+    std::string prefix = this->fSimData.fSimulationSettings.meshName;
+    TPZAcousticGeoMesher geoMesh(meshFileName, prefix);
     {
-        std::string meshFileName = this->fSimData.fOutputSettings.resultsDir;
-        std::string prefix = this->fSimData.fSimulationSettings.meshName;
+
         REAL nElemPerLambdaTimesOmega = this->fSimData.fSimulationSettings.nElemPerLambda *
                                         this->fSimData.fSourceSettings.centralFrequency;
-        TPZAcousticGeoMesher::CreateGMesh(gmesh, meshFileName, prefix, nElemPerLambdaTimesOmega, matIdVec, elSizeVec,
-                velocityMap, rhoMap);
+        geoMesh.CreateGMesh(nElemPerLambdaTimesOmega, matIdVec);
         bool &printGtxt = this->fSimData.fOutputSettings.printGmeshTxt;
         bool &printGvtk = this->fSimData.fOutputSettings.printGmeshVtk;
         std::string outFilesName = "geomesh";
-        TPZAcousticGeoMesher::PrintMesh(gmesh, outFilesName, prefix, printGvtk, printGtxt);
+        geoMesh.PrintMesh(outFilesName, prefix, printGvtk, printGtxt);
     }
     ////////////////////////////////////////////////////////////////////////
     //////////////////////////CREATE SOURCE GEO EL//////////////////////////
@@ -47,8 +45,7 @@ void TPZAcousticsSimulation::RunSimulation(){
         matIdVec[iMat+1] = matIdVecCp[iMat];
     }
 
-    TPZAcousticGeoMesher::CreateSourceNode(gmesh, matIdSource, this->fSimData.fSourceSettings.posX,
-            this->fSimData.fSourceSettings.posY);
+    geoMesh.CreateSourceNode(matIdSource, this->fSimData.fSourceSettings.posX,this->fSimData.fSourceSettings.posY);
 
 
     boost::posix_time::ptime t2_g =
@@ -57,7 +54,9 @@ void TPZAcousticsSimulation::RunSimulation(){
     //////////////////////////////////////////////////////
     ////////////////// CALCULATE DELTA T /////////////////
     //////////////////////////////////////////////////////
-    const REAL deltaT = CalculateDeltaT(elSizeVec, velocityMap);
+    auto elSizeMap = geoMesh.GetElSizes();
+    auto velocityMap = geoMesh.GetVelocityMap();
+    const REAL deltaT = CalculateDeltaT(elSizeMap, velocityMap);
     //////////////////////////////////////////////////////
     //////////////////// CREATE CMESH ////////////////////
     //////////////////////////////////////////////////////
@@ -131,7 +130,7 @@ void TPZAcousticsSimulation::FilterBoundaryEquations(TPZCompMesh *cmesh, TPZVec<
     return;
 }
 
-REAL TPZAcousticsSimulation::CalculateDeltaT(const TPZVec<REAL> &elSizeVec, std::map<int,REAL> velocityMap) {
+REAL TPZAcousticsSimulation::CalculateDeltaT(std::map<int,REAL> elSizeMap, std::map<int,REAL> velocityMap) {
     REAL &totalTime = this->fSimData.fSimulationSettings.totalTime;
     int &nTimeSteps = this->fSimData.fSimulationSettings.nTimeSteps;
     const REAL &cflVal = this->fSimData.fSimulationSettings.cfl;
@@ -146,18 +145,11 @@ REAL TPZAcousticsSimulation::CalculateDeltaT(const TPZVec<REAL> &elSizeVec, std:
         std::cout<<"Calculating time step for CFL = "<<std::setprecision(4)<<cflVal<<std::endl;
         boost::posix_time::ptime t1_c =
                 boost::posix_time::microsec_clock::local_time();
-        std::map<int,REAL> sizeMap;//matId, minElSize
-        int i = 0;
-        for(auto iVelocity : velocityMap){
-            auto matId = iVelocity.first;
-            sizeMap[matId] = elSizeVec[i];
-            i++;
-        }
         REAL smallerTimeStep = 1e12;
         for(auto iVelocity : velocityMap){
             auto matId = iVelocity.first;
-            sizeMap[matId] = cflVal * sizeMap[matId] / iVelocity.second;
-            if(sizeMap[matId] < smallerTimeStep) smallerTimeStep = sizeMap[matId];
+            elSizeMap[matId] = cflVal * elSizeMap[matId] / iVelocity.second;
+            if(elSizeMap[matId] < smallerTimeStep) smallerTimeStep = elSizeMap[matId];
         }
         nTimeSteps = std::ceil(totalTime/smallerTimeStep);
         boost::posix_time::ptime t2_c =
@@ -169,24 +161,17 @@ REAL TPZAcousticsSimulation::CalculateDeltaT(const TPZVec<REAL> &elSizeVec, std:
             DebugStop();
             exit(1);
         }
-        std::map<int,REAL> sizeMap;//matId, minElSize
-        int i = 0;
-        for(auto iVelocity : velocityMap){
-            auto matId = iVelocity.first;
-            sizeMap[matId] = elSizeVec[i];
-            i++;
-        }
         for(auto iVelocity : velocityMap){
             auto matId = iVelocity.first;
             const REAL nElemPerLambdaTimesOmega = fSimData.fSimulationSettings.nElemPerLambda *
                                                   fSimData.fSourceSettings.centralFrequency;
 #ifdef PZDEBUG
-            std::cout<<"material "<<matId<<"\telradius "<<sizeMap[matId]<<"\telradius_calc";
+            std::cout<<"material "<<matId<<"\telradius "<<elSizeMap[matId]<<"\telradius_calc";
             std::cout<<2*M_PI*iVelocity.second/nElemPerLambdaTimesOmega<<"\t velocity "<<iVelocity.second<<std::endl;
 #endif
-            sizeMap[matId] = iVelocity.second * (totalTime/nTimeSteps)/ sizeMap[matId];
+            elSizeMap[matId] = iVelocity.second * (totalTime/nTimeSteps)/ elSizeMap[matId];
 #ifdef PZDEBUG
-            std::cout<<"CFL for material "<<matId<<" is:"<<sizeMap[matId]<<std::endl;
+            std::cout<<"CFL for material "<<matId<<" is:"<<elSizeMap[matId]<<std::endl;
 #endif
         }
     }

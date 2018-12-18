@@ -68,7 +68,7 @@ public:
 //          const REAL &alphaPml, const TPZVec< SPZAcousticData::pmltype > &pmlTypeVec,
 							 const TPZVec<SPZAcousticData::EBoundType> &boundTypeVec) = 0;
 
-	REAL CalculateDeltaT(const TPZVec<REAL> &elSizeVec, std::map<int,REAL> velocityMap);
+	REAL CalculateDeltaT(std::map<int,REAL> elSizeMap, std::map<int,REAL> velocityMap);
 
 	static void GetMaterialProperties(std::map<std::string,int> &materialNames, std::map<int,REAL> &rhoMap,
                            std::map<int,REAL> &velocityMap);

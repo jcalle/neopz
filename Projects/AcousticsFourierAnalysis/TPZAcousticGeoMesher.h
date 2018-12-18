@@ -9,23 +9,27 @@ class TPZGeoMesh;
  */
 class TPZAcousticGeoMesher{
 public:
+
+    /**
+     * This constructor will not be generated
+     */
+    TPZAcousticGeoMesher() = delete;
+
+    /**
+     * This initializes the TPZAcousticGeoMesher structure
+     * @param meshFileName name of the .geo file (in)
+     * @param prefix relative path to the .geo file (in)
+     */
+    TPZAcousticGeoMesher(const std::string meshFileName, const std::string &prefix);
     /**
      * This method generates a TPZGeoMesh from a .geo file. It returns all the relevant information regarding the
      * created mesh.
-     * @param gmesh pointer to the created mesh. If this pointer contains an existent mesh, it will be deleted. (out)
-     * @param meshFileName name of the .geo file (in)
-     * @param prefix relative path to the .geo file (in)
      * @param nElemPerLambdaTimesOmega how many elements are created for each wavelength (times ), i.e.,
      * elSize = 2 pi v /(nElemPerLambdaTimesOmega) = 2 pi v/(nelem 2pi f) = lambda / nelem (in)
      * @param matIdVec vector with the material ids in the order they were declared (as physical surfaces)
      * in the .geo file (out)
-     * @param elSizes vector containing the elSize for each material (out)
-     * @param velocityMap material velocities indexed by their material ids (out)
-     * @param rhoMap material densities indexed by their material ids (out)
      */
-    static void CreateGMesh(TPZGeoMesh *&gmesh, const std::string meshFileName,  const std::string &prefix,
-                     REAL nElemPerLambdaTimesOmega,  TPZVec<int> &matIdVec, TPZVec<REAL> &elSizes,
-                     std::map<int,REAL> &velocityMap, std::map<int,REAL> &rhoMap);
+    void CreateGMesh(REAL nElemPerLambdaTimesOmega, TPZVec<int> &matIdVec);
     /**
      * Creates a 0D element (node) representing the source. The location is approximated, since the source will be
      * placed at the nearest node in the mesh, so there is a maximum error of elSize/2
@@ -34,28 +38,35 @@ public:
      * @param sourcePosX x-coordinate for the source (in)
      * @param sourcePosY y-coordinate for the source (in)
      */
-    static void CreateSourceNode(TPZGeoMesh * &gmesh, const int &matIdSource, const REAL &sourcePosX, const REAL &sourcePosY);
+    void CreateSourceNode(const int &matIdSource, const REAL &sourcePosX, const REAL &sourcePosY);
 
     /**
      * Prints the geometric mesh in both .vtk and .txt formats.
      * @param gmesh mesh to be printed (in)
      * @param fileName where to print the mesh (extensions will be added to fileName)
-     * @param prefix directory containing the .geo file (in)
+     * @param prefix directory to output the printed mesh (in)
      * @param printVTK whether to print the mesh in .vtk format (in)
      * @param printTxt whether to print the mesh in .txt format (in)
      */
-    static void PrintMesh(TPZGeoMesh * &gmesh, const std::string &fileName, const std::string &prefix, bool printVTK, bool printTxt);
-protected:
+    void PrintMesh(const std::string &fileName, const std::string &prefix, bool printVTK, bool printTxt);
     /**
-     * Method for reading the .geo file and identifying the materials present in the mesh. If the materials are unknown
-     * execution will fail
-     * @param fileName name of the .geo file (in)
-     * @param prefix directory containing the .geo file (in)
-     * @param velocityMap material velocities indexed by their material ids (out)
-     * @param rhoMap material densities indexed by their material ids (out)
+     *
+     * @return Materials' velocities indexed by material id
      */
-    static void ReadMeshMaterials(const std::string &fileName, const std::string &prefix, std::map<int, REAL> &velocityMap,
-                           std::map<int, REAL> &rhoMap);
+    std::map<int,REAL> GetVelocityMap(){ return fVelocityMap;}
+    /**
+     *
+     * @return Materials' densities indexed by material id
+     */
+     std::map<int,REAL> GetDensityMap(){ return fRhoMap;}
+
+     /**
+      *
+      * @return Materials' element sizes indexed by material id
+      */
+     std::map<int,REAL> GetElSizes();
+protected:
+    void ReadMeshMaterials();
     /**
      * Generates a .msh (msh version 2) from a .geo file (calling the gmsh executable) and, finally, creates
      * a TPZGeoMesh from the .msh file.
@@ -66,8 +77,7 @@ protected:
      * DefineConstant[el_size_i = 0.0125]; where i = 1,2,3,... (in the same order that the physical materials
      * are declared)
      */
-    static void ReadGmshMesh(TPZGeoMesh * &gmesh, const std::string &meshFileName, const std::string &prefix,
-            const TPZVec<REAL> &elSizes, TPZVec<std::map<int,int>> &translatedMatIds);
+    void ReadGmshMesh(TPZVec<std::map<int,int>> &translatedMatIds);
 
     /**
      * This method will fill two maps with the properties (sound speed and density) of the materials
@@ -76,6 +86,32 @@ protected:
      * @param rhoMap material densities indexed by their material ids (out)
      * @param velocityMap material velocities indexed by their material ids (out)
      */
-    static void GetMaterialProperties(std::map<std::string,int> &materialNames,std::map<int,REAL> &rhoMap,
+    void GetMaterialProperties(std::map<std::string,int> &materialNames,std::map<int,REAL> &rhoMap,
                                       std::map<int,REAL> &velocityMap);
+
+    /**
+     * This points to the actual mesh
+     */
+    TPZGeoMesh *fGmesh;
+    /**
+     * Name of the .geo file on which the mesh will be based
+     */
+    const std::string fMeshFileName;
+    /**
+     * Relative path to the .geo file indicated by fMeshFileName
+     */
+    const std::string fPrefix;
+
+    /**
+     * Material velocities indexed by their material ids
+     */
+    std::map<int, REAL> fVelocityMap;
+    /**
+     * Material densities indexed by their material ids
+     */
+     std::map<int, REAL> fRhoMap;
+     /**
+      * Vector containing the elSize for each material
+      */
+     TPZVec<REAL> fElSizes;
 };
