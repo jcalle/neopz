@@ -2125,7 +2125,6 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
         set.insert(boundMatIdVec[i]);
     }
 
-    const int outerMaterialPos = volMatIdVec.size() - 1;
     TPZCompMesh *cmeshH1 = new TPZCompMesh(gmesh);
     if(usingNedelecTypeTwo) cmeshH1->SetDefaultOrder(pOrder + 1); // seta ordem polimonial de aproximacao
     else cmeshH1->SetDefaultOrder(pOrder); // seta ordem polimonial de aproximacao
@@ -2248,6 +2247,7 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
         }
         bool attx, atty;
         REAL xBegin, yBegin, d;
+        REAL boundPosX = -666, boundPosY = -666;
         switch (pmlTypeVec[i]) {
             case SPZModalAnalysisData::xp:
                 attx = true;
@@ -2255,6 +2255,8 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
                 xBegin = xMin;
                 yBegin = -1;
                 d = xMax - xMin;
+                boundPosX = xBegin;
+                boundPosY = (yMax + yMin)/2;
                 break;
             case SPZModalAnalysisData::yp:
                 attx = false;
@@ -2262,6 +2264,8 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
                 xBegin = -1;
                 yBegin = yMin;
                 d = yMax - yMin;
+                boundPosX = (xMax + xMin)/2;
+                boundPosY = yBegin;
                 break;
             case SPZModalAnalysisData::xm:
                 attx = true;
@@ -2269,6 +2273,8 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
                 xBegin = xMax;
                 yBegin = -1;
                 d = xMax - xMin;
+                boundPosX = xBegin;
+                boundPosY = (yMax + yMin)/2;
                 break;
             case SPZModalAnalysisData::ym:
                 attx = false;
@@ -2276,6 +2282,8 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
                 xBegin = -1;
                 yBegin = yMax;
                 d = yMax - yMin;
+                boundPosX = (xMax + xMin)/2;
+                boundPosY = yBegin;
                 break;
             case SPZModalAnalysisData::xpyp:
                 attx = true;
@@ -2283,6 +2291,8 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
                 xBegin = xMin;
                 yBegin = yMin;
                 d = xMax - xMin;
+                boundPosX = xBegin;
+                boundPosY = yBegin;
                 break;
             case SPZModalAnalysisData::xmyp:
                 attx = true;
@@ -2290,6 +2300,8 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
                 xBegin = xMax;
                 yBegin = yMin;
                 d = xMax - xMin;
+                boundPosX = xBegin;
+                boundPosY = yBegin;
                 break;
             case SPZModalAnalysisData::xmym:
                 attx = true;
@@ -2297,6 +2309,8 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
                 xBegin = xMax;
                 yBegin = yMax;
                 d = xMax - xMin;
+                boundPosX = xBegin;
+                boundPosY = yBegin;
                 break;
             case SPZModalAnalysisData::xpym:
                 attx = true;
@@ -2304,15 +2318,55 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
                 xBegin = xMin;
                 yBegin = yMax;
                 d = xMax - xMin;
+                boundPosX = xBegin;
+                boundPosY = yBegin;
                 break;
+        }
+        TPZGeoEl * closestEl = nullptr;
+        REAL dist = 1e16;
+        for(int iEl = 0; iEl < gmesh->NElements(); iEl++){
+            TPZGeoEl * currentEl = gmesh->ElementVec()[iEl];
+            if ( currentEl->NSubElements() > 0  || ( currentEl->Dimension() != 2 ) ) continue;
+            bool isPmlMat = false;
+            for(int iPml = 0; iPml < pmlMatIdVec.size(); iPml++){
+                if ( currentEl->MaterialId() == pmlMatIdVec[iPml] ){
+                    isPmlMat = true;
+                }
+            }
+            if(isPmlMat) continue;
+            TPZVec<REAL> qsi(2,-1);
+            const int largerSize = currentEl->NSides() - 1;
+            currentEl->CenterPoint(largerSize, qsi);
+            TPZVec<REAL> xCenter(3,-1);
+            currentEl->X(qsi, xCenter);
+            const REAL currentDist = (xCenter[0]-boundPosX)*(xCenter[0]-boundPosX) +
+                    (xCenter[1]-boundPosY)*(xCenter[1]-boundPosY);
+            if(currentDist < dist){
+                dist = currentDist;
+                closestEl = currentEl;
+            }
+        }
+        const int pmlNeighbourMatId = closestEl->MaterialId();
+        int outerMaterialPos = -1;
+        bool matFound = false;
+        for(int imat = 0; imat < volMatIdVec.size(); imat++){
+            if(matMultiPhysics[imat] && matMultiPhysics[imat]->Id() == pmlNeighbourMatId){
+                outerMaterialPos = imat;
+                matFound = true;
+                break;
+            }
+        }
+        if(matFound == false){
+            PZError<<"could not find pml neighbour, aborting...."<<std::endl;
+            DebugStop();
         }
         if(usingNedelecTypeTwo){
             matMultiPhysics[volMatIdVec.size() + i] =
                     new TPZMatWaveguidePmlHDiv(pmlMatIdVec[i],
-                                           *matMultiPhysics[outerMaterialPos],
-                                           attx, xBegin,
-                                           atty, yBegin,
-                                           alphaMax, d);
+                                               *matMultiPhysics[outerMaterialPos],
+                                               attx, xBegin,
+                                               atty, yBegin,
+                                               alphaMax, d);
         }
         else{
             matMultiPhysics[volMatIdVec.size() + i] =

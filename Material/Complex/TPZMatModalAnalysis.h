@@ -48,7 +48,7 @@ public:
 
     TPZMatModalAnalysis(int id, REAL lambda, const STATE &ur, const STATE &er, const REAL &scale = 1.);
     
-    TPZMatModalAnalysis(int id);
+    explicit TPZMatModalAnalysis(int id);
     
     /** @brief Default constructor */
     TPZMatModalAnalysis();
