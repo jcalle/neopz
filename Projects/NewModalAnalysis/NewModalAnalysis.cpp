@@ -93,7 +93,7 @@ ReadGMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdV
 
 void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrder, const TPZVec<int> &matIdVec,
                  TPZVec<STATE> &urVec, TPZVec<STATE> &erVec, REAL f0, bool isCutOff, const std::string &prefix,
-                 const bool &print, const REAL &scale, const REAL &alphaMax,
+                 const bool &print, const bool &printVTK, const REAL &scale, const REAL &alphaMax,
                  TPZVec<SPZModalAnalysisData::boundtype> &boundTypeVec,
                  TPZVec<SPZModalAnalysisData::pmltype> &pmlTypeVec, bool refineP = false,
                  TPZVec<std::function<bool (const TPZVec<REAL> &)>> refineRules =
@@ -229,7 +229,6 @@ void CreateGmshMesh(const std::string &meshName, const std::string &newName, con
 
     std::string command = "gmsh " + meshName + " -2 -match ";
     command += " -nt " + std::to_string(nThreads);
-    command += " -tol 1e-20 ";
     command += " -v 3 ";
     command += " -setnumber scale "+str_scale.str();
     command += " -setnumber factor "+str_factor.str();
@@ -423,7 +422,7 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
     }
     CreateCMesh(meshVec, gmesh, simData.pzOpts.pOrder, matIdVec, simData.physicalOpts.urVec, simData.physicalOpts.erVec,
                 simData.physicalOpts.lambda, simData.physicalOpts.isCutOff, simData.pzOpts.prefix,
-                simData.pzOpts.exportCMesh, simData.pzOpts.scaleFactor, simData.physicalOpts.alphaMax, boundTypeVec,
+                simData.pzOpts.exportCMesh, simData.pzOpts.genVTK, simData.pzOpts.scaleFactor, simData.physicalOpts.alphaMax, boundTypeVec,
                 pmlTypeVec, reallyRefineP, refineRulesP, simData.pzOpts.elType); // funcao para criar a malha computacional
     boost::posix_time::ptime t2_c =
         boost::posix_time::microsec_clock::local_time();
@@ -466,8 +465,8 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
     solver.SetVerbose(simData.solverOpts.eps_verbose);
     an.SetSolver(solver);
 
-    if(simData.pzOpts.exportGMesh){
-        std::cout<<"Printing mesh..."<<std::endl;
+    if(simData.pzOpts.exportCMesh && simData.pzOpts.genVTK){
+        std::cout<<"Printing vtk for materials..."<<std::endl;
         TPZStack<std::string> scalnames, vecnames;
         vecnames.Push("Material");
         if(refineP){
@@ -2043,12 +2042,12 @@ ReadGMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdV
     meshReader.SetfDimensionlessL(scale);
     gmesh = meshReader.GeometricGmshMesh(mshFileName);
 #ifdef PZDEBUG
-//	TPZCheckGeom * Geometrytest = new TPZCheckGeom(gmesh);
-//	int isBadMeshQ = Geometrytest->PerformCheck();
-//
-//	if (isBadMeshQ) {
-//		DebugStop();
-//	}
+	TPZCheckGeom * Geometrytest = new TPZCheckGeom(gmesh);
+	int isBadMeshQ = Geometrytest->PerformCheck();
+
+	if (isBadMeshQ) {
+		DebugStop();
+	}
 #endif
     auto matIds = meshReader.fMaterialDataVec.fMatID;
     matIdVec.Resize(matIds.size());
@@ -2075,7 +2074,7 @@ ReadGMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdV
 
 void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrder, const TPZVec<int> &matIdVec,
                  TPZVec<STATE> &urVec, TPZVec<STATE> &erVec, REAL f0, bool isCutOff, const std::string &prefix,
-                 const bool &print, const REAL &scale, const REAL &alphaMax,
+                 const bool &print, const bool &printVTK, const REAL &scale, const REAL &alphaMax,
                  TPZVec<SPZModalAnalysisData::boundtype> &boundTypeVec,
                  TPZVec<SPZModalAnalysisData::pmltype> &pmlTypeVec, bool refineP,
                  TPZVec<std::function<bool (const TPZVec<REAL> &)>> refineRules, SPZModalAnalysisData::NedEl elType) {
@@ -2439,6 +2438,11 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
         cmeshHCurl->Print(fileHCurl);
         std::ofstream fileMF(prefix + "cmeshMFHCurl.txt");
         cmeshMF->Print(fileMF);
+        if(printVTK){
+            std::cout<<"Printing CMesh .vtk..."<<std::endl;
+            std::ofstream fileVTK(prefix + "Cmesh.vtk");
+            TPZVTKGeoMesh::PrintCMeshVTK(cmeshMF,fileVTK,true);
+        }
     }
 
     meshVecOut.resize(3);
