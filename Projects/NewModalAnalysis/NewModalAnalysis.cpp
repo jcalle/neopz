@@ -465,7 +465,7 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
     solver.SetVerbose(simData.solverOpts.eps_verbose);
     an.SetSolver(solver);
 
-    if(simData.pzOpts.exportCMesh && simData.pzOpts.genVTK){
+    if(simData.pzOpts.exportGMesh && simData.pzOpts.genVTK){
         std::cout<<"Printing vtk for materials..."<<std::endl;
         TPZStack<std::string> scalnames, vecnames;
         vecnames.Push("Material");
@@ -564,7 +564,7 @@ void RunSimulation(SPZModalAnalysisData &simData,std::ostringstream &eigeninfo, 
         TPZFMatrix<SPZAlwaysComplex<STATE>::type> currentEigenvector(neq,1);
         TPZFMatrix<SPZAlwaysComplex<STATE>::type> scatteredEigen(neqOriginal,1);
         for (int iSol = 0; iSol < eigenValues.size(); iSol++) {
-            const STATE currentKz = eigenValues[iSol];
+            const STATE currentKz = std::sqrt(-1.*eigenValues[iSol]);
             for(int j = 0; j < eigenVectors.Rows(); j++){
                 currentEigenvector(j,0) = eigenVectors.GetVal(j,iSol);
             }
@@ -2058,15 +2058,11 @@ ReadGMesh(TPZGeoMesh *&gmesh, const std::string mshFileName, TPZVec<int> &matIdV
     if(print){
         std::string meshFileName = prefix + "gmesh";
         const size_t strlen = meshFileName.length();
-        meshFileName.append(".vtk");
-        std::ofstream outVTK(meshFileName.c_str());
-        meshFileName.replace(strlen, 4, ".txt");
+        meshFileName.append(".txt");
         std::ofstream outTXT(meshFileName.c_str());
 
-        TPZVTKGeoMesh::PrintGMeshVTK(gmesh, outVTK, true);
         gmesh->Print(outTXT);
         outTXT.close();
-        outVTK.close();
     }
 
     return;

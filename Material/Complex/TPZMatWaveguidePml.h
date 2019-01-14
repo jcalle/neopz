@@ -14,6 +14,9 @@ public:
                        const bool &att_x, REAL &pmlBeginX,
                        const bool &att_y, REAL &pmlBeginY,
                        const REAL &alphaMax, const REAL &d);
+    TPZMatWaveguidePml(const TPZMatModalAnalysis &mat) = delete;//this does not exist
+    TPZMatWaveguidePml(int id) = delete;//this does not exist
+    TPZMatWaveguidePml() = delete;//this does not exist
     ~TPZMatWaveguidePml() = default;
     void Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) override;
     void Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout) override;
@@ -26,9 +29,7 @@ protected:
     const REAL fAlphaMax;
     const REAL fD;
 private:
-    TPZMatWaveguidePml(const TPZMatModalAnalysis &mat);//this does not exist
-    TPZMatWaveguidePml(int id);//this does not exist
-    TPZMatWaveguidePml();//this does not exist
+    const REAL fTolAlpha = 1e-12;
 };
 
 

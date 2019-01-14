@@ -200,6 +200,13 @@ public:
     void Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &Solout) override;
 
     int IntegrationRuleOrder(TPZVec<int> &elPMaxOrder) const override;
+protected:
+    void RealSolution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec<STATE> &solout, STATE exx, STATE eyy,
+            STATE uxx, STATE uyy);
+
+    void RealContribute(TPZVec<TPZMaterialData> &datavec, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef,
+            STATE exx, STATE eyy, STATE ezz,
+            STATE uxx, STATE uyy, STATE uzz);
 };
 
 #endif
