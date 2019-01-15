@@ -100,21 +100,21 @@ int TPZSlepcEPSHandler<TVar>::SolveGeneralisedEigenProblem(TPZFYsmpMatrix<TVar> 
 //	}
   Mat fAmat, fBmat;
   PetscErrorCode ierr;
-  PetscInt *fIaP, *jaP;
+  PetscInt *iaP, *jaP;
   std::cout<<"Creating PETSc Amat...";
-  ierr = PetscMalloc1(A.fIA.size(),&fIaP);CHKERRQ(ierr);
+  ierr = PetscMalloc1(A.fIA.size(),&iaP);CHKERRQ(ierr);
   ierr = PetscMalloc1(A.fJA.size(),&jaP);CHKERRQ(ierr);
 
   for (int j = 0; j < A.fIA.size(); ++j) {
-    fIaP[j]=A.fIA[j];
+    iaP[j]=A.fIA[j];
   }
   for (int j = 0; j < A.fJA.size(); ++j) {
     jaP[j]=A.fJA[j];
   }
-  ierr = MatCreateSeqAIJWithArrays(MPI_COMM_WORLD,nRows,nCols,fIaP,jaP,(PetscScalar *)A.fA.begin(),&fAmat);CHKERRQ(ierr);
+  ierr = MatCreateSeqAIJWithArrays(MPI_COMM_WORLD,nRows,nCols,iaP,jaP,(PetscScalar *)A.fA.begin(),&fAmat);CHKERRQ(ierr);
 
   std::cout<<"Created!"<<std::endl;
-  std::cout<<"Creating PETSc fBmat...";
+  std::cout<<"Creating PETSc Bmat...";
   PetscInt *ibP, *jbP;
   ierr = PetscMalloc1(B.fIA.size(),&ibP);CHKERRQ(ierr);
   ierr = PetscMalloc1(B.fJA.size(),&jbP);CHKERRQ(ierr);
@@ -231,6 +231,10 @@ int TPZSlepcEPSHandler<TVar>::SolveGeneralisedEigenProblem(TPZFYsmpMatrix<TVar> 
     VecRestoreArray(eigVec,&eigVecImArray);
 #endif
   }
+  PetscFree(iaP);
+  PetscFree(jaP);
+  PetscFree(ibP);
+  PetscFree(jbP);
   return 1;
 }
 

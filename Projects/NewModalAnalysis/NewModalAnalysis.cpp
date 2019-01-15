@@ -106,7 +106,7 @@ void FilterBoundaryEquations(TPZVec<TPZCompMesh *> cmeshMF,
 
 
 void CreateGmshMesh(const std::string &meshName, const std::string &newName, const REAL &factor, const int &nThreads,
-                    const REAL &scale, const int &meshOrder, const REAL &refIndexOuterDomain);
+                    const REAL &scale, const int &meshOrder);
 
 int main(int argc, char *argv[]) {
 #ifdef LOG4CXX
@@ -188,11 +188,8 @@ int main(int argc, char *argv[]) {
                     simData.pzOpts.meshFile += "h" + std::to_string(iH);
                     simData.pzOpts.meshFile += ".msh";
                     const int nMaterials = simData.physicalOpts.erVec.size();
-                    const REAL refIndexOuterMat =
-                            std::sqrt(std::real(simData.physicalOpts.erVec[nMaterials-1]));
                     CreateGmshMesh(meshOriginal, simData.pzOpts.meshFile, factorVal, simData.pzOpts.nThreads,
-                                   simData.pzOpts.scaleFactor, simData.pzOpts.meshOrder,
-                                   refIndexOuterMat);
+                                   simData.pzOpts.scaleFactor, simData.pzOpts.meshOrder);
                 }
             }
 
@@ -219,20 +216,17 @@ int main(int argc, char *argv[]) {
 }
 
 void CreateGmshMesh(const std::string &meshName, const std::string &newName, const REAL &factor, const int &nThreads,
-                    const REAL &scale, const int &meshOrder, const REAL &refIndexOuterDomain) {
+                    const REAL &scale, const int &meshOrder) {
     std::ostringstream str_factor;
     str_factor << std::setprecision(20) << factor;
     std::ostringstream str_scale;
     str_scale<< std::setprecision(20) << scale;
-    std::ostringstream str_n_mat;
-    str_n_mat<< std::setprecision(20) << refIndexOuterDomain;
 
     std::string command = "gmsh " + meshName + " -2 -match ";
     command += " -nt " + std::to_string(nThreads);
     command += " -v 3 ";
     command += " -setnumber scale "+str_scale.str();
     command += " -setnumber factor "+str_factor.str();
-    command += " -setnumber nOuterDomain "+str_n_mat.str();
     command += " -order " + std::to_string(meshOrder);
     if( meshOrder > 1 ) command += " -optimize_ho";
     command += " -o " + newName;
@@ -1332,23 +1326,23 @@ CreateStructuredMesh(const TPZVec<TPZVec<REAL>> &pointsVec, TPZVec<EdgeData> &ed
                                                    pointsVec[quadPointsVec.GetVal(iQuad, 3)]);
             if (side1NonLinearVec[iQuad]) {
                 TPZVec<REAL> &xc = *(xcRef[iNonLinear]);
-                quadVec[iQuad]->mapSide1 = std::__1::bind(map_quad_side_arc, thetaVec[iNonLinear], xc, rVec[iNonLinear],
-                                                          std::__1::placeholders::_1);
+                quadVec[iQuad]->mapSide1 = std::bind(map_quad_side_arc, thetaVec[iNonLinear], xc, rVec[iNonLinear],
+                                                          std::placeholders::_1);
                 iNonLinear++;
             } else if (side2NonLinearVec[iQuad]) {
                 TPZVec<REAL> &xc = *(xcRef[iNonLinear]);
-                quadVec[iQuad]->mapSide2 = std::__1::bind(map_quad_side_arc, thetaVec[iNonLinear], xc, rVec[iNonLinear],
-                                                          std::__1::placeholders::_1);
+                quadVec[iQuad]->mapSide2 = std::bind(map_quad_side_arc, thetaVec[iNonLinear], xc, rVec[iNonLinear],
+                                                          std::placeholders::_1);
                 iNonLinear++;
             } else if (side3NonLinearVec[iQuad]) {
                 TPZVec<REAL> &xc = *(xcRef[iNonLinear]);
-                quadVec[iQuad]->mapSide3 = std::__1::bind(map_quad_side_arc, thetaVec[iNonLinear], xc, rVec[iNonLinear],
-                                                          std::__1::placeholders::_1);
+                quadVec[iQuad]->mapSide3 = std::bind(map_quad_side_arc, thetaVec[iNonLinear], xc, rVec[iNonLinear],
+                                                          std::placeholders::_1);
                 iNonLinear++;
             } else if (side4NonLinearVec[iQuad]) {
                 TPZVec<REAL> &xc = *(xcRef[iNonLinear]);
-                quadVec[iQuad]->mapSide4 = std::__1::bind(map_quad_side_arc, thetaVec[iNonLinear], xc, rVec[iNonLinear],
-                                                          std::__1::placeholders::_1);
+                quadVec[iQuad]->mapSide4 = std::bind(map_quad_side_arc, thetaVec[iNonLinear], xc, rVec[iNonLinear],
+                                                          std::placeholders::_1);
                 iNonLinear++;
             }
             quadVec[iQuad]->SetMapsLinearity(side1NonLinearVec[iQuad], side2NonLinearVec[iQuad],
@@ -1521,7 +1515,7 @@ CreateStructuredMesh(const TPZVec<TPZVec<REAL>> &pointsVec, TPZVec<EdgeData> &ed
                 "3 4 0  1  2  3 "
                 "2 3 0  1  2 "
                 "2 3 0  2  3 ";
-        std::__1::istringstream str(buf);
+        std::istringstream str(buf);
         refp = new TPZRefPattern(str);
         refp->GenerateSideRefPatterns();
         gRefDBase.InsertRefPattern(refp);
@@ -1574,14 +1568,14 @@ CreateStructuredMesh(const TPZVec<TPZVec<REAL>> &pointsVec, TPZVec<EdgeData> &ed
                 TPZVec<REAL> &pt2 = pointsVec[edgesVec[edge].coord2];
                 REAL tol = 1e-08;
                 int matId = -666;
-                if (std::__1::abs(pt1[1] - pt2[1]) < tol) {//horizontal edge
-                    if (std::__1::abs(pt1[1] - boundDistVec[2]) < tol) {
+                if (std::abs(pt1[1] - pt2[1]) < tol) {//horizontal edge
+                    if (std::abs(pt1[1] - boundDistVec[2]) < tol) {
                         matId = matIdBoundVec[2];
                     } else {
                         matId = matIdBoundVec[0];
                     }
-                } else if (std::__1::abs(pt1[0] - pt2[0]) < tol) {//vertical edge
-                    if (std::__1::abs(pt1[0] - boundDistVec[1]) < tol) {
+                } else if (std::abs(pt1[0] - pt2[0]) < tol) {//vertical edge
+                    if (std::abs(pt1[0] - boundDistVec[1]) < tol) {
                         matId = matIdBoundVec[1];
                     } else {
                         matId = matIdBoundVec[3];
