@@ -165,9 +165,9 @@ int main(int argc, char *argv[]) {
                         simData.pzOpts.meshFile += "h" + std::to_string(iH);
                         simData.pzOpts.factorVec[iH] = iH;
                         const std::string lastMesh = iH > 1 ?
-                                                     simData.pzOpts.prefix + meshOriginal.substr(0, meshOriginal.size() - 4) + "h" + std::to_string(iH-1) + ".msh":
+                                                     simData.pzOpts.prefix +  "h" + std::to_string(iH-1) + ".msh":
                                                      meshOriginal;
-                        const std::string command = "gmsh -v 3 -refine " + lastMesh + " -o " + simData.pzOpts.meshFile + ".msh";
+                        const std::string command = "gmsh -v 3 -refine " + lastMesh + " -format msh2" + " -o " + simData.pzOpts.meshFile + ".msh";
                         std::cout<<"Generating mesh with: "<<std::endl<<command<<std::endl;
                         std::array<char, 128> buffer;
                         std::string result;
@@ -230,6 +230,7 @@ void CreateGmshMesh(const std::string &meshName, const std::string &newName, con
     command += " -setnumber factor "+str_factor.str();
     command += " -order " + std::to_string(meshOrder);
     if( meshOrder > 1 ) command += " -optimize_ho";
+    command += " -format msh2";
     command += " -o " + newName;
     std::cout<<"Generating mesh with: "<<std::endl<<command<<std::endl;
 
