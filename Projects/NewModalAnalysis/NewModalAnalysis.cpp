@@ -161,10 +161,11 @@ int main(int argc, char *argv[]) {
                 simData.pzOpts.meshFile = meshOriginal.substr(0, meshOriginal.size() - 4);
                 if(simData.pzOpts.externGenMesh){
                     if(iH>0){//refine by splitting
+                        simData.pzOpts.meshFile =  simData.pzOpts.prefix;
                         simData.pzOpts.meshFile += "h" + std::to_string(iH);
                         simData.pzOpts.factorVec[iH] = iH;
                         const std::string lastMesh = iH > 1 ?
-                                                     meshOriginal.substr(0, meshOriginal.size() - 4) + "h" + std::to_string(iH-1) + ".msh":
+                                                     simData.pzOpts.prefix + meshOriginal.substr(0, meshOriginal.size() - 4) + "h" + std::to_string(iH-1) + ".msh":
                                                      meshOriginal;
                         const std::string command = "gmsh -v 3 -refine " + lastMesh + " -o " + simData.pzOpts.meshFile + ".msh";
                         std::cout<<"Generating mesh with: "<<std::endl<<command<<std::endl;
@@ -180,6 +181,7 @@ int main(int argc, char *argv[]) {
                     simData.pzOpts.meshFile +=".msh";
                 }
                 else{
+                    simData.pzOpts.meshFile = simData.pzOpts.prefix;
                     const REAL factorVal = simData.pzOpts.factorVec[iH];
                     if(simData.physicalOpts.freqVec.size() > 1 ) {
                         simData.pzOpts.meshFile += "f" + std::to_string(iFreq);
@@ -187,7 +189,6 @@ int main(int argc, char *argv[]) {
                     simData.pzOpts.meshFile += "ord" + std::to_string(simData.pzOpts.meshOrder);
                     simData.pzOpts.meshFile += "h" + std::to_string(iH);
                     simData.pzOpts.meshFile += ".msh";
-                    const int nMaterials = simData.physicalOpts.erVec.size();
                     CreateGmshMesh(meshOriginal, simData.pzOpts.meshFile, factorVal, simData.pzOpts.nThreads,
                                    simData.pzOpts.scaleFactor, simData.pzOpts.meshOrder);
                 }
