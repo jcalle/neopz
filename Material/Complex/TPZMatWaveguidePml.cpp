@@ -71,10 +71,13 @@ void TPZMatWaveguidePml::Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZ
     if(fAttY){
         sy = 1 + fAlphaMax * ((x[1]-fPmlBeginY) / fD ) * ((x[1]-fPmlBeginY) / fD );
     }
-    const STATE uxx = fUr * sy / sx;
-    const STATE uyy = fUr * sx / sy;
-    const STATE exx = fEr * sy / sx;
-    const STATE eyy = fEr * sx / sy;
+    /**********************
+     * The following is just a way to see the PML attenuation
+     */
+    const STATE uxx = fUr / sx;
+    const STATE uyy = fUr / sy;
+    const STATE exx = fEr / sx;
+    const STATE eyy = fEr / sy;
 
     this->RealSolution(datavec,var,Solout,exx,eyy,uxx,uyy);
 }
