@@ -5,6 +5,8 @@
 #include <map>
 #include "pzvec.h"
 class TPZGeoMesh;
+class TPZAcousticAnalysis;
+class TPZAcousticFreqDomainAnalysis;
 
 /**
  * A class that interfaces with gmsh executable  in the context of acoustic simulations. It also handles the
@@ -13,7 +15,8 @@ class TPZGeoMesh;
  */
 class TPZAcousticGeoMesher{
 public:
-
+    friend TPZAcousticAnalysis;
+    friend TPZAcousticFreqDomainAnalysis;
     /**
      * This constructor will not be generated
      */
@@ -33,7 +36,7 @@ public:
      * @param matIdVec vector with the material ids in the order they were declared (as physical surfaces)
      * in the .geo file (out)
      */
-    void CreateGMesh(REAL nElemPerLambdaTimesOmega, TPZVec<int> &matIdVec);
+    void CreateGMesh(REAL nElemPerLambdaTimesOmega);
     /**
      * Creates a 0D element (node) representing the source. The location is approximated, since the source will be
      * placed at the nearest node in the mesh, so there is a maximum error of elSize/2
@@ -42,7 +45,7 @@ public:
      * @param sourcePosX x-coordinate for the source (in)
      * @param sourcePosY y-coordinate for the source (in)
      */
-    void CreateSourceNode(const int &matIdSource, const REAL &sourcePosX, const REAL &sourcePosY);
+    void CreateSourceNode(const REAL &sourcePosX, const REAL &sourcePosY);
 
     /**
      * Prints the geometric mesh in both .vtk and .txt formats.
@@ -120,6 +123,11 @@ protected:
       * Vector containing the elSize for each material
       */
      TPZVec<REAL> fElSizes;
+
+
+     TPZVec<int> fMatIdVec;
+
+     int fMatIdSource;
 };
 
 #endif //TPZACOUSTICGEOMESHER

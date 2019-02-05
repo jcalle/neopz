@@ -1,3 +1,6 @@
+#ifndef TPZACOUSTICCOMPMESHER_H
+#define TPZACOUSTICCOMPMESHER_H
+
 #include <map>
 #include "pzvec.h"
 #include "TPZMatAcousticsFourier.h"
@@ -5,6 +8,8 @@
 #include "pzcmesh.h"
 
 class TPZGeoMesh;
+class TPZAcousticAnalysis;
+class TPZAcousticFreqDomainAnalysis;
 /**
  * A class that creates a computational mesh based on a previously generated geometric mesh.
  * The geometric mesh must have been generated using a TPZAcousticGeoMesher in order to assure that all
@@ -13,13 +18,15 @@ class TPZGeoMesh;
  */
 class TPZAcousticCompMesher{
 public:
+    friend TPZAcousticAnalysis;
+    friend TPZAcousticFreqDomainAnalysis;
 
     /**
      * This constructor will not be generated
      */
     TPZAcousticCompMesher() = delete;
 
-    TPZAcousticCompMesher(TPZAcousticGeoMesher * geoMesh, bool isAxisymmetric);
+    TPZAcousticCompMesher(TPZAcousticGeoMesher * geoMesh, bool isAxisymmetric, bool filterBoundEqs = true);
 
     void CreateFourierMesh(const int &porder);
 
@@ -51,6 +58,13 @@ protected:
     int64_t fNeqReduced;
 
     int64_t fNeqOriginal;
+
+    bool fFilterBoundaryEquations;
+
+    enum ECompMeshTypes{
+        timeDomain = 0, freqDomain = 1
+    };
+    ECompMeshTypes fMeshType;
 };
 
 template<class T>
@@ -126,3 +140,4 @@ void TPZAcousticCompMesher::CreateCompMesh(const int & pOrder) {
 
     FilterBoundaryEquations(fActiveEquations, fNeqReduced, fNeqOriginal);
 }
+#endif

@@ -7,8 +7,10 @@
 #endif
 #include "pzbndcond.h"
 
-TPZAcousticCompMesher::TPZAcousticCompMesher(TPZAcousticGeoMesher *geoMesh, bool isAxisymmetric) :
-fGeoMesh(geoMesh) , fCmesh(nullptr), fIsAxisymetric(isAxisymmetric) , fNeqOriginal(-1), fNeqReduced(-1) {
+TPZAcousticCompMesher::TPZAcousticCompMesher(TPZAcousticGeoMesher *geoMesh, bool isAxisymmetric,
+        bool filterBoundEqs) :
+fGeoMesh(geoMesh) , fCmesh(nullptr), fIsAxisymetric(isAxisymmetric) , fNeqOriginal(-1), fNeqReduced(-1),
+fFilterBoundaryEquations(filterBoundEqs){
 #ifdef PZDEBUG
     //TODO::Verify if everything is ok
 #endif
@@ -37,6 +39,7 @@ TPZAcousticCompMesher::PrintMesh(const std::string &fileName, const std::string 
 
 void TPZAcousticCompMesher::CreateFourierMesh(const int &porder) {
     #ifdef STATE_COMPLEX
+    fMeshType = ECompMeshTypes::freqDomain;
     TPZAcousticCompMesher::CreateCompMesh<TPZMatAcousticsFourier>(porder);
     #else
     PZError<<"You are trying to perform a frequency-domain analysis without complex numbers (STATE!=complex<double>).";
@@ -47,6 +50,7 @@ void TPZAcousticCompMesher::CreateFourierMesh(const int &porder) {
 
 void TPZAcousticCompMesher::CreateTransientMesh(const int &porder) {
     #ifdef STATE_REAL
+    fMeshType = ECompMeshTypes::timeDomain;
     TPZAcousticCompMesher::CreateCompMesh<TPZMatAcousticsTransient>(porder);
     #else
     PZError<<"You are trying to perform a time-domain analysis with complex numbers (STATE=complex<double>).";
@@ -58,51 +62,60 @@ void TPZAcousticCompMesher::CreateTransientMesh(const int &porder) {
 
 void TPZAcousticCompMesher::FilterBoundaryEquations(TPZVec<int64_t> &activeEquations, int64_t &neq,
                                                     int64_t &neqOriginal) {
-    TPZManVector<int64_t, 1000> allConnects;
-    std::set<int64_t> boundConnects;
+    neqOriginal = fCmesh->NEquations();
+    neq = fCmesh->NEquations();
 
-    for (int iel = 0; iel < fCmesh->NElements(); iel++) {
-        TPZCompEl *cel = fCmesh->ElementVec()[iel];
-        if (cel == NULL) {
-            continue;
-        }
-        if (cel->Reference() == NULL) {
-            continue;
-        }
-        TPZBndCond *mat = dynamic_cast<TPZBndCond *>(fCmesh->MaterialVec()[cel->Reference()->MaterialId()]);
-        if (mat && mat->Type() == 0) {
-            std::set<int64_t> boundConnectsEl;
-            cel->BuildConnectList(boundConnectsEl);
+    if(fFilterBoundaryEquations){
+        std::cout << "Filtering boundary equations..." << std::endl;
+        TPZManVector<int64_t, 1000> allConnects;
+        std::set<int64_t> boundConnects;
 
-            for (std::set<int64_t>::iterator iT = boundConnectsEl.begin();
-                 iT != boundConnectsEl.end(); iT++) {
-                const int64_t val = *iT;
-                if (boundConnects.find(val) == boundConnects.end()) {
-                    boundConnects.insert(val);
+        for (int iel = 0; iel < fCmesh->NElements(); iel++) {
+            TPZCompEl *cel = fCmesh->ElementVec()[iel];
+            if (cel == NULL) {
+                continue;
+            }
+            if (cel->Reference() == NULL) {
+                continue;
+            }
+            TPZBndCond *mat = dynamic_cast<TPZBndCond *>(fCmesh->MaterialVec()[cel->Reference()->MaterialId()]);
+            if (mat && mat->Type() == 0) {
+                std::set<int64_t> boundConnectsEl;
+                cel->BuildConnectList(boundConnectsEl);
+
+                for (std::set<int64_t>::iterator iT = boundConnectsEl.begin();
+                     iT != boundConnectsEl.end(); iT++) {
+                    const int64_t val = *iT;
+                    if (boundConnects.find(val) == boundConnects.end()) {
+                        boundConnects.insert(val);
+                    }
                 }
             }
         }
-    }
-    neqOriginal = fCmesh->NEquations();
-    for (int iCon = 0; iCon < fCmesh->NConnects(); iCon++) {
-        if (boundConnects.find(iCon) == boundConnects.end()) {
-            TPZConnect &con = fCmesh->ConnectVec()[iCon];
-            int seqnum = con.SequenceNumber();
-            int pos = fCmesh->Block().Position(seqnum);
-            int blocksize = fCmesh->Block().Size(seqnum);
-            if (blocksize == 0)
-                continue;
 
-            int vs = activeEquations.size();
-            activeEquations.Resize(vs + blocksize);
-            for (int ieq = 0; ieq < blocksize; ieq++) {
-                activeEquations[vs + ieq] = pos + ieq;
-                neq++;
+        for (int iCon = 0; iCon < fCmesh->NConnects(); iCon++) {
+            if (boundConnects.find(iCon) == boundConnects.end()) {
+                TPZConnect &con = fCmesh->ConnectVec()[iCon];
+                int seqnum = con.SequenceNumber();
+                int pos = fCmesh->Block().Position(seqnum);
+                int blocksize = fCmesh->Block().Size(seqnum);
+                if (blocksize == 0)
+                    continue;
+
+                int vs = activeEquations.size();
+                activeEquations.Resize(vs + blocksize);
+                for (int ieq = 0; ieq < blocksize; ieq++) {
+                    activeEquations[vs + ieq] = pos + ieq;
+                    neq++;
+                }
             }
         }
+        std::cout << "# equations(before): " << neqOriginal << std::endl;
+        std::cout << "# equations(after): " << neq << std::endl;
+    }else{
+        std::cout << "Not filtering equations (debug reasons?)" << std::endl;
+        std::cout << "# equations: " << neqOriginal << std::endl;
     }
-    neqOriginal = fCmesh->NEquations();
-    std::cout << "# equations(before): " << neqOriginal << std::endl;
-    std::cout << "# equations(after): " << neq << std::endl;
+
     return;
 }

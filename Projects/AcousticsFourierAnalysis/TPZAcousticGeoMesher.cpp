@@ -68,7 +68,7 @@ void TPZAcousticGeoMesher::ReadGmshMesh(TPZVec<std::map<int,int>> &translatedMat
     fGmesh = meshReader.GeometricGmshMesh(fPrefix+"wellMesh.msh");
     translatedMatIds = meshReader.fMatIdTranslate;
 }
-void TPZAcousticGeoMesher::CreateGMesh(REAL nElemPerLambdaTimesOmega, TPZVec<int> &matIdVec) {
+void TPZAcousticGeoMesher::CreateGMesh(REAL nElemPerLambdaTimesOmega) {
     if(fGmesh!=nullptr){
         std::cout<<"You have requested to overwrite the mesh, so the existing mesh will be deleted first"<<std::endl;
         delete fGmesh;
@@ -91,21 +91,21 @@ void TPZAcousticGeoMesher::CreateGMesh(REAL nElemPerLambdaTimesOmega, TPZVec<int
 #endif
     const int n1dMat =translatedMatIds[1].size();
     const int n2dMat =translatedMatIds[2].size();
-    matIdVec.Resize(n2dMat+n1dMat);
+    fMatIdVec.Resize(n2dMat+n1dMat);
     int imat = 0;
     ///at this point, the materials in the .geo must be declared in a crescent order
     for (auto& kv :translatedMatIds[2]) {
-        matIdVec[imat] = kv.first;
+        fMatIdVec[imat] = kv.first;
         imat++;
     }
     for (auto& kv :translatedMatIds[1]) {
-        matIdVec[imat] = kv.first;
+        fMatIdVec[imat] = kv.first;
         imat++;
     }
     return;
 }
 
-void TPZAcousticGeoMesher::CreateSourceNode(const int &matIdSource, const REAL &sourcePosX,
+void TPZAcousticGeoMesher::CreateSourceNode(const REAL &sourcePosX,
                                             const REAL &sourcePosY) {
 #ifdef PZDEBUG
     if(fGmesh == nullptr){
@@ -113,6 +113,18 @@ void TPZAcousticGeoMesher::CreateSourceNode(const int &matIdSource, const REAL &
         DebugStop();
     }
 #endif
+
+    for (int iMat = 0; iMat< fMatIdVec.size(); iMat++){
+        fMatIdSource += fMatIdVec[iMat];
+    }
+    TPZVec<int> matIdVecCp(fMatIdVec);
+    fMatIdVec.resize(fMatIdVec.size()+1);
+    fMatIdVec[0] = fMatIdSource;
+    for (int iMat = 0; iMat< matIdVecCp.size(); iMat++){
+        fMatIdVec[iMat+1] = matIdVecCp[iMat];
+    }
+
+
     int64_t sourceNodeIndex = -1;
     REAL minDist = 1e12;
     //////
@@ -133,7 +145,7 @@ void TPZAcousticGeoMesher::CreateSourceNode(const int &matIdSource, const REAL &
     }
     TPZVec<int64_t> nodeIdVec(1,sourceNodeIndex);
     TPZGeoElRefLess<pzgeom::TPZGeoPoint > *zeroDEl =
-            new TPZGeoElRefLess<pzgeom::TPZGeoPoint >(nodeIdVec, matIdSource,
+            new TPZGeoElRefLess<pzgeom::TPZGeoPoint >(nodeIdVec, fMatIdSource,
                                                       *fGmesh);
     fGmesh->BuildConnectivity();
 }
@@ -156,12 +168,13 @@ void TPZAcousticGeoMesher::PrintMesh(const std::string &fileName, const std::str
 }
 
 TPZAcousticGeoMesher::TPZAcousticGeoMesher(const std::string meshFileName, const std::string &prefix) :
-fMeshFileName(meshFileName) ,fPrefix(prefix) {
+fMeshFileName(meshFileName) ,fPrefix(prefix), fMatIdSource(-1) {
     fGmesh = nullptr;
+    fMatIdVec.Resize(0);
     ReadMeshMaterials();
 }
 
-std::map<int, REAL> TPZAcousticGeoMesher::GetElSizes() {
+std::map<int, REAL> TPZAcousticGeoMesher::GetElSizes() const {
     std::map<int,REAL> elSizeMap;
     int i = 0;
     for(auto itMap : fVelocityMap){
