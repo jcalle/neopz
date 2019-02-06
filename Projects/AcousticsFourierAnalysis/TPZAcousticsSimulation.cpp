@@ -3,6 +3,7 @@
 #include "TPZAcousticCompMesher.h"
 #include "TPZAcousticAnalysis.h"
 #include "TPZAcousticFreqDomainAnalysis.h"
+#include "TPZAcousticTimeDomainAnalysis.h"
 #include "pzcheckgeom.h"
 #include "pzcmesh.h"
 #include "TPZGmshReader.h"
@@ -79,8 +80,7 @@ void TPZAcousticsSimulation::RunSimulation() {
     if(this->fSimData.fSimulationSettings.simType == SPZAcousticData::ESimulationType::frequencyDomain){
         analysis = new TPZAcousticFreqDomainAnalysis(&compMesh, nThreads);
     }else{
-        PZError<<"There is no TPZAcousticTimeDomainAnalysis yet...."<<std::endl;
-        DebugStop();
+        analysis = new TPZAcousticTimeDomainAnalysis(&compMesh, nThreads);
     }
 
     analysis->InitializeComputations();
@@ -103,6 +103,12 @@ void TPZAcousticsSimulation::RunSimulation() {
         const REAL &totalTime = this->fSimData.fSimulationSettings.totalTime;
         const int &nTimeSteps= this->fSimData.fSimulationSettings.nTimeSteps;
         analysis->RunSimulationSteps(totalTime, nTimeSteps);
+    }
+    if(this->fSimData.fOutputSettings.vtkSol)
+    {
+        const int vtkRes = this->fSimData.fOutputSettings.vtkResolution;
+
+        analysis->PostProcess(vtkRes,prefix);
     }
     delete analysis;
 }

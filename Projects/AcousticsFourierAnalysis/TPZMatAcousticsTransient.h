@@ -2,20 +2,20 @@
 // Created by Francisco Teixeira Orlandini on 3/6/18.
 //
 
-#ifndef PZ_TPZMATACOUSTICSFOURIERH_H
-#define PZ_TPZMATACOUSTICSFOURIERH_H
+#ifndef PZ_TPZMATACOUSTICSHTRANSIENT_H
+#define PZ_TPZMATACOUSTICSHTRANSIENT_H
 
 #include <pzdiscgal.h>
 #include <functional>
 
-class TPZMatAcousticsFourier : public TPZDiscontinuousGalerkin {
+class TPZMatAcousticsTransient : public TPZDiscontinuousGalerkin {
 public:
-    enum EWhichMatrix {M = 0, K, NDefined};
-    TPZMatAcousticsFourier();//this does not exist
-    explicit TPZMatAcousticsFourier(int id);
-    TPZMatAcousticsFourier(int id, const REAL &rho, const REAL &velocity);
-    TPZMatAcousticsFourier(const TPZMatAcousticsFourier &mat);
-    ~TPZMatAcousticsFourier() override;
+    TPZMatAcousticsTransient();//this does not exist
+    explicit TPZMatAcousticsTransient(int id);
+    TPZMatAcousticsTransient(int id, const REAL &rho, const REAL &velocity);
+    TPZMatAcousticsTransient(const TPZMatAcousticsTransient &mat);
+    ~TPZMatAcousticsTransient() override;
+    void FillDataRequirements(TPZMaterialData &data) override;
     void Contribute(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) override;
     void Contribute(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ef) override;
     void ContributeBC(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef, TPZBndCond &bc) override;
@@ -25,23 +25,17 @@ public:
     int VariableIndex(const std::string &name) override;
     int NSolutionVariables(int var) override;
     void Solution(TPZMaterialData &data, int var, TPZVec<STATE> &Solout) override;
-
-    void SetSource(const std::function<void (const STATE &w, STATE &val)> &source);
-
-    void SetAssemblingMatrix(EWhichMatrix mat);
-    STATE GetW() const;
-
-    void SetW(STATE fW);
-
+    void SetSource(const std::function<void (const REAL &time, STATE &val)> &source);
+    void SetCurrentTime(const REAL& time);
+    void SetDeltaT(const REAL& deltat);
 protected:
-    STATE fW;
     REAL fRho;
     REAL fVelocity;
-    std::function<void (const STATE &time, STATE &val)> fSource;
-
-private:
-    EWhichMatrix fAssembling;
+    REAL fDeltaT;
+    REAL fCurrentTime;
+    REAL fNewmarkBeta =0.25;
+    std::function<void (const REAL &time, STATE &val)> fSource;
 };
 
 
-#endif //PZ_TPZMATACOUSTICSFOURIERH_H
+#endif //PZ_TPZMATACOUSTICSHTRANSIENT_H

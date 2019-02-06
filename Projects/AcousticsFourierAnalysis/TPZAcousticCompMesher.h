@@ -4,12 +4,14 @@
 #include <map>
 #include "pzvec.h"
 #include "TPZMatAcousticsFourier.h"
+#include "TPZMatAcousticsTransient.h"
 #include "TPZAcousticGeoMesher.h"
 #include "pzcmesh.h"
 
 class TPZGeoMesh;
 class TPZAcousticAnalysis;
 class TPZAcousticFreqDomainAnalysis;
+class TPZAcousticTimeDomainAnalysis;
 /**
  * A class that creates a computational mesh based on a previously generated geometric mesh.
  * The geometric mesh must have been generated using a TPZAcousticGeoMesher in order to assure that all
@@ -20,6 +22,7 @@ class TPZAcousticCompMesher{
 public:
     friend TPZAcousticAnalysis;
     friend TPZAcousticFreqDomainAnalysis;
+    friend TPZAcousticTimeDomainAnalysis;
 
     /**
      * This constructor will not be generated

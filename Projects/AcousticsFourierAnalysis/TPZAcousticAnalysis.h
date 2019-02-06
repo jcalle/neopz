@@ -30,17 +30,18 @@ public:
     virtual void InitializeComputations() = 0;
     virtual void SetUpGaussianSource(const REAL & wZero, const REAL & peakTime, const REAL & amplitude) = 0;
     virtual void RunSimulationSteps(const REAL &totalTime, const int &nTimeSteps) = 0;
+
+    void PostProcess(int vtkResolution, std::string &prefix);
 protected:
 
 
-    void InitializeSolver();
+    virtual void InitializeSolver() = 0;
 
     const bool fFilterBoundaryEquations;
     const int fNThreads;
+    int nTimeSteps;
     TPZAnalysis fPzAnalysis;
     TPZStepSolver<STATE> fStepSolver;
-
-    TPZVec<TPZFYsmpMatrix<STATE>> fMatrices;
 
     TPZAcousticCompMesher *fCompMesher;
 

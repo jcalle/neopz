@@ -256,3 +256,9 @@ void TPZAcousticFreqDomainAnalysis::SetUpGaussianSource(const REAL &wZero, const
 
     fFreqDomainSource = source;
 }
+
+
+void TPZAcousticFreqDomainAnalysis::InitializeSolver() {
+    fStepSolver.SetDirect(ELU);
+    fPzAnalysis.SetSolver(fStepSolver);
+}

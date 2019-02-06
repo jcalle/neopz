@@ -7,6 +7,7 @@
 class TPZGeoMesh;
 class TPZAcousticAnalysis;
 class TPZAcousticFreqDomainAnalysis;
+class TPZAcousticTimeDomainAnalysis;
 
 /**
  * A class that interfaces with gmsh executable  in the context of acoustic simulations. It also handles the
@@ -17,6 +18,7 @@ class TPZAcousticGeoMesher{
 public:
     friend TPZAcousticAnalysis;
     friend TPZAcousticFreqDomainAnalysis;
+    friend TPZAcousticTimeDomainAnalysis;
     /**
      * This constructor will not be generated
      */
