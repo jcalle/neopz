@@ -3,6 +3,7 @@
 #include "TPZSpStructMatrix.h"
 #include <pzgeoelrefless.h>
 #include <pzgeopoint.h>
+#include "pzbndcond.h"
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 
@@ -40,8 +41,11 @@ void TPZAcousticFreqDomainAnalysis::InitializeComputations() {
             }
             matsNonPml.insert(matH1->Id());
         } else {
-            PZError << "Something is wrong... " << __PRETTY_FUNCTION__ << " could not identify material with id ";
-            PZError << itMap.first << std::endl;
+            TPZBndCond *matBound = dynamic_cast<TPZBndCond *>(itMap.second);
+            if( matBound == nullptr){
+                PZError << "Something is wrong... " << __PRETTY_FUNCTION__ << " could not identify material with id ";
+                PZError << itMap.first << std::endl;
+            }
         }
     }
 
@@ -97,13 +101,14 @@ void TPZAcousticFreqDomainAnalysis::SetUpFourierSettings(const REAL &wMax, const
     fNSamples = nSamples;
     if(aFactorUser < 0){
         std::cout<<"aFactor = "<<aFactorUser<<" using default value..."<<std::endl;
-        fAFactor = log(5)/(2*M_PI/wSample);
+        fAFactor = log(50)/(2*M_PI/wSample);
     }else{
         fAFactor = aFactorUser;
     }
     fAmIready = true;
 }
 void TPZAcousticFreqDomainAnalysis::RunSimulationSteps(const REAL &totalTime, const int &nTimeSteps) {
+    this->fNTimeSteps = nTimeSteps;
     if(! fAmIready ){
         PZError<<"TPZAcousticFreqDomainAnalysis::SetUpFourierSettings should be called before RunSimulationSteps."<<std::endl;
         DebugStop();

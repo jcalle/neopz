@@ -7,12 +7,12 @@ SetFactory("OpenCASCADE");
 
 DefineConstant[length = 60];
 DefineConstant[height = 20];
-DefineConstant[el_size = 4.];
+DefineConstant[el_size_1 = 4.];
 
 
 
-ndiv_x=Ceil(length/el_size) + 1;
-ndiv_y=Ceil(height/el_size) + 1;
+ndiv_x=Ceil(length/el_size_1) + 1;
+ndiv_y=Ceil(height/el_size_1) + 1;
 lc = 1e6;
 
 //inner domain

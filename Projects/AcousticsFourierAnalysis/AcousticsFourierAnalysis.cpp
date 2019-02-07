@@ -47,11 +47,11 @@ void ConfigureHomogeneousCase(TPZAcousticsSimulation &sim){
     sim.fSimData.fSimulationSettings.nThreads = 8;
 
 
-    sim.fSimData.fSourceSettings.posX = 0;
-    sim.fSimData.fSourceSettings.posY = 0;
+    sim.fSimData.fSourceSettings.posX = 30;
+    sim.fSimData.fSourceSettings.posY = 10;
     sim.fSimData.fSourceSettings.amplitude = 1;
     sim.fSimData.fSourceSettings.peakTime = 0.01;
-    sim.fSimData.fSourceSettings.centralFrequency = 100;
+    sim.fSimData.fSourceSettings.centralFrequency = 2*M_PI*100;
 
 
     sim.fSimData.fOutputSettings.resultsDir = "results/";
@@ -68,6 +68,6 @@ void ConfigureFreqHomogeneousCase(TPZAcousticsSimulation &sim){
     ConfigureHomogeneousCase(sim);
     sim.fSimData.fSimulationSettings.simType = SPZAcousticData::ESimulationType::frequencyDomain;
     sim.fSimData.fFourierSettings.nSamples = 50;
-    sim.fSimData.fFourierSettings.wMax = 300;
+    sim.fSimData.fFourierSettings.wMax = 2*M_PI*300;
     sim.fSimData.fFourierSettings.alphaFreqShift = -1;
 }

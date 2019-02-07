@@ -81,13 +81,9 @@ void TPZAcousticCompMesher::CreateCompMesh(const int & pOrder) {
     TPZManVector<int, 8> sourceMatIdVec(1);//TODO:this is wrong
     std::map<int,REAL> rhoMap = fGeoMesh->GetDensityMap();
     std::map<int,REAL> velocityMap = fGeoMesh->GetVelocityMap();
-    TPZManVector<int, 8> matIdVec(rhoMap.size());
-    int i = 0;
-    for (auto itMap : rhoMap){
-        matIdVec[i] = itMap.first;
-        i++;
-    }
+    TPZManVector<int, 8> matIdVec( fGeoMesh->GetMaterialIds());
     TPZManVector<int, 8> boundTypeVec(1,0);//TODO:this is wrong
+
     for (int i = 0; i < 1; i++) {
         sourceMatIdVec[i] = matIdVec[i];
     }
@@ -140,7 +136,7 @@ void TPZAcousticCompMesher::CreateCompMesh(const int & pOrder) {
     }
     cmesh->SetAllCreateFunctionsContinuous();
     cmesh->AutoBuild();
-
+    fCmesh = cmesh;
     FilterBoundaryEquations(fActiveEquations, fNeqReduced, fNeqOriginal);
 }
 #endif

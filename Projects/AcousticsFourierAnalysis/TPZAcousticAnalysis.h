@@ -39,7 +39,7 @@ protected:
 
     const bool fFilterBoundaryEquations;
     const int fNThreads;
-    int nTimeSteps;
+    int fNTimeSteps;
     TPZAnalysis fPzAnalysis;
     TPZStepSolver<STATE> fStepSolver;
 

@@ -75,6 +75,8 @@ public:
       */
      std::map<int,REAL> GetElSizes() const;
 
+    TPZVec<int> GetMaterialIds() const{ return fMatIdVec; };
+
      TPZGeoMesh *GetMesh() const{return fGmesh; }
 protected:
     void ReadMeshMaterials();

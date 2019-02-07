@@ -28,7 +28,7 @@ TPZAcousticCompMesher::PrintMesh(const std::string &fileName, const std::string 
         outVTK.close();
     }
     if(printTxt){
-        const std::string txtFile = meshFileName + ".vtk";
+        const std::string txtFile = meshFileName + ".txt";
         std::ofstream outTXT(txtFile.c_str());
         fCmesh->Print(outTXT);
         outTXT.close();
@@ -63,7 +63,7 @@ void TPZAcousticCompMesher::CreateTransientMesh(const int &porder) {
 void TPZAcousticCompMesher::FilterBoundaryEquations(TPZVec<int64_t> &activeEquations, int64_t &neq,
                                                     int64_t &neqOriginal) {
     neqOriginal = fCmesh->NEquations();
-    neq = fCmesh->NEquations();
+    neq = 0;
 
     if(fFilterBoundaryEquations){
         std::cout << "Filtering boundary equations..." << std::endl;
@@ -113,9 +113,10 @@ void TPZAcousticCompMesher::FilterBoundaryEquations(TPZVec<int64_t> &activeEquat
         std::cout << "# equations(before): " << neqOriginal << std::endl;
         std::cout << "# equations(after): " << neq << std::endl;
     }else{
+        neq = neqOriginal;
         std::cout << "Not filtering equations (debug reasons?)" << std::endl;
         std::cout << "# equations: " << neqOriginal << std::endl;
     }
 
-    return;
+    return;//TODO: aprender a filtrar eqs
 }

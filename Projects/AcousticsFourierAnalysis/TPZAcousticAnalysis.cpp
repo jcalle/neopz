@@ -6,7 +6,7 @@ TPZAcousticAnalysis::TPZAcousticAnalysis(TPZAcousticCompMesher *compMesher, cons
 fFilterBoundaryEquations(compMesher->fFilterBoundaryEquations), fNThreads(nThreads),
 fPzAnalysis(compMesher->fCmesh), fCompMesher(compMesher)
 {
-    nTimeSteps = -1;
+    fNTimeSteps = -1;
     TPZSpStructMatrix structMatrix(fCompMesher->fCmesh);
     structMatrix.SetNumThreads(nThreads);
     if(fFilterBoundaryEquations){
@@ -37,8 +37,8 @@ void TPZAcousticAnalysis::PostProcess(int vtkResolution, std::string &prefix) {
     uint solSize = fCompMesher->fFilterBoundaryEquations ? neqOriginal : neq;
 
     TPZFMatrix<STATE> currentSol(solSize,1);
-    for(int iTime = 0; iTime < nTimeSteps; iTime++){
-        std::cout<<"\rtime: "<<iTime+1<<" out of "<<nTimeSteps<<std::flush;
+    for(int iTime = 0; iTime < fNTimeSteps; iTime++){
+        std::cout<<"\rtime: "<<iTime+1<<" out of "<<fNTimeSteps<<std::flush;
         for(int iPt = 0; iPt < solSize; iPt++){
             currentSol(iPt,0) = fTimeDomainSolution(iPt,iTime);
         }

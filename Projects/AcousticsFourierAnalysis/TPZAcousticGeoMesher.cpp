@@ -30,10 +30,12 @@ void TPZAcousticGeoMesher::GetMaterialProperties(std::map<std::string, int> &mat
 }
 
 void TPZAcousticGeoMesher::ReadMeshMaterials() {
-    std::string command = "gmsh " + fMeshFileName+ " -0 -v 0 -format msh2";
-    command += " -o " + fPrefix + "wellMesh.msh";
-    std::shared_ptr<FILE> pipe(popen(command.c_str(), "r"), pclose);
-    if (!pipe) throw std::runtime_error("popen() failed!");
+    {
+        std::string command = "gmsh " + fMeshFileName+ " -0 -v 0 -format msh2";
+        command += " -o " + fPrefix + "wellMesh.msh";
+        std::shared_ptr<FILE> pipe(popen(command.c_str(), "r"), pclose);
+        if (!pipe) throw std::runtime_error("popen() failed!");
+    }
 
     TPZGmshReader meshReader;
     TPZGeoMesh *gmesh = meshReader.GeometricGmshMesh(fPrefix+"wellMesh.msh", nullptr, false);
@@ -113,7 +115,7 @@ void TPZAcousticGeoMesher::CreateSourceNode(const REAL &sourcePosX,
         DebugStop();
     }
 #endif
-
+    fMatIdSource = 0;
     for (int iMat = 0; iMat< fMatIdVec.size(); iMat++){
         fMatIdSource += fMatIdVec[iMat];
     }
@@ -160,7 +162,7 @@ void TPZAcousticGeoMesher::PrintMesh(const std::string &fileName, const std::str
         outVTK.close();
     }
     if(printTxt){
-        const std::string txtFile = meshFileName + ".vtk";
+        const std::string txtFile = meshFileName + ".txt";
         std::ofstream outTXT(txtFile.c_str());
         fGmesh->Print(outTXT);
         outTXT.close();

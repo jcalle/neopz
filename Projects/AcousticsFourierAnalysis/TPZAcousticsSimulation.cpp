@@ -21,8 +21,8 @@ void TPZAcousticsSimulation::RunSimulation() {
     boost::posix_time::ptime t1_g =
             boost::posix_time::microsec_clock::local_time();
 
-    std::string meshFileName = this->fSimData.fOutputSettings.resultsDir;
-    std::string prefix = this->fSimData.fSimulationSettings.meshName;
+    std::string meshFileName = this->fSimData.fSimulationSettings.meshName;
+    std::string prefix = this->fSimData.fOutputSettings.resultsDir;
     TPZAcousticGeoMesher geoMesh(meshFileName, prefix);
     {
 
@@ -58,7 +58,8 @@ void TPZAcousticsSimulation::RunSimulation() {
     boost::posix_time::ptime t1_c =
             boost::posix_time::microsec_clock::local_time();
     bool isAxisymmetric = false;
-    TPZAcousticCompMesher compMesh(&geoMesh, isAxisymmetric);
+    bool &filter = this->fSimData.fSimulationSettings.filterBoundaryEqs;
+    TPZAcousticCompMesher compMesh(&geoMesh, isAxisymmetric,filter);
     {
         const int &pOrder = this->fSimData.fSimulationSettings.pOrder;
         if(this->fSimData.fSimulationSettings.simType == SPZAcousticData::ESimulationType::frequencyDomain){
