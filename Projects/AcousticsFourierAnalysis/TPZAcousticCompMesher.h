@@ -29,7 +29,7 @@ public:
      */
     TPZAcousticCompMesher() = delete;
 
-    TPZAcousticCompMesher(TPZAcousticGeoMesher * geoMesh, bool isAxisymmetric, bool filterBoundEqs = true);
+    TPZAcousticCompMesher(TPZAcousticGeoMesher * geoMesh, bool isAxisymmetric);
 
     void CreateFourierMesh(const int &porder);
 
@@ -48,21 +48,13 @@ protected:
     template<class T>
     void CreateCompMesh(const int &porder);
 
-    void FilterBoundaryEquations(TPZVec<int64_t> &activeEquations, int64_t &neq, int64_t &neqOriginal) ;
+//    void FilterBoundaryEquations(TPZVec<int64_t> &activeEquations, int64_t &neq, int64_t &neqOriginal) ;
 
     TPZCompMesh *fCmesh;
 
     const TPZAcousticGeoMesher *fGeoMesh;
 
     const bool fIsAxisymetric;
-
-    TPZVec<int64_t > fActiveEquations;
-
-    int64_t fNeqReduced;
-
-    int64_t fNeqOriginal;
-
-    bool fFilterBoundaryEquations;
 
     enum ECompMeshTypes{
         timeDomain = 0, freqDomain = 1
@@ -137,6 +129,5 @@ void TPZAcousticCompMesher::CreateCompMesh(const int & pOrder) {
     cmesh->SetAllCreateFunctionsContinuous();
     cmesh->AutoBuild();
     fCmesh = cmesh;
-    FilterBoundaryEquations(fActiveEquations, fNeqReduced, fNeqOriginal);
 }
 #endif

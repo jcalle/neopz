@@ -8,8 +8,9 @@
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 
-TPZAcousticTimeDomainAnalysis::TPZAcousticTimeDomainAnalysis(TPZAcousticCompMesher *compMesher, const int &nThreads)
-        : TPZAcousticAnalysis(compMesher, nThreads) {
+TPZAcousticTimeDomainAnalysis::TPZAcousticTimeDomainAnalysis(TPZAcousticCompMesher *compMesher, const int &nThreads,
+        const bool &filter)
+        : TPZAcousticAnalysis(compMesher, nThreads, filter) {
 #ifdef PZDEBUG
     if(fCompMesher->fMeshType != TPZAcousticCompMesher::ECompMeshTypes::timeDomain){
         PZError<<"It seems you are trying to run a time domain problem with a frequencydomain computational mesh.";
@@ -75,10 +76,9 @@ void TPZAcousticTimeDomainAnalysis::RunSimulationSteps(const REAL &totalTime, co
         const int prevSol = it - 1 < 0 ? nTimeSteps - it - 1: it-1;
         const int prevPrevSol = it - 2 < 0 ? nTimeSteps - it - 2 : it-2;
 
-        const uint neqOriginal = fCompMesher->fNeqOriginal;
-        const uint neq = fCompMesher->fNeqReduced;
+        const uint neqOriginal = fNeqOriginal;
 
-        uint solSize = fCompMesher->fFilterBoundaryEquations ? neqOriginal : neq;
+        uint solSize = neqOriginal;
         TPZFMatrix<STATE> currentSol(solSize,2,0);
         TPZFMatrix<STATE> fTimeDomainSolution(solSize,nTimeSteps,0);
 

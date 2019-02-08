@@ -58,8 +58,7 @@ void TPZAcousticsSimulation::RunSimulation() {
     boost::posix_time::ptime t1_c =
             boost::posix_time::microsec_clock::local_time();
     bool isAxisymmetric = false;
-    bool &filter = this->fSimData.fSimulationSettings.filterBoundaryEqs;
-    TPZAcousticCompMesher compMesh(&geoMesh, isAxisymmetric,filter);
+    TPZAcousticCompMesher compMesh(&geoMesh, isAxisymmetric);
     {
         const int &pOrder = this->fSimData.fSimulationSettings.pOrder;
         if(this->fSimData.fSimulationSettings.simType == SPZAcousticData::ESimulationType::frequencyDomain){
@@ -78,10 +77,12 @@ void TPZAcousticsSimulation::RunSimulation() {
 
     const int &nThreads = this->fSimData.fSimulationSettings.nThreads;
     TPZAcousticAnalysis *analysis = nullptr;
+
+    bool &filter = this->fSimData.fSimulationSettings.filterBoundaryEqs;
     if(this->fSimData.fSimulationSettings.simType == SPZAcousticData::ESimulationType::frequencyDomain){
-        analysis = new TPZAcousticFreqDomainAnalysis(&compMesh, nThreads);
+        analysis = new TPZAcousticFreqDomainAnalysis(&compMesh, nThreads,filter);
     }else{
-        analysis = new TPZAcousticTimeDomainAnalysis(&compMesh, nThreads);
+        analysis = new TPZAcousticTimeDomainAnalysis(&compMesh, nThreads,filter);
     }
 
     analysis->InitializeComputations();

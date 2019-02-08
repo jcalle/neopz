@@ -7,8 +7,9 @@
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 
-TPZAcousticFreqDomainAnalysis::TPZAcousticFreqDomainAnalysis(TPZAcousticCompMesher *compMesher, const int &nThreads)
-        : TPZAcousticAnalysis(compMesher, nThreads) {
+TPZAcousticFreqDomainAnalysis::TPZAcousticFreqDomainAnalysis(TPZAcousticCompMesher *compMesher, const int &nThreads,
+const bool &filter)
+        : TPZAcousticAnalysis(compMesher, nThreads, filter) {
 #ifdef PZDEBUG
     if(fCompMesher->fMeshType != TPZAcousticCompMesher::ECompMeshTypes::freqDomain){
         PZError<<"It seems you are trying to run a frequency domain problem with a time domain computational mesh.";
@@ -159,7 +160,11 @@ void TPZAcousticFreqDomainAnalysis::RunSimulationSteps(const REAL &totalTime, co
     }
 
     fProbeSolution.Resize(nSamples-1,2);
-    fTimeDomainSolution.Resize(fCompMesher->fNeqOriginal,nTimeSteps);
+
+
+//    const int solSize = fFilterBoundaryEquations ? fCompMesher->fNeqReduced : fCompMesher->fNeqOriginal;
+    const int solSize = fNeqOriginal;
+    fTimeDomainSolution.Resize(solSize,nTimeSteps);
     for(int iW = 0; iW < nSamples-1; iW++){
 
         TPZAutoPointer<TPZMatrix<STATE>> matFinal(new TPZFYsmpMatrix<STATE>(matK.Rows(),matK.Cols()));
@@ -226,7 +231,7 @@ void TPZAcousticFreqDomainAnalysis::RunSimulationSteps(const REAL &totalTime, co
         //inverse transform
 
         REAL timeStepSize = totalTime/nTimeSteps;
-        for(int iPt = 0; iPt < fCompMesher->fNeqOriginal; iPt++){
+        for(int iPt = 0; iPt < solSize; iPt++){
             for(int iTime = 0; iTime < nTimeSteps; iTime++){
                 const REAL currentTime = (REAL)iTime * timeStepSize;
                 fTimeDomainSolution(iPt,iTime) +=
