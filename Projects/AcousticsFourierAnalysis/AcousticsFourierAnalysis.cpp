@@ -12,8 +12,9 @@ void ConfigureFreqHomogeneousCase(TPZAcousticsSimulation &sim);
 int main(int argc, char *argv[]) {
     TPZAcousticsSimulation sim;
 //    ESimulationCases simCase = ESimulationCases::timeHomogeneous2D;
-    ESimulationCases simCase = ESimulationCases::freqHomogeneous2D;
-//    ESimulationCases simCase = ESimulationCases::freqConcentric2D;
+//    ESimulationCases simCase = ESimulationCases::freqHomogeneous2D;
+    ESimulationCases simCase = ESimulationCases::freqConcentric2D;
+//    ESimulationCases simCase = ESimulationCases::timeConcentric2D;
     switch(simCase){
         case ESimulationCases::freqAxiSymmetric:
             break;
@@ -43,7 +44,7 @@ void ConfigureConcentricCase(TPZAcousticsSimulation &sim){
 
     sim.fSimData.fSourceSettings.posX = 0;
     sim.fSimData.fSourceSettings.posY = 0;
-    sim.fSimData.fSourceSettings.amplitude = 1;
+    sim.fSimData.fSourceSettings.amplitude = 1e-5;
     sim.fSimData.fSourceSettings.centralFrequency = 2*M_PI*18000;
     sim.fSimData.fSourceSettings.peakTime = 1./(18000);
 
@@ -57,7 +58,7 @@ void ConfigureConcentricCase(TPZAcousticsSimulation &sim){
     sim.fSimData.fSimulationSettings.nTimeSteps = 600;
     sim.fSimData.fSimulationSettings.isCflBound = true;
     sim.fSimData.fSimulationSettings.pOrder = 2;
-    sim.fSimData.fSimulationSettings.filterBoundaryEqs = false;
+    sim.fSimData.fSimulationSettings.filterBoundaryEqs = true;
     sim.fSimData.fSimulationSettings.axiSymmetricSimulation = false;
     sim.fSimData.fSimulationSettings.nThreads = 8;
 
@@ -76,9 +77,11 @@ void ConfigureFreqConcentricCase(TPZAcousticsSimulation &sim){
     ConfigureConcentricCase(sim);
     sim.fSimData.fSimulationSettings.simType = SPZAcousticData::ESimulationType::frequencyDomain;
     sim.fSimData.fOutputSettings.resultsDir = "results/concentricFreq/";
-    sim.fSimData.fFourierSettings.nSamples = 150;
+    sim.fSimData.fFourierSettings.nSamples = 200;
     sim.fSimData.fFourierSettings.wMax = sim.fSimData.fSourceSettings.centralFrequency * 3;
     sim.fSimData.fFourierSettings.alphaFreqShift = -1;
+    sim.fSimData.fSimulationSettings.nTimeSteps = 361;
+    sim.fSimData.fSimulationSettings.isCflBound = false;
 }
 
 void ConfigureHomogeneousCase(TPZAcousticsSimulation &sim){
