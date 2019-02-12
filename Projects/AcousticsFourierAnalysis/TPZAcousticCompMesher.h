@@ -7,6 +7,7 @@
 #include "TPZMatAcousticsTransient.h"
 #include "TPZAcousticGeoMesher.h"
 #include "pzcmesh.h"
+#include "SPZAcousticData.h"
 
 class TPZGeoMesh;
 class TPZAcousticAnalysis;
@@ -29,7 +30,8 @@ public:
      */
     TPZAcousticCompMesher() = delete;
 
-    TPZAcousticCompMesher(TPZAcousticGeoMesher * geoMesh, bool isAxisymmetric);
+    TPZAcousticCompMesher(TPZAcousticGeoMesher * geoMesh, const TPZVec<SPZAcousticData::EBoundType> &boundTypeVec,
+            bool isAxisymmetric);
 
     void CreateFourierMesh(const int &porder);
 
@@ -60,6 +62,8 @@ protected:
         timeDomain = 0, freqDomain = 1
     };
     ECompMeshTypes fMeshType;
+
+    TPZVec<SPZAcousticData::EBoundType > fBoundTypeVec;
 };
 
 template<class T>
@@ -74,17 +78,18 @@ void TPZAcousticCompMesher::CreateCompMesh(const int & pOrder) {
     std::map<int,REAL> rhoMap = fGeoMesh->GetDensityMap();
     std::map<int,REAL> velocityMap = fGeoMesh->GetVelocityMap();
     TPZManVector<int, 8> matIdVec( fGeoMesh->GetMaterialIds());
-    TPZManVector<int, 8> boundTypeVec(1,0);//TODO:this is wrong
+
+    const int nBoundaries = fBoundTypeVec.size();
 
     for (int i = 0; i < 1; i++) {
         sourceMatIdVec[i] = matIdVec[i];
     }
 
-    TPZManVector<int, 8> volMatIdVec(matIdVec.size() - boundTypeVec.size() - sourceMatIdVec.size());
+    TPZManVector<int, 8> volMatIdVec(matIdVec.size() - nBoundaries - sourceMatIdVec.size());
     for (int i = 0; i < volMatIdVec.size(); i++) {
         volMatIdVec[i] = matIdVec[i + sourceMatIdVec.size()];
     }
-    TPZManVector<int, 8> boundMatIdVec(boundTypeVec.size());
+    TPZManVector<int, 8> boundMatIdVec(nBoundaries);
     for (int i = 0; i < boundMatIdVec.size(); i++) {
         boundMatIdVec[i] = matIdVec[volMatIdVec.size() + sourceMatIdVec.size()  + i];
     }
@@ -102,7 +107,7 @@ void TPZAcousticCompMesher::CreateCompMesh(const int & pOrder) {
     for (int i = 0; i < volMatIdVec.size(); ++i) {
         const REAL rho = rhoMap.at(volMatIdVec[i]);
         const REAL velocity = velocityMap.at(volMatIdVec[i]);
-        matAcoustics = new T(volMatIdVec[i], rho, velocity);
+        matAcoustics = new T(volMatIdVec[i], rho, velocity, fIsAxisymetric);
         cmesh->InsertMaterialObject(matAcoustics);
 //        if(volMatIdVec[i] == outerMaterialIndex){
 //            rhoOuter = rho;
@@ -114,7 +119,7 @@ void TPZAcousticCompMesher::CreateCompMesh(const int & pOrder) {
     for (int i = 0; i < sourceMatIdVec.size(); ++i) {
         const REAL rho = rhoMap.at(volMatIdVec[i]);
         const REAL velocity = velocityMap.at(volMatIdVec[i]);
-        matAcoustics = new T(sourceMatIdVec[i], rho, velocity);//rho and v wont be used
+        matAcoustics = new T(sourceMatIdVec[i], rho, velocity, fIsAxisymetric);
         cmesh->InsertMaterialObject(matAcoustics);
     }
 
@@ -123,7 +128,19 @@ void TPZAcousticCompMesher::CreateCompMesh(const int & pOrder) {
     val2(0, 0) = 0.;
     TPZMaterial *bcond = nullptr;
     for (int i = 0; i < boundMatIdVec.size(); i++) {
-        bcond = matAcoustics->CreateBC(matAcoustics, boundMatIdVec[i], boundTypeVec[i], val1, val2);
+        int boundType = -99;
+        switch (fBoundTypeVec[i]){
+            case SPZAcousticData::EBoundType::softwall:
+                boundType = 0;//dirichlet
+                break;
+            case SPZAcousticData::EBoundType::hardwall:
+                boundType = 1;//neumann
+                break;
+            default:
+                PZError<<"This boundary condition is not implemented!"<<std::endl;
+                DebugStop();
+        }
+        bcond = matAcoustics->CreateBC(matAcoustics, boundMatIdVec[i], boundType, val1, val2);
         cmesh->InsertMaterialObject(bcond);
     }
     cmesh->SetAllCreateFunctionsContinuous();

@@ -13,7 +13,7 @@ public:
     enum EWhichMatrix {M = 0, K, NDefined};
     TPZMatAcousticsFourier();//this does not exist
     explicit TPZMatAcousticsFourier(int id);
-    TPZMatAcousticsFourier(int id, const REAL &rho, const REAL &velocity);
+    TPZMatAcousticsFourier(int id, const REAL &rho, const REAL &velocity, const bool &isAxisymmetric = false);
     TPZMatAcousticsFourier(const TPZMatAcousticsFourier &mat);
     ~TPZMatAcousticsFourier() override;
     void Contribute(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) override;
@@ -34,6 +34,7 @@ public:
     void SetW(STATE fW);
 
 protected:
+    bool fIsAxisymmetric;
     STATE fW;
     REAL fRho;
     REAL fVelocity;

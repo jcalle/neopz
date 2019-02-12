@@ -15,8 +15,9 @@ TPZMatAcousticsFourier::TPZMatAcousticsFourier(int id) : TPZDiscontinuousGalerki
                                                fAssembling(NDefined){
 
 }
-TPZMatAcousticsFourier::TPZMatAcousticsFourier(int id, const REAL &rho, const REAL &velocity) :
-        TPZDiscontinuousGalerkin(id), fRho(rho), fVelocity(velocity) , fW(-1), fAssembling(NDefined){
+TPZMatAcousticsFourier::TPZMatAcousticsFourier(int id, const REAL &rho, const REAL &velocity, const bool & isAxisymmetric) :
+        TPZDiscontinuousGalerkin(id), fRho(rho), fVelocity(velocity) , fW(-1), fAssembling(NDefined),
+        fIsAxisymmetric(isAxisymmetric){
 
 }
 TPZMatAcousticsFourier::TPZMatAcousticsFourier(const TPZMatAcousticsFourier &mat) : TPZDiscontinuousGalerkin(mat),
@@ -32,6 +33,10 @@ void TPZMatAcousticsFourier::SetAssemblingMatrix(TPZMatAcousticsFourier::EWhichM
     fAssembling = mat;
 }
 void TPZMatAcousticsFourier::Contribute(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) {
+    REAL actualWeight = weight;
+    if(fIsAxisymmetric){
+        actualWeight *= data.x[0]*2*M_PI;
+    }
     TPZFMatrix<REAL> &phi = data.phi;
     const int nshape = phi.Rows();
 
@@ -39,15 +44,15 @@ void TPZMatAcousticsFourier::Contribute(TPZMaterialData &data, REAL weight, TPZF
         case M:
             for(int i = 0; i < nshape; i++){
                 for(int j = 0; j < nshape; j++){
-                    ek(i, j) += weight*data.phi(i,0)*data.phi(j,0)/(fRho * fVelocity * fVelocity);
+                    ek(i, j) += actualWeight*data.phi(i,0)*data.phi(j,0)/(fRho * fVelocity * fVelocity);
                 }//for j
             }//for i
             break;
         case K:
             for(int i = 0; i < nshape; i++){
                 for(int j = 0; j < nshape; j++){
-                    ek(i, j) += weight*data.dphix(0,i)*data.dphix(0,j)/fRho;
-                    ek(i, j) += weight*data.dphix(1,i)*data.dphix(1,j)/fRho;
+                    ek(i, j) += actualWeight*data.dphix(0,i)*data.dphix(0,j)/fRho;
+                    ek(i, j) += actualWeight*data.dphix(1,i)*data.dphix(1,j)/fRho;
                 }//for j
             }//for i
             break;
@@ -57,6 +62,10 @@ void TPZMatAcousticsFourier::Contribute(TPZMaterialData &data, REAL weight, TPZF
 }
 
 void TPZMatAcousticsFourier::Contribute(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ef) {
+    REAL actualWeight = weight;
+    if(fIsAxisymmetric){
+        actualWeight *= data.x[0]*2*M_PI;
+    }
     TPZFMatrix<REAL> &phi = data.phi;
     const int nshape = phi.Rows();
     if(nshape > 1){
@@ -65,13 +74,17 @@ void TPZMatAcousticsFourier::Contribute(TPZMaterialData &data, REAL weight, TPZF
     STATE sourceVal;
     fSource(GetW(),sourceVal);
     for(int i = 0; i < nshape; i++){
-        ef(i,0) += weight * phi(i,0) * sourceVal;
+        ef(i,0) += actualWeight * phi(i,0) * sourceVal;
     }//for i
 
 }
 
 void TPZMatAcousticsFourier::ContributeBC(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ek,
                                      TPZFMatrix<STATE> &ef, TPZBndCond &bc){
+    REAL actualWeight = weight;
+    if(fIsAxisymmetric){
+        actualWeight *= data.x[0]*2*M_PI;
+    }
 //    return;//Neumann 0 you do nothing, Dirichlet 0 will be filtered
     TPZFMatrix<REAL> &phi = data.phi;
     const int phr = phi.Rows();
@@ -84,7 +97,7 @@ void TPZMatAcousticsFourier::ContributeBC(TPZMaterialData &data, REAL weight, TP
             for(in = 0 ; in < phr; in++) {
                 ef(in,0) += (STATE)TPZMaterial::gBigNumber * bc.Val2()(0,0) * (STATE)phi(in,0) * (STATE)weight;
                 for (jn = 0 ; jn < phr; jn++) {
-                    ek(in,jn) += weight * TPZMaterial::gBigNumber * phi(in,0) * phi(jn,0);
+                    ek(in,jn) += actualWeight * TPZMaterial::gBigNumber * phi(in,0) * phi(jn,0);
                 }//jn
             }//in
             break;

@@ -7,8 +7,10 @@
 #endif
 #include "pzbndcond.h"
 
-TPZAcousticCompMesher::TPZAcousticCompMesher(TPZAcousticGeoMesher *geoMesh, bool isAxisymmetric) :
+TPZAcousticCompMesher::TPZAcousticCompMesher(TPZAcousticGeoMesher *geoMesh,
+        const TPZVec<SPZAcousticData::EBoundType> &boundTypeVec,bool isAxisymmetric) :
 fGeoMesh(geoMesh) , fCmesh(nullptr), fIsAxisymetric(isAxisymmetric){
+    fBoundTypeVec = boundTypeVec;
 #ifdef PZDEBUG
     //TODO::Verify if everything is ok
 #endif

@@ -55,7 +55,8 @@ void TPZAcousticsSimulation::RunSimulation() {
     boost::posix_time::ptime t1_c =
             boost::posix_time::microsec_clock::local_time();
     bool isAxisymmetric = false;
-    TPZAcousticCompMesher compMesh(&geoMesh, isAxisymmetric);
+    auto boundTypeVec = this->fSimData.fSimulationSettings.boundType;
+    TPZAcousticCompMesher compMesh(&geoMesh, boundTypeVec, isAxisymmetric);
     {
         const int &pOrder = this->fSimData.fSimulationSettings.pOrder;
         if(this->fSimData.fSimulationSettings.simType == SPZAcousticData::ESimulationType::frequencyDomain){

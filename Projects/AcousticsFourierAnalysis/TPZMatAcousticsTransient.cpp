@@ -13,8 +13,9 @@ TPZMatAcousticsTransient::TPZMatAcousticsTransient() : TPZDiscontinuousGalerkin(
 TPZMatAcousticsTransient::TPZMatAcousticsTransient(int id) : TPZDiscontinuousGalerkin(id), fRho(-1), fVelocity(-1){
 
 }
-TPZMatAcousticsTransient::TPZMatAcousticsTransient(int id, const REAL &rho, const REAL &velocity) :
-        TPZDiscontinuousGalerkin(id), fRho(rho), fVelocity(velocity){
+TPZMatAcousticsTransient::TPZMatAcousticsTransient(int id, const REAL &rho, const REAL &velocity,
+        const bool &isAxisymmetric) :
+        TPZDiscontinuousGalerkin(id), fRho(rho), fVelocity(velocity), fIsAxisymmetric(isAxisymmetric){
 
 }
 TPZMatAcousticsTransient::TPZMatAcousticsTransient(const TPZMatAcousticsTransient &mat) : TPZDiscontinuousGalerkin(mat),
@@ -32,6 +33,10 @@ void TPZMatAcousticsTransient::FillDataRequirements(TPZMaterialData &data)
 }
 
 void TPZMatAcousticsTransient::Contribute(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ek, TPZFMatrix<STATE> &ef) {
+    REAL actualWeight = weight;
+    if(fIsAxisymmetric){
+        actualWeight *= data.x[0]*2*M_PI;
+    }
     TPZFMatrix<REAL> &phi = data.phi;
     if(phi.Rows() == 1) {
         return;//0d element
@@ -39,14 +44,18 @@ void TPZMatAcousticsTransient::Contribute(TPZMaterialData &data, REAL weight, TP
     const int nshape = phi.Rows();
     for(int i = 0; i < nshape; i++){
         for(int j = 0; j < nshape; j++){
-            ek(i, j) += weight*data.phi(i,0)*data.phi(j,0)/(fRho*fVelocity*fVelocity*fDeltaT*fDeltaT);
-            ek(i, j) += fNewmarkBeta*weight*data.dphix(0,i)*data.dphix(0,j)/fRho;
-            ek(i, j) += fNewmarkBeta*weight*data.dphix(1,i)*data.dphix(1,j)/fRho;
+            ek(i, j) += actualWeight*data.phi(i,0)*data.phi(j,0)/(fRho*fVelocity*fVelocity*fDeltaT*fDeltaT);
+            ek(i, j) += fNewmarkBeta*actualWeight*data.dphix(0,i)*data.dphix(0,j)/fRho;
+            ek(i, j) += fNewmarkBeta*actualWeight*data.dphix(1,i)*data.dphix(1,j)/fRho;
         }//for j
     }//for i
 }
 
 void TPZMatAcousticsTransient::Contribute(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ef) {
+    REAL actualWeight = weight;
+    if(fIsAxisymmetric){
+        actualWeight *= data.x[0]*2*M_PI;
+    }
     TPZFMatrix<REAL> &phi = data.phi;
     const int nshape = phi.Rows();
     STATE sourceVal = 0;
@@ -62,22 +71,22 @@ void TPZMatAcousticsTransient::Contribute(TPZMaterialData &data, REAL weight, TP
     fSource(fCurrentTime,sourceVal);
     if(nshape==1){
         for(int i = 0; i < nshape; i++){
-            ef(i,0) += weight * phi(i,0) * sourceVal;
+            ef(i,0) += actualWeight * phi(i,0) * sourceVal;
         }//for i
         return;
     }
     const STATE coeff = 1./(fRho * fVelocity * fVelocity * fDeltaT * fDeltaT);
     for(int i = 0; i < nshape; i++){
-        ef(i,0) += weight * phi(i,0) * sourceVal;
+        ef(i,0) += actualWeight * phi(i,0) * sourceVal;
 
-        ef(i,0) -= weight * phi(i,0) * (-2.)* prevSol*coeff;
-        ef(i,0) -= weight * phi(i,0) * (1.)* prevPrevSol*coeff;
+        ef(i,0) -= actualWeight * phi(i,0) * (-2.)* prevSol*coeff;
+        ef(i,0) -= actualWeight * phi(i,0) * (1.)* prevPrevSol*coeff;
 
-        ef(i,0) -= weight*(data.dphix(0,i)*(1.-2.*fNewmarkBeta)*prevSolGrad(0,0))/fRho;
-        ef(i,0) -= weight*(data.dphix(1,i)*(1.-2.*fNewmarkBeta)*prevSolGrad(1,0))/fRho;
+        ef(i,0) -= actualWeight*(data.dphix(0,i)*(1.-2.*fNewmarkBeta)*prevSolGrad(0,0))/fRho;
+        ef(i,0) -= actualWeight*(data.dphix(1,i)*(1.-2.*fNewmarkBeta)*prevSolGrad(1,0))/fRho;
 
-        ef(i,0) -= weight*(data.dphix(0,i)*(fNewmarkBeta)*prevPrevSolGrad(0,0))/fRho;
-        ef(i,0) -= weight*(data.dphix(1,i)*(fNewmarkBeta)*prevPrevSolGrad(1,0))/fRho;
+        ef(i,0) -= actualWeight*(data.dphix(0,i)*(fNewmarkBeta)*prevPrevSolGrad(0,0))/fRho;
+        ef(i,0) -= actualWeight*(data.dphix(1,i)*(fNewmarkBeta)*prevPrevSolGrad(1,0))/fRho;
 
     }//for i
 
@@ -85,6 +94,10 @@ void TPZMatAcousticsTransient::Contribute(TPZMaterialData &data, REAL weight, TP
 
 void TPZMatAcousticsTransient::ContributeBC(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ek,
                                      TPZFMatrix<STATE> &ef, TPZBndCond &bc){
+    REAL actualWeight = weight;
+    if(fIsAxisymmetric){
+        actualWeight *= data.x[0]*2*M_PI;
+    }
 //    return;//Neumann 0 you do nothing, Dirichlet 0 will be filtered
     TPZFMatrix<REAL> &phi = data.phi;
     const int phr = phi.Rows();
@@ -95,9 +108,9 @@ void TPZMatAcousticsTransient::ContributeBC(TPZMaterialData &data, REAL weight, 
         // Dirichlet condition
         case 0 : {
             for(in = 0 ; in < phr; in++) {
-                ef(in,0) += (STATE)TPZMaterial::gBigNumber * bc.Val2()(0,0) * (STATE)phi(in,0) * (STATE)weight;
+                ef(in,0) += (STATE)TPZMaterial::gBigNumber * bc.Val2()(0,0) * (STATE)phi(in,0) * (STATE)actualWeight;
                 for (jn = 0 ; jn < phr; jn++) {
-                    ek(in,jn) += weight * TPZMaterial::gBigNumber * phi(in,0) * phi(jn,0)  * (1/fRho);
+                    ek(in,jn) += actualWeight * TPZMaterial::gBigNumber * phi(in,0) * phi(jn,0)  * (1/fRho);
                 }//jn
             }//in
             break;
@@ -106,7 +119,7 @@ void TPZMatAcousticsTransient::ContributeBC(TPZMaterialData &data, REAL weight, 
             // Neumann condition
         case 1 : {
             for(in = 0 ; in < phr; in++) {
-                ef(in,0) +=(STATE)weight * bc.Val2()(0,0) * (STATE)phi(in,0) * (1/fRho);
+                ef(in,0) +=(STATE)actualWeight * bc.Val2()(0,0) * (STATE)phi(in,0) * (1/fRho);
             }//in
             break;
         }

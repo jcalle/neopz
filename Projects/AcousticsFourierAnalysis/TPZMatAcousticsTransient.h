@@ -12,7 +12,7 @@ class TPZMatAcousticsTransient : public TPZDiscontinuousGalerkin {
 public:
     TPZMatAcousticsTransient();//this does not exist
     explicit TPZMatAcousticsTransient(int id);
-    TPZMatAcousticsTransient(int id, const REAL &rho, const REAL &velocity);
+    TPZMatAcousticsTransient(int id, const REAL &rho, const REAL &velocity, const bool &isAxisymmetric = false);
     TPZMatAcousticsTransient(const TPZMatAcousticsTransient &mat);
     ~TPZMatAcousticsTransient() override;
     void FillDataRequirements(TPZMaterialData &data) override;
@@ -34,6 +34,7 @@ protected:
     REAL fDeltaT;
     REAL fCurrentTime;
     REAL fNewmarkBeta =0.25;
+    bool fIsAxisymmetric;
     std::function<void (const REAL &time, STATE &val)> fSource;
 };
 
