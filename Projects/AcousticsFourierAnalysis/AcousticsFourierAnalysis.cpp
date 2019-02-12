@@ -11,8 +11,8 @@ void ConfigureFreqHomogeneousCase(TPZAcousticsSimulation &sim);
 
 int main(int argc, char *argv[]) {
     TPZAcousticsSimulation sim;
-//    ESimulationCases simCase = ESimulationCases::freqHomogeneous2D;
-    ESimulationCases simCase = ESimulationCases::freqConcentric2D;
+    ESimulationCases simCase = ESimulationCases::freqHomogeneous2D;
+//    ESimulationCases simCase = ESimulationCases::freqConcentric2D;
     switch(simCase){
         case ESimulationCases::freqAxiSymmetric:
             break;
@@ -47,7 +47,8 @@ void ConfigureConcentricCase(TPZAcousticsSimulation &sim){
 
     sim.fSimData.fSimulationSettings.simType = SPZAcousticData::ESimulationType::timeDomain;
     sim.fSimData.fSimulationSettings.meshName = "realWEll.geo";
-    sim.fSimData.fSimulationSettings.boundType = SPZAcousticData::EBoundType::softwall;
+    sim.fSimData.fSimulationSettings.boundType.Resize(1);
+    sim.fSimData.fSimulationSettings.boundType[0] = SPZAcousticData::EBoundType::softwall;
     sim.fSimData.fSimulationSettings.nElemPerLambda = 12;
     sim.fSimData.fSimulationSettings.totalTime = sim.fSimData.fSourceSettings.peakTime * 12;
     sim.fSimData.fSimulationSettings.cfl = 0.2;
@@ -81,7 +82,8 @@ void ConfigureFreqConcentricCase(TPZAcousticsSimulation &sim){
 void ConfigureHomogeneousCase(TPZAcousticsSimulation &sim){
     sim.fSimData.fSimulationSettings.simType = SPZAcousticData::ESimulationType::timeDomain;
     sim.fSimData.fSimulationSettings.meshName = "wellMesh.geo";
-    sim.fSimData.fSimulationSettings.boundType = SPZAcousticData::EBoundType::softwall;
+    sim.fSimData.fSimulationSettings.boundType.Resize(1);
+    sim.fSimData.fSimulationSettings.boundType[0] = SPZAcousticData::EBoundType::softwall;
     sim.fSimData.fSimulationSettings.nElemPerLambda = 12;
     sim.fSimData.fSimulationSettings.totalTime = 0.1;
     sim.fSimData.fSimulationSettings.cfl = 0.2;
