@@ -9,14 +9,23 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 TPZAcousticTimeDomainAnalysis::TPZAcousticTimeDomainAnalysis(TPZAcousticCompMesher *compMesher, const int &nThreads,
-        const bool &filter)
-        : TPZAcousticAnalysis(compMesher, nThreads, filter) {
+const REAL &deltaT, const int &nTimeSteps, const bool &filter)
+        : TPZAcousticAnalysis(compMesher, nThreads, deltaT, nTimeSteps, filter) {
 #ifdef PZDEBUG
     if(fCompMesher->fMeshType != TPZAcousticCompMesher::ECompMeshTypes::timeDomain){
         PZError<<"It seems you are trying to run a time domain problem with a frequencydomain computational mesh.";
         PZError<<"Aborting..."<<std::endl;
     }
 #endif
+    auto dummySource = [](const REAL &time, STATE &val){
+        val = 0;
+    };
+    for (auto itMat : compMesher->fCmesh->MaterialVec()){
+        TPZMatAcousticsTransient *mat = dynamic_cast<TPZMatAcousticsTransient *>(itMat.second);
+        if(mat){
+            mat->SetSource(dummySource);
+        }
+    }
     fAmIready = false;
 }
 
@@ -27,19 +36,27 @@ void TPZAcousticTimeDomainAnalysis::InitializeComputations() {
 
     TPZCompMesh *cmesh = fCompMesher->fCmesh;
 
+    for(auto itMat : cmesh->MaterialVec()){
+        TPZMatAcousticsTransient *mat = dynamic_cast<TPZMatAcousticsTransient *>(itMat.second);
+        if(mat){
+            mat->SetDeltaT(fDeltaT);
+        }
+    }
+
     fPzAnalysis.Assemble();
 
     fAmIready = true;
 }
 
-void TPZAcousticTimeDomainAnalysis::RunSimulationSteps(const REAL &totalTime, const int &nTimeSteps) {
+void TPZAcousticTimeDomainAnalysis::RunSimulationSteps() {
+
     if(! fAmIready ){
         PZError<<"TPZAcousticTimeDomainAnalysis::InitializeComputations should be called before RunSimulationSteps."<<std::endl;
         DebugStop();
     }
     TPZCompMesh *cmesh = fCompMesher->fCmesh;
     TPZGeoMesh *gmesh = fCompMesher->fGeoMesh->fGmesh;
-    const REAL deltaT = totalTime/nTimeSteps;
+
     const int matIdSource = fCompMesher->fGeoMesh->fMatIdSource;
 
     TPZMatAcousticsTransient *mat = dynamic_cast<TPZMatAcousticsTransient *>(cmesh->MaterialVec()[matIdSource]);
@@ -61,26 +78,25 @@ void TPZAcousticTimeDomainAnalysis::RunSimulationSteps(const REAL &totalTime, co
         sourceCompel = sourceEl->Reference();
     }
 
-    for(int it = 0; it < nTimeSteps; it++){
-        std::cout<<"time step "<<it+1<<" out of "<<nTimeSteps <<"\t";
+
+    uint solSize = fNeqOriginal;
+    TPZFMatrix<STATE> currentSol(solSize,2,0);
+    fProbeSolution.Resize(fNTimeSteps,2);
+    fTimeDomainSolution.Resize(solSize,fNTimeSteps);
+    for(int it = 0; it < fNTimeSteps; it++){
+        std::cout<<"time step "<<it+1<<" out of "<<fNTimeSteps <<"\t";
         for(auto imat : cmesh->MaterialVec()) {
             auto *mat = dynamic_cast<TPZMatAcousticsTransient *>(imat.second);
             auto *bound = dynamic_cast<TPZBndCond *>(imat.second);
             if(mat!=nullptr){
-                mat->SetCurrentTime(it*deltaT);
+                mat->SetCurrentTime(it*fDeltaT);
             }
             else if(bound== nullptr){
                 DebugStop();
             }
         }
-        const int prevSol = it - 1 < 0 ? nTimeSteps - it - 1: it-1;
-        const int prevPrevSol = it - 2 < 0 ? nTimeSteps - it - 2 : it-2;
-
-        const uint neqOriginal = fNeqOriginal;
-
-        uint solSize = neqOriginal;
-        TPZFMatrix<STATE> currentSol(solSize,2,0);
-        TPZFMatrix<STATE> fTimeDomainSolution(solSize,nTimeSteps,0);
+        const int prevSol = it - 1 < 0 ? fNTimeSteps - it - 1: it-1;
+        const int prevPrevSol = it - 2 < 0 ? fNTimeSteps - it - 2 : it-2;
 
         for(int i = 0; i < solSize; i++){
             currentSol(i,0) = fTimeDomainSolution(i,prevSol);
@@ -90,12 +106,14 @@ void TPZAcousticTimeDomainAnalysis::RunSimulationSteps(const REAL &totalTime, co
         fPzAnalysis.AssembleResidual();
         fPzAnalysis.Solve();
         TPZFMatrix<STATE>& stepSol = fPzAnalysis.Solution();
+        std::cout<<std::endl;
         for(int i = 0; i < solSize; i++){
+//            std::cout<<"stepSol("<<i<<",0)"<<stepSol(i,0)<<std::endl;
             fTimeDomainSolution(i,it) = stepSol(i,0);
         }
 
         //get probe solution
-        fProbeSolution(it,0) = it*deltaT;
+        fProbeSolution(it,0) = it*fDeltaT;
         TPZVec<REAL> qsi(1,0);
         int var = 1;
         TPZVec<STATE> sol(1,0);
@@ -126,6 +144,11 @@ void TPZAcousticTimeDomainAnalysis::SetUpGaussianSource(const REAL &wZero, const
 
 
 void TPZAcousticTimeDomainAnalysis::InitializeSolver() {
+
+#ifdef STATE_COMPLEX
+    fStepSolver.SetDirect(ELU);
+#else
     fStepSolver.SetDirect(ELDLt);
+#endif
     fPzAnalysis.SetSolver(fStepSolver);
 }

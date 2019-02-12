@@ -5,8 +5,8 @@
  *********************************************************************/
 SetFactory("OpenCASCADE");
 
-DefineConstant[length = 60];
-DefineConstant[height = 20];
+DefineConstant[length = 20];
+DefineConstant[height = 10];
 DefineConstant[el_size_1 = 4.];
 
 
@@ -16,10 +16,15 @@ ndiv_y=Ceil(height/el_size_1) + 1;
 lc = 1e6;
 
 //inner domain
-p_1 = newp; Point(p_1) = { length, 0, 0, lc} ;
-p_2 = newp; Point(p_2) = { length, height, 0, lc} ;
-p_3 = newp; Point(p_3) = { 0, height, 0, lc} ;
-p_4 = newp; Point(p_4) = { 0, 0, 0, lc} ;
+//p_1 = newp; Point(p_1) = { length, 0, 0, lc} ;
+//p_2 = newp; Point(p_2) = { length, height, 0, lc} ;
+//p_3 = newp; Point(p_3) = { 0, height, 0, lc} ;
+//p_4 = newp; Point(p_4) = { 0, 0, 0, lc} ;
+
+p_1 = newp; Point(p_1) = { length/2,-height/2, 0, lc} ;
+p_2 = newp; Point(p_2) = { length/2, height/2, 0, lc} ;
+p_3 = newp; Point(p_3) = {-length/2, height/2, 0, lc} ;
+p_4 = newp; Point(p_4) = {-length/2,-height/2, 0, lc} ;
 
 l_1 = newl; Line(l_1) = {p_1,p_2} ;
 l_2 = newl; Line(l_2) = {p_2,p_3} ;

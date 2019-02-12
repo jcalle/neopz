@@ -5,11 +5,14 @@
 
 
 
-TPZAcousticAnalysis::TPZAcousticAnalysis(TPZAcousticCompMesher *compMesher, const int &nThreads, const bool &filter) :
+TPZAcousticAnalysis::TPZAcousticAnalysis(TPZAcousticCompMesher *compMesher, const int &nThreads,
+        const REAL &deltaT, const int &nTimeSteps,const bool &filter) :
 fNThreads(nThreads), fPzAnalysis(compMesher->fCmesh), fCompMesher(compMesher), fNeqReduced(-1),
 fFilterBoundaryEquations(filter)
 {
-    fNTimeSteps = -1;
+    fNTimeSteps = nTimeSteps;
+    fDeltaT = deltaT;
+    fTotalTime = (fNTimeSteps-1) * fDeltaT;
     TPZSpStructMatrix structMatrix(fCompMesher->fCmesh);
     structMatrix.SetNumThreads(nThreads);
     fNeqOriginal = fCompMesher->fCmesh->NEquations();

@@ -46,13 +46,16 @@ void TPZAcousticCompMesher::CreateFourierMesh(const int &porder) {
 }
 
 void TPZAcousticCompMesher::CreateTransientMesh(const int &porder) {
-    #ifdef STATE_REAL
+
     fMeshType = ECompMeshTypes::timeDomain;
     TPZAcousticCompMesher::CreateCompMesh<TPZMatAcousticsTransient>(porder);
-    #else
-    PZError<<"You are trying to perform a time-domain analysis with complex numbers (STATE=complex<double>).";
-    PZError<<"You are not wrong but we need to implement it. Sorry."<<std::endl;
-    PZError<<"Aborting now..."<<std::endl;
-    DebugStop();
-    #endif
+//    #ifndef STATE_COMPLEX
+//    fMeshType = ECompMeshTypes::timeDomain;
+//    TPZAcousticCompMesher::CreateCompMesh<TPZMatAcousticsTransient>(porder);
+//    #else
+//    PZError<<"You are trying to perform a time-domain analysis with complex numbers (STATE=complex<double>).";
+//    PZError<<"You are not wrong but we need to implement it. Sorry."<<std::endl;
+//    PZError<<"Aborting now..."<<std::endl;
+//    DebugStop();
+//    #endif
 }

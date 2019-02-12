@@ -26,10 +26,11 @@ public:
      * This is the only constructor that will be generated.
      * @param compMesher The instance of TPZAcousticCompMesher that will be used for the analysis
      */
-    TPZAcousticAnalysis(TPZAcousticCompMesher * compMesher, const int &nThreads, const bool &filter);
+    TPZAcousticAnalysis(TPZAcousticCompMesher * compMesher, const int &nThreads, const REAL &deltaT,
+            const int &nTimeSteps,const bool &filter);
     virtual void InitializeComputations() = 0;
     virtual void SetUpGaussianSource(const REAL & wZero, const REAL & peakTime, const REAL & amplitude) = 0;
-    virtual void RunSimulationSteps(const REAL &totalTime, const int &nTimeSteps) = 0;
+    virtual void RunSimulationSteps() = 0;
 
     void PostProcess(int vtkResolution, std::string &prefix);
 protected:
@@ -49,6 +50,9 @@ protected:
 
     const int fNThreads;
     int fNTimeSteps;
+    REAL fDeltaT;
+
+    REAL fTotalTime;
     TPZAnalysis fPzAnalysis;
     TPZStepSolver<STATE> fStepSolver;
 

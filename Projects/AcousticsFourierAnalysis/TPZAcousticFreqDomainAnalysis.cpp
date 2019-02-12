@@ -8,8 +8,8 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 TPZAcousticFreqDomainAnalysis::TPZAcousticFreqDomainAnalysis(TPZAcousticCompMesher *compMesher, const int &nThreads,
-const bool &filter)
-        : TPZAcousticAnalysis(compMesher, nThreads, filter) {
+const REAL &deltaT, const int &nTimeSteps, const bool &filter)
+        : TPZAcousticAnalysis(compMesher, nThreads, deltaT, nTimeSteps, filter) {
 #ifdef PZDEBUG
     if(fCompMesher->fMeshType != TPZAcousticCompMesher::ECompMeshTypes::freqDomain){
         PZError<<"It seems you are trying to run a frequency domain problem with a time domain computational mesh.";
@@ -108,8 +108,8 @@ void TPZAcousticFreqDomainAnalysis::SetUpFourierSettings(const REAL &wMax, const
     }
     fAmIready = true;
 }
-void TPZAcousticFreqDomainAnalysis::RunSimulationSteps(const REAL &totalTime, const int &nTimeSteps) {
-    this->fNTimeSteps = nTimeSteps;
+void TPZAcousticFreqDomainAnalysis::RunSimulationSteps() {
+
     if(! fAmIready ){
         PZError<<"TPZAcousticFreqDomainAnalysis::SetUpFourierSettings should be called before RunSimulationSteps."<<std::endl;
         DebugStop();
@@ -164,7 +164,7 @@ void TPZAcousticFreqDomainAnalysis::RunSimulationSteps(const REAL &totalTime, co
 
 //    const int solSize = fFilterBoundaryEquations ? fCompMesher->fNeqReduced : fCompMesher->fNeqOriginal;
     const int solSize = fNeqOriginal;
-    fTimeDomainSolution.Resize(solSize,nTimeSteps);
+    fTimeDomainSolution.Resize(solSize,fNTimeSteps);
     for(int iW = 0; iW < nSamples-1; iW++){
 
         TPZAutoPointer<TPZMatrix<STATE>> matFinal(new TPZFYsmpMatrix<STATE>(matK.Rows(),matK.Cols()));
@@ -230,10 +230,10 @@ void TPZAcousticFreqDomainAnalysis::RunSimulationSteps(const REAL &totalTime, co
         fProbeSolution(iW,1) = sol[0];
         //inverse transform
 
-        REAL timeStepSize = totalTime/nTimeSteps;
+
         for(int iPt = 0; iPt < solSize; iPt++){
-            for(int iTime = 0; iTime < nTimeSteps; iTime++){
-                const REAL currentTime = (REAL)iTime * timeStepSize;
+            for(int iTime = 0; iTime < fNTimeSteps; iTime++){
+                const REAL currentTime = (REAL)iTime * fDeltaT;
                 fTimeDomainSolution(iPt,iTime) +=
                         std::exp(fAFactor*currentTime)*//fator para compensar o shift na frequência
                         wSample *//fator para compensar o trem de impulso com intensidade wSample

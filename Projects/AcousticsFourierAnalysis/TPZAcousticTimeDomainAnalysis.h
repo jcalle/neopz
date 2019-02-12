@@ -14,11 +14,12 @@ public:
      * This is the only constructor that will be generated.
      * @param compMesher The instance of TPZAcousticCompMesher that will be used for the analysis
      */
-    TPZAcousticTimeDomainAnalysis(TPZAcousticCompMesher * compMesher, const int &nThreads, const bool &filter = true);
+    TPZAcousticTimeDomainAnalysis(TPZAcousticCompMesher * compMesher, const int &nThreads, const REAL &deltaT,
+            const int &nTimeSteps, const bool &filter = true);
     void InitializeComputations() final;
     void SetUpGaussianSource(const REAL & wZero, const REAL & peakTime, const REAL & amplitude) final;
 
-    void RunSimulationSteps(const REAL &totalTime, const int &nTimeSteps) final;
+    void RunSimulationSteps() final;
 
 protected:
 

@@ -17,6 +17,8 @@ void TPZAcousticsSimulation::RunSimulation() {
     //////////////////////////////////////////////////////
     //////////////////// CREATE GMESH ////////////////////
     //////////////////////////////////////////////////////
+    boost::posix_time::ptime t1_total =
+            boost::posix_time::microsec_clock::local_time();
     std::cout << "Creating gmesh... ";
     boost::posix_time::ptime t1_g =
             boost::posix_time::microsec_clock::local_time();
@@ -45,12 +47,7 @@ void TPZAcousticsSimulation::RunSimulation() {
     boost::posix_time::ptime t2_g =
             boost::posix_time::microsec_clock::local_time();
     std::cout << "Created! " << t2_g - t1_g << std::endl;
-    //////////////////////////////////////////////////////
-    ////////////////// CALCULATE DELTA T /////////////////
-    //////////////////////////////////////////////////////
-    auto elSizeMap = geoMesh.GetElSizes();
-    auto velocityMap = geoMesh.GetVelocityMap();
-    const REAL deltaT = CalculateDeltaT(elSizeMap, velocityMap);
+
     //////////////////////////////////////////////////////
     //////////////////// CREATE CMESH ////////////////////
     //////////////////////////////////////////////////////
@@ -75,14 +72,33 @@ void TPZAcousticsSimulation::RunSimulation() {
             boost::posix_time::microsec_clock::local_time();
     std::cout << "Created! " << t2_c - t1_c << std::endl;
 
+
+    //////////////////////////////////////////////////////
+    ////////////////// CALCULATE DELTA T /////////////////
+    //////////////////////////////////////////////////////
+    auto elSizeMap = geoMesh.GetElSizes();
+    auto velocityMap = geoMesh.GetVelocityMap();
+    const REAL totalTime = this->fSimData.fSimulationSettings.totalTime;
+    REAL deltaT = -1;
+    int nTimeSteps = -1;
+
+    if(this->fSimData.fSimulationSettings.isCflBound){
+        deltaT = CalculateDeltaT(elSizeMap, velocityMap);
+        nTimeSteps = (int) std::ceil(totalTime/deltaT) + 1;
+        deltaT = totalTime / (nTimeSteps - 1);
+    }else{
+        nTimeSteps = this->fSimData.fSimulationSettings.nTimeSteps;
+        deltaT = totalTime / (nTimeSteps - 1);
+    }
+
     const int &nThreads = this->fSimData.fSimulationSettings.nThreads;
     TPZAcousticAnalysis *analysis = nullptr;
 
     bool &filter = this->fSimData.fSimulationSettings.filterBoundaryEqs;
     if(this->fSimData.fSimulationSettings.simType == SPZAcousticData::ESimulationType::frequencyDomain){
-        analysis = new TPZAcousticFreqDomainAnalysis(&compMesh, nThreads,filter);
+        analysis = new TPZAcousticFreqDomainAnalysis(&compMesh, nThreads, deltaT, nTimeSteps, filter);
     }else{
-        analysis = new TPZAcousticTimeDomainAnalysis(&compMesh, nThreads,filter);
+        analysis = new TPZAcousticTimeDomainAnalysis(&compMesh, nThreads,deltaT, nTimeSteps, filter);
     }
 
     analysis->InitializeComputations();
@@ -101,11 +117,10 @@ void TPZAcousticsSimulation::RunSimulation() {
         dummyAnalysis->SetUpFourierSettings(wMax,nSamples,alphaFreqShift);
     }
 
-    {
-        const REAL &totalTime = this->fSimData.fSimulationSettings.totalTime;
-        const int &nTimeSteps= this->fSimData.fSimulationSettings.nTimeSteps;
-        analysis->RunSimulationSteps(totalTime, nTimeSteps);
-    }
+    analysis->RunSimulationSteps();
+    boost::posix_time::ptime t2_total =
+            boost::posix_time::microsec_clock::local_time();
+    std::cout << "Finished computations! " << t2_total - t1_total << std::endl;
     if(this->fSimData.fOutputSettings.vtkSol)
     {
         const int vtkRes = this->fSimData.fOutputSettings.vtkResolution;
