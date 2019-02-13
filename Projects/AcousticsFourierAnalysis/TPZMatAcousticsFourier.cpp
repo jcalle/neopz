@@ -62,10 +62,6 @@ void TPZMatAcousticsFourier::Contribute(TPZMaterialData &data, REAL weight, TPZF
 }
 
 void TPZMatAcousticsFourier::Contribute(TPZMaterialData &data, REAL weight, TPZFMatrix<STATE> &ef) {
-    REAL actualWeight = weight;
-    if(fIsAxisymmetric){
-        actualWeight *= data.x[0]*2*M_PI;
-    }
     TPZFMatrix<REAL> &phi = data.phi;
     const int nshape = phi.Rows();
     if(nshape > 1){
@@ -74,7 +70,7 @@ void TPZMatAcousticsFourier::Contribute(TPZMaterialData &data, REAL weight, TPZF
     STATE sourceVal;
     fSource(GetW(),sourceVal);
     for(int i = 0; i < nshape; i++){
-        ef(i,0) += actualWeight * phi(i,0) * sourceVal;
+        ef(i,0) += phi(i,0) * sourceVal;
     }//for i
 
 }
@@ -168,4 +164,21 @@ STATE TPZMatAcousticsFourier::GetW() const {
 
 void TPZMatAcousticsFourier::SetW(STATE fW) {
     TPZMatAcousticsFourier::fW = fW;
+}
+
+int TPZMatAcousticsFourier::IntegrationRuleOrder(int elPMaxOrder) const
+{
+    int order = 0;
+
+    int pmax = elPMaxOrder;
+    int integrationorder = 2*pmax;
+    if (pmax < order) {
+        integrationorder = order+pmax;
+    }
+
+//    if(this->fIsAxisymmetric){
+//        if(this->)
+//        order = fForcingFunction->PolynomialOrder();
+//    }
+    return  integrationorder;
 }

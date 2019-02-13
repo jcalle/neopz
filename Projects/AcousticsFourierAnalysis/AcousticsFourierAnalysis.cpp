@@ -17,8 +17,8 @@ void ConfigureFreqAxiHeterogeneousCase(TPZAcousticsSimulation &sim);
 
 int main(int argc, char *argv[]) {
     TPZAcousticsSimulation sim;
-    ESimulationCases simCase = ESimulationCases::freqAxiSymmetricHetero;
-//    ESimulationCases simCase = ESimulationCases::timeAxiSymmetricHetero;
+//    ESimulationCases simCase = ESimulationCases::freqAxiSymmetricHetero;
+    ESimulationCases simCase = ESimulationCases::timeAxiSymmetricHetero;
 //    ESimulationCases simCase = ESimulationCases::freqAxiSymmetricHomo;
 //    ESimulationCases simCase = ESimulationCases::timeAxiSymmetricHomo;
 //    ESimulationCases simCase = ESimulationCases::timeHomogeneous2D;

@@ -71,7 +71,7 @@ void TPZMatAcousticsTransient::Contribute(TPZMaterialData &data, REAL weight, TP
     fSource(fCurrentTime,sourceVal);
     if(nshape==1){
         for(int i = 0; i < nshape; i++){
-            ef(i,0) += actualWeight * phi(i,0) * sourceVal;
+            ef(i,0) += phi(i,0) * sourceVal;
         }//for i
         return;
     }

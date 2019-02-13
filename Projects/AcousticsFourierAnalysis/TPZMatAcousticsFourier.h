@@ -33,6 +33,7 @@ public:
 
     void SetW(STATE fW);
 
+    int IntegrationRuleOrder(int elPMaxOrder) const override;
 protected:
     bool fIsAxisymmetric;
     STATE fW;
