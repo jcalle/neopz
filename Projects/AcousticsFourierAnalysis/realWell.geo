@@ -146,6 +146,9 @@ edges_list_6[] = {a_c6_1,a_c6_2,a_c6_3,a_c6_4};
 ll_c6_1 = newll; Line Loop(ll_c6_1) = edges_list_6[];
 s_c6_1 = news; Plane Surface(s_c6_1) = {ll_c6_1,ll_c5_1};
 
+
+Coherence;
+
 allsurfaces[] = Surface '*';
 
 boundary[] = CombinedBoundary{ Surface{allsurfaces[]}; } ;
@@ -209,4 +212,3 @@ Background Field = 10;
 
 Mesh.CharacteristicLengthExtendFromBoundary = 0;
 Mesh.ElementOrder=2;
-Coherence;

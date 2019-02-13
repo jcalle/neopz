@@ -12,15 +12,23 @@ void ConfigureFreqHomogeneousCase(TPZAcousticsSimulation &sim);
 void ConfigureAxiHomogeneousCase(TPZAcousticsSimulation &sim);
 void ConfigureFreqAxiHomogeneousCase(TPZAcousticsSimulation &sim);
 
+void ConfigureAxiHeterogeneousCase(TPZAcousticsSimulation &sim);
+void ConfigureFreqAxiHeterogeneousCase(TPZAcousticsSimulation &sim);
+
 int main(int argc, char *argv[]) {
     TPZAcousticsSimulation sim;
-    ESimulationCases simCase = ESimulationCases::freqAxiSymmetricHomo;
+    ESimulationCases simCase = ESimulationCases::freqAxiSymmetricHetero;
+//    ESimulationCases simCase = ESimulationCases::timeAxiSymmetricHetero;
+//    ESimulationCases simCase = ESimulationCases::freqAxiSymmetricHomo;
 //    ESimulationCases simCase = ESimulationCases::timeAxiSymmetricHomo;
 //    ESimulationCases simCase = ESimulationCases::timeHomogeneous2D;
 //    ESimulationCases simCase = ESimulationCases::freqHomogeneous2D;
 //    ESimulationCases simCase = ESimulationCases::freqConcentric2D;
 //    ESimulationCases simCase = ESimulationCases::timeConcentric2D;
     switch(simCase){
+        case ESimulationCases::freqAxiSymmetricHetero:
+            ConfigureFreqAxiHeterogeneousCase(sim);
+            break;
         case ESimulationCases::freqAxiSymmetricHomo:
             ConfigureFreqAxiHomogeneousCase(sim);
             break;
@@ -29,6 +37,9 @@ int main(int argc, char *argv[]) {
             break;
         case ESimulationCases::freqConcentric2D:
             ConfigureFreqConcentricCase(sim);
+            break;
+        case ESimulationCases::timeAxiSymmetricHetero:
+            ConfigureAxiHeterogeneousCase(sim);
             break;
         case ESimulationCases::timeAxiSymmetricHomo:
             ConfigureAxiHomogeneousCase(sim);
@@ -62,8 +73,8 @@ void ConfigureConcentricCase(TPZAcousticsSimulation &sim){
     sim.fSimData.fSimulationSettings.nElemPerLambda = 12;
     sim.fSimData.fSimulationSettings.totalTime = sim.fSimData.fSourceSettings.peakTime * 12;
     sim.fSimData.fSimulationSettings.cfl = 0.2;
-    sim.fSimData.fSimulationSettings.nTimeSteps = 600;
-    sim.fSimData.fSimulationSettings.isCflBound = true;
+    sim.fSimData.fSimulationSettings.nTimeSteps = 721;
+    sim.fSimData.fSimulationSettings.isCflBound = false;
     sim.fSimData.fSimulationSettings.pOrder = 2;
     sim.fSimData.fSimulationSettings.filterBoundaryEqs = true;
     sim.fSimData.fSimulationSettings.axiSymmetricSimulation = false;
@@ -87,8 +98,8 @@ void ConfigureFreqConcentricCase(TPZAcousticsSimulation &sim){
     sim.fSimData.fFourierSettings.nSamples = 200;
     sim.fSimData.fFourierSettings.wMax = sim.fSimData.fSourceSettings.centralFrequency * 3;
     sim.fSimData.fFourierSettings.alphaFreqShift = -1;
-    sim.fSimData.fSimulationSettings.nTimeSteps = 361;
-    sim.fSimData.fSimulationSettings.isCflBound = false;
+//    sim.fSimData.fSimulationSettings.nTimeSteps = 361;
+//    sim.fSimData.fSimulationSettings.isCflBound = false;
 }
 
 void ConfigureHomogeneousCase(TPZAcousticsSimulation &sim){
@@ -155,7 +166,7 @@ void ConfigureAxiHomogeneousCase(TPZAcousticsSimulation &sim){
     sim.fSimData.fSimulationSettings.isCflBound = true;
     sim.fSimData.fSimulationSettings.pOrder = 2;
     sim.fSimData.fSimulationSettings.filterBoundaryEqs = true;
-    sim.fSimData.fSimulationSettings.axiSymmetricSimulation = false;
+    sim.fSimData.fSimulationSettings.axiSymmetricSimulation = true;
     sim.fSimData.fSimulationSettings.nThreads = 8;
 
 
@@ -178,6 +189,53 @@ void ConfigureFreqAxiHomogeneousCase(TPZAcousticsSimulation &sim){
     sim.fSimData.fSimulationSettings.simType = SPZAcousticData::ESimulationType::frequencyDomain;
     sim.fSimData.fOutputSettings.resultsDir = "results/axiHomogeneousFreq/";
     sim.fSimData.fFourierSettings.nSamples = 150;
+    sim.fSimData.fFourierSettings.wMax = sim.fSimData.fSourceSettings.centralFrequency * 3;
+    sim.fSimData.fFourierSettings.alphaFreqShift = -1;
+}
+
+
+void ConfigureAxiHeterogeneousCase(TPZAcousticsSimulation &sim){
+    sim.fSimData.fSourceSettings.posX = 0;
+    sim.fSimData.fSourceSettings.posY = 0.75;
+    sim.fSimData.fSourceSettings.amplitude = 1e-5;
+    sim.fSimData.fSourceSettings.centralFrequency = 2*M_PI*18000;
+    sim.fSimData.fSourceSettings.peakTime = 1./18000;
+
+    sim.fSimData.fSimulationSettings.simType = SPZAcousticData::ESimulationType::timeDomain;
+    sim.fSimData.fSimulationSettings.meshName = "axiRealWell.geo";
+    sim.fSimData.fSimulationSettings.boundType.Resize(2);
+    sim.fSimData.fSimulationSettings.boundType[0] = SPZAcousticData::EBoundType::softwall;
+    sim.fSimData.fSimulationSettings.boundType[1] = SPZAcousticData::EBoundType::hardwall;
+    sim.fSimData.fSimulationSettings.nElemPerLambda = 12;
+    sim.fSimData.fSimulationSettings.totalTime = 12 * sim.fSimData.fSourceSettings.peakTime;
+    sim.fSimData.fSimulationSettings.cfl = 0.2;
+    sim.fSimData.fSimulationSettings.nTimeSteps = 100;
+    sim.fSimData.fSimulationSettings.isCflBound = true;
+    sim.fSimData.fSimulationSettings.pOrder = 2;
+    sim.fSimData.fSimulationSettings.filterBoundaryEqs = true;
+    sim.fSimData.fSimulationSettings.axiSymmetricSimulation = true;
+    sim.fSimData.fSimulationSettings.nThreads = 8;
+
+
+    sim.fSimData.fOutputSettings.resultsDir = "results/axiHeterogeneousTime/";
+    sim.fSimData.fOutputSettings.printGmeshVtk = true;
+    sim.fSimData.fOutputSettings.printGmeshTxt = true;
+    sim.fSimData.fOutputSettings.printCmeshTxt = true;
+    sim.fSimData.fOutputSettings.printCmeshVtk = true;
+    sim.fSimData.fOutputSettings.vtkSol = true;
+    sim.fSimData.fOutputSettings.vtkResolution = 0;
+
+}
+
+void ConfigureFreqAxiHeterogeneousCase(TPZAcousticsSimulation &sim){
+    ConfigureAxiHeterogeneousCase(sim);
+
+    sim.fSimData.fSimulationSettings.isCflBound = false;
+    sim.fSimData.fSimulationSettings.nTimeSteps = 361;
+
+    sim.fSimData.fSimulationSettings.simType = SPZAcousticData::ESimulationType::frequencyDomain;
+    sim.fSimData.fOutputSettings.resultsDir = "results/axiHeterogeneousFreq/";
+    sim.fSimData.fFourierSettings.nSamples = 200;
     sim.fSimData.fFourierSettings.wMax = sim.fSimData.fSourceSettings.centralFrequency * 3;
     sim.fSimData.fFourierSettings.alphaFreqShift = -1;
 }

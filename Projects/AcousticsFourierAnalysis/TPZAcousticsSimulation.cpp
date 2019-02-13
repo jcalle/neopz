@@ -54,7 +54,7 @@ void TPZAcousticsSimulation::RunSimulation() {
     std::cout << "Creating cmesh... ";
     boost::posix_time::ptime t1_c =
             boost::posix_time::microsec_clock::local_time();
-    bool isAxisymmetric = false;
+    bool isAxisymmetric = this->fSimData.fSimulationSettings.axiSymmetricSimulation;
     auto boundTypeVec = this->fSimData.fSimulationSettings.boundType;
     TPZAcousticCompMesher compMesh(&geoMesh, boundTypeVec, isAxisymmetric);
     {
