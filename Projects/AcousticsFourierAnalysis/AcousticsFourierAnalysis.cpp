@@ -18,12 +18,12 @@ void ConfigureFreqAxiHeterogeneousCase(TPZAcousticsSimulation &sim);
 int main(int argc, char *argv[]) {
     TPZAcousticsSimulation sim;
 //    ESimulationCases simCase = ESimulationCases::freqAxiSymmetricHetero;
-    ESimulationCases simCase = ESimulationCases::timeAxiSymmetricHetero;
+//    ESimulationCases simCase = ESimulationCases::timeAxiSymmetricHetero;
 //    ESimulationCases simCase = ESimulationCases::freqAxiSymmetricHomo;
 //    ESimulationCases simCase = ESimulationCases::timeAxiSymmetricHomo;
 //    ESimulationCases simCase = ESimulationCases::timeHomogeneous2D;
 //    ESimulationCases simCase = ESimulationCases::freqHomogeneous2D;
-//    ESimulationCases simCase = ESimulationCases::freqConcentric2D;
+    ESimulationCases simCase = ESimulationCases::freqConcentric2D;
 //    ESimulationCases simCase = ESimulationCases::timeConcentric2D;
     switch(simCase){
         case ESimulationCases::freqAxiSymmetricHetero:
@@ -67,7 +67,7 @@ void ConfigureConcentricCase(TPZAcousticsSimulation &sim){
     sim.fSimData.fSourceSettings.peakTime = 1./(18000);
 
     sim.fSimData.fSimulationSettings.simType = SPZAcousticData::ESimulationType::timeDomain;
-    sim.fSimData.fSimulationSettings.meshName = "realWEll.geo";
+    sim.fSimData.fSimulationSettings.meshName = "realWellWFilm.geo";
     sim.fSimData.fSimulationSettings.boundType.Resize(1);
     sim.fSimData.fSimulationSettings.boundType[0] = SPZAcousticData::EBoundType::softwall;
     sim.fSimData.fSimulationSettings.nElemPerLambda = 12;
@@ -87,6 +87,9 @@ void ConfigureConcentricCase(TPZAcousticsSimulation &sim){
     sim.fSimData.fOutputSettings.printCmeshTxt = true;
     sim.fSimData.fOutputSettings.printCmeshVtk = true;
     sim.fSimData.fOutputSettings.vtkSol = true;
+    sim.fSimData.fOutputSettings.probeSol = true;
+    sim.fSimData.fOutputSettings.probePosX = sim.fSimData.fSourceSettings.posX + 0.05;
+    sim.fSimData.fOutputSettings.probePosY = sim.fSimData.fSourceSettings.posY;
     sim.fSimData.fOutputSettings.vtkResolution = 0;
 
 }
@@ -94,7 +97,7 @@ void ConfigureConcentricCase(TPZAcousticsSimulation &sim){
 void ConfigureFreqConcentricCase(TPZAcousticsSimulation &sim){
     ConfigureConcentricCase(sim);
     sim.fSimData.fSimulationSettings.simType = SPZAcousticData::ESimulationType::frequencyDomain;
-    sim.fSimData.fOutputSettings.resultsDir = "results/concentricFreq/";
+    sim.fSimData.fOutputSettings.resultsDir = "results/concentricFreqWFilm/";
     sim.fSimData.fFourierSettings.nSamples = 200;
     sim.fSimData.fFourierSettings.wMax = sim.fSimData.fSourceSettings.centralFrequency * 3;
     sim.fSimData.fFourierSettings.alphaFreqShift = -1;
@@ -130,6 +133,9 @@ void ConfigureHomogeneousCase(TPZAcousticsSimulation &sim){
     sim.fSimData.fOutputSettings.printCmeshTxt = true;
     sim.fSimData.fOutputSettings.printCmeshVtk = true;
     sim.fSimData.fOutputSettings.vtkSol = true;
+    sim.fSimData.fOutputSettings.probeSol = true;
+    sim.fSimData.fOutputSettings.probePosX = sim.fSimData.fSourceSettings.posX;
+    sim.fSimData.fOutputSettings.probePosY = sim.fSimData.fSourceSettings.posY;
     sim.fSimData.fOutputSettings.vtkResolution = 0;
 
 }
@@ -176,6 +182,9 @@ void ConfigureAxiHomogeneousCase(TPZAcousticsSimulation &sim){
     sim.fSimData.fOutputSettings.printCmeshTxt = true;
     sim.fSimData.fOutputSettings.printCmeshVtk = true;
     sim.fSimData.fOutputSettings.vtkSol = true;
+    sim.fSimData.fOutputSettings.probeSol = true;
+    sim.fSimData.fOutputSettings.probePosX = sim.fSimData.fSourceSettings.posX;
+    sim.fSimData.fOutputSettings.probePosY = sim.fSimData.fSourceSettings.posY;
     sim.fSimData.fOutputSettings.vtkResolution = 0;
 
 }
@@ -223,6 +232,9 @@ void ConfigureAxiHeterogeneousCase(TPZAcousticsSimulation &sim){
     sim.fSimData.fOutputSettings.printCmeshTxt = true;
     sim.fSimData.fOutputSettings.printCmeshVtk = true;
     sim.fSimData.fOutputSettings.vtkSol = true;
+    sim.fSimData.fOutputSettings.probeSol = true;
+    sim.fSimData.fOutputSettings.probePosX = sim.fSimData.fSourceSettings.posX;
+    sim.fSimData.fOutputSettings.probePosY = sim.fSimData.fSourceSettings.posY;
     sim.fSimData.fOutputSettings.vtkResolution = 0;
 
 }

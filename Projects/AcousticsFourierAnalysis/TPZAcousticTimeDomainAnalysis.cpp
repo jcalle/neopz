@@ -62,21 +62,9 @@ void TPZAcousticTimeDomainAnalysis::RunSimulationSteps() {
     TPZMatAcousticsTransient *mat = dynamic_cast<TPZMatAcousticsTransient *>(cmesh->MaterialVec()[matIdSource]);
     mat->SetSource(fTimeDomainSource);
 
-    TPZCompEl * sourceCompel = nullptr;
-    {
-        TPZGeoElRefLess<pzgeom::TPZGeoPoint> *sourceEl = nullptr;
-        for (int iEl = 0; iEl < gmesh->NElements(); ++iEl) {
-            sourceEl = dynamic_cast<TPZGeoElRefLess<pzgeom::TPZGeoPoint>*>(gmesh->Element(iEl));
-            if(sourceEl){
-                break;
-            }
-        }
-        if(sourceEl == nullptr){
-            std::cout<<"could not find source element"<<std::endl;
-            DebugStop();
-        }
-        sourceCompel = sourceEl->Reference();
-    }
+    TPZCompEl * probeCompEl = nullptr;
+    FindProbe(probeCompEl,gmesh,matIdSource);
+
 
 
     uint solSize = fNeqOriginal;
@@ -113,12 +101,14 @@ void TPZAcousticTimeDomainAnalysis::RunSimulationSteps() {
         }
 
         //get probe solution
-        fProbeSolution(it,0) = it*fDeltaT;
-        TPZVec<REAL> qsi(1,0);
-        int var = 1;
-        TPZVec<STATE> sol(1,0);
-        sourceCompel->Solution(qsi,var,sol);
-        fProbeSolution(it,1) = sol[0];
+        if(isThereAProbe){
+            fProbeSolution(it,0) = it*fDeltaT;
+            TPZVec<REAL> qsi(1,0);
+            int var = 1;
+            TPZVec<STATE> sol(1,0);
+            probeCompEl->Solution(qsi,var,sol);
+            fProbeSolution(it,1) = std::real(sol[0]);
+        }
     }
 }
 

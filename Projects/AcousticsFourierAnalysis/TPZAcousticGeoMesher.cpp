@@ -107,24 +107,15 @@ void TPZAcousticGeoMesher::CreateGMesh(REAL nElemPerLambdaTimesOmega) {
     return;
 }
 
-void TPZAcousticGeoMesher::CreateSourceNode(const REAL &sourcePosX,
-                                            const REAL &sourcePosY) {
+
+void TPZAcousticGeoMesher::InsertNode(const int &matId, const REAL &sourcePosX,
+                                           const REAL &sourcePosY) {
 #ifdef PZDEBUG
     if(fGmesh == nullptr){
         PZError<<"You are trying to create a source node in an empty mesh. Aborting..."<<std::endl;
         DebugStop();
     }
 #endif
-    fMatIdSource = 0;
-    for (int iMat = 0; iMat< fMatIdVec.size(); iMat++){
-        fMatIdSource += fMatIdVec[iMat];
-    }
-    TPZVec<int> matIdVecCp(fMatIdVec);
-    fMatIdVec.resize(fMatIdVec.size()+1);
-    fMatIdVec[0] = fMatIdSource;
-    for (int iMat = 0; iMat< matIdVecCp.size(); iMat++){
-        fMatIdVec[iMat+1] = matIdVecCp[iMat];
-    }
 
 
     int64_t sourceNodeIndex = -1;
@@ -147,9 +138,37 @@ void TPZAcousticGeoMesher::CreateSourceNode(const REAL &sourcePosX,
     }
     TPZVec<int64_t> nodeIdVec(1,sourceNodeIndex);
     TPZGeoElRefLess<pzgeom::TPZGeoPoint > *zeroDEl =
-            new TPZGeoElRefLess<pzgeom::TPZGeoPoint >(nodeIdVec, fMatIdSource,
+            new TPZGeoElRefLess<pzgeom::TPZGeoPoint >(nodeIdVec, matId,
                                                       *fGmesh);
     fGmesh->BuildConnectivity();
+}
+
+void TPZAcousticGeoMesher::CreateProbeNode(const REAL &sourcePosX,
+                                            const REAL &sourcePosY) {
+    int matId = 0;
+    if(fMatIdSource == fMatIdVec[0]){
+        matId = fMatIdVec[1];
+    }else{
+        matId = fMatIdVec[0];
+    }
+    InsertNode(matId,sourcePosX,sourcePosY);
+    isThereAProbe = true;
+}
+
+void TPZAcousticGeoMesher::CreateSourceNode(const REAL &sourcePosX,
+                                            const REAL &sourcePosY) {
+    int matId = 0;
+    for (int iMat = 0; iMat< fMatIdVec.size(); iMat++){
+        matId += fMatIdVec[iMat];
+    }
+    TPZVec<int> matIdVecCp(fMatIdVec);
+    fMatIdVec.resize(fMatIdVec.size()+1);
+    fMatIdVec[0] = matId;
+    for (int iMat = 0; iMat< matIdVecCp.size(); iMat++){
+        fMatIdVec[iMat+1] = matIdVecCp[iMat];
+    }
+    InsertNode(matId,sourcePosX,sourcePosY);
+    fMatIdSource = matId;
 }
 
 void TPZAcousticGeoMesher::PrintMesh(const std::string &fileName, const std::string &prefix,
@@ -170,7 +189,7 @@ void TPZAcousticGeoMesher::PrintMesh(const std::string &fileName, const std::str
 }
 
 TPZAcousticGeoMesher::TPZAcousticGeoMesher(const std::string meshFileName, const std::string &prefix) :
-fMeshFileName(meshFileName) ,fPrefix(prefix), fMatIdSource(-1) {
+fMeshFileName(meshFileName) ,fPrefix(prefix), fMatIdSource(-1), isThereAProbe(false) {
     fGmesh = nullptr;
     fMatIdVec.Resize(0);
     ReadMeshMaterials();

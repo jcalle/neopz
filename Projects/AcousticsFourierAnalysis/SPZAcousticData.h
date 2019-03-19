@@ -39,6 +39,9 @@ struct SPZAcousticData{
         bool printCmeshTxt;
         bool printCmeshVtk;
         bool vtkSol;
+        bool probeSol;
+        REAL probePosX;
+        REAL probePosY;
         int vtkResolution;
     };
 

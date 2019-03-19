@@ -39,6 +39,7 @@ void TPZMatAcousticsFourier::Contribute(TPZMaterialData &data, REAL weight, TPZF
     }
     TPZFMatrix<REAL> &phi = data.phi;
     const int nshape = phi.Rows();
+    if(nshape == 1) return;
 
     switch(fAssembling){
         case M:

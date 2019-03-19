@@ -42,12 +42,17 @@ public:
     /**
      * Creates a 0D element (node) representing the source. The location is approximated, since the source will be
      * placed at the nearest node in the mesh, so there is a maximum error of elSize/2
-     * @param gmesh the mesh in which the source will be inserted (in/out)
-     * @param matIdSource material id associated with the source (in)
      * @param sourcePosX x-coordinate for the source (in)
      * @param sourcePosY y-coordinate for the source (in)
      */
     void CreateSourceNode(const REAL &sourcePosX, const REAL &sourcePosY);
+    /**
+     * Creates a 0D element (node) representing the probe. The location is approximated, since the probe will be
+     * placed at the nearest node in the mesh, so there is a maximum error of elSize/2
+     * @param sourcePosX x-coordinate for the probe (in)
+     * @param sourcePosY y-coordinate for the probe (in)
+     */
+    void CreateProbeNode(const REAL &sourcePosX, const REAL &sourcePosY);
 
     /**
      * Prints the geometric mesh in both .vtk and .txt formats.
@@ -79,6 +84,9 @@ public:
 
      TPZGeoMesh *GetMesh() const{return fGmesh; }
 protected:
+
+    void InsertNode(const int &matId, const REAL &sourcePosX, const REAL &sourcePosY);
+
     void ReadMeshMaterials();
     /**
      * Generates a .msh (msh version 2) from a .geo file (calling the gmsh executable) and, finally, creates
@@ -132,6 +140,8 @@ protected:
      TPZVec<int> fMatIdVec;
 
      int fMatIdSource;
+
+     bool isThereAProbe;
 };
 
 #endif //TPZACOUSTICGEOMESHER

@@ -31,14 +31,14 @@ public:
     virtual void InitializeComputations() = 0;
     virtual void SetUpGaussianSource(const REAL & wZero, const REAL & peakTime, const REAL & amplitude) = 0;
     virtual void RunSimulationSteps() = 0;
-
+    void ProbeSolution(std::string &prefix);
     void PostProcess(int vtkResolution, std::string &prefix);
 protected:
-
+    void FindProbe(TPZCompEl *&probeComPEl, TPZGeoMesh *gmesh, const int &matIdSource);
     void FilterBoundaryEquations(TPZVec<int64_t> &activeEquations, int64_t &neq, int64_t &neqOriginal);
     virtual void InitializeSolver() = 0;
 
-
+    bool isThereAProbe;
 
     TPZVec<int64_t > fActiveEquations;
 
@@ -58,7 +58,7 @@ protected:
 
     TPZAcousticCompMesher *fCompMesher;
 
-    TPZFMatrix<STATE> fProbeSolution;
+    TPZFMatrix<SPZAlwaysReal<STATE>::type> fProbeSolution;
     TPZFMatrix<STATE> fTimeDomainSolution;
 };
 

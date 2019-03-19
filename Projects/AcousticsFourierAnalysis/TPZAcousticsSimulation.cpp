@@ -43,7 +43,9 @@ void TPZAcousticsSimulation::RunSimulation() {
 
     geoMesh.CreateSourceNode(this->fSimData.fSourceSettings.posX, this->fSimData.fSourceSettings.posY);
 
-
+    if(this->fSimData.fOutputSettings.probeSol){
+        geoMesh.CreateProbeNode(this->fSimData.fOutputSettings.probePosX,this->fSimData.fOutputSettings.probePosY);
+    }
     boost::posix_time::ptime t2_g =
             boost::posix_time::microsec_clock::local_time();
     std::cout << "Created! " << t2_g - t1_g << std::endl;
@@ -122,6 +124,9 @@ void TPZAcousticsSimulation::RunSimulation() {
     boost::posix_time::ptime t2_total =
             boost::posix_time::microsec_clock::local_time();
     std::cout << "Finished computations! " << t2_total - t1_total << std::endl;
+    if(this->fSimData.fOutputSettings.probeSol){
+        analysis->ProbeSolution(prefix);
+    }
     if(this->fSimData.fOutputSettings.vtkSol)
     {
         const int vtkRes = this->fSimData.fOutputSettings.vtkResolution;

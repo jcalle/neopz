@@ -71,6 +71,42 @@ template<>
 struct SPZAlwaysComplex<std::complex<long double>>{
 	typedef std::complex<long double> type;
 };
+
+
+template<class T>
+struct SPZAlwaysReal{
+
+};
+
+template<>
+struct SPZAlwaysReal<float>{
+	typedef float type;
+};
+
+template<>
+struct SPZAlwaysReal<double>{
+	typedef double type;
+};
+
+template<>
+struct SPZAlwaysReal<long double>{
+	typedef long double type;
+};
+
+template<>
+struct SPZAlwaysReal<std::complex<float>>{
+	typedef float type;
+};
+
+template<>
+struct SPZAlwaysReal<std::complex<double>>{
+	typedef double type;
+};
+
+template<>
+struct SPZAlwaysReal<std::complex<long double>>{
+	typedef long double type;
+};
 /*structs used for help identifying fundamental types in template parameters.
  For instance,
  

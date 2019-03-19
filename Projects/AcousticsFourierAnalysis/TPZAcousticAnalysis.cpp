@@ -2,14 +2,17 @@
 #include "TPZAcousticCompMesher.h"
 #include "TPZSpStructMatrix.h"
 #include "pzbndcond.h"
+#include <pzgeoelrefless.h>
+#include <pzgeopoint.h>
 
 
 
 TPZAcousticAnalysis::TPZAcousticAnalysis(TPZAcousticCompMesher *compMesher, const int &nThreads,
         const REAL &deltaT, const int &nTimeSteps,const bool &filter) :
 fNThreads(nThreads), fPzAnalysis(compMesher->fCmesh), fCompMesher(compMesher), fNeqReduced(-1),
-fFilterBoundaryEquations(filter)
+fFilterBoundaryEquations(filter),isThereAProbe(false)
 {
+    isThereAProbe = compMesher->fGeoMesh->isThereAProbe;
     fNTimeSteps = nTimeSteps;
     fDeltaT = deltaT;
     fTotalTime = (fNTimeSteps-1) * fDeltaT;
@@ -22,6 +25,25 @@ fFilterBoundaryEquations(filter)
         structMatrix.EquationFilter().SetActiveEquations(fActiveEquations);
     }
     fPzAnalysis.SetStructuralMatrix(structMatrix);
+}
+
+void TPZAcousticAnalysis::ProbeSolution(std::string &prefix) {
+    if(!isThereAProbe){
+        std::cout<<"There was no probe in the simulation"<<std::endl;
+        return;
+    }
+    std::ostringstream probeSolStream;
+    typedef std::numeric_limits< double > dbl;
+    std::cout.precision(dbl::max_digits10);
+    probeSolStream.precision(dbl::max_digits10);
+    for(int i = 0; i < fProbeSolution.Rows(); i++){
+        probeSolStream << std::fixed << fProbeSolution(i,0) << ","<<fProbeSolution(i,1)<<std::endl;
+    }
+    std::string fileName = prefix;
+    fileName+="probeSol.csv";
+    std::ofstream file(fileName.c_str(), std::ios::out | std::ios::trunc);
+    file << probeSolStream.str();
+    file.close();
 }
 
 void TPZAcousticAnalysis::PostProcess(int vtkResolution, std::string &prefix) {
@@ -115,4 +137,20 @@ void TPZAcousticAnalysis::FilterBoundaryEquations(TPZVec<int64_t> &activeEquatio
     }
 
     return;
+}
+
+
+void TPZAcousticAnalysis::FindProbe(TPZCompEl *&probeCompEl, TPZGeoMesh *gmesh, const int &matIdSource){
+    TPZGeoElRefLess<pzgeom::TPZGeoPoint> *probeEl = nullptr;
+    for (int iEl = 0; iEl < gmesh->NElements(); ++iEl) {
+        probeEl = dynamic_cast<TPZGeoElRefLess<pzgeom::TPZGeoPoint>*>(gmesh->Element(iEl));
+        if(probeEl && gmesh->Element(iEl)->MaterialId() != matIdSource){
+            break;
+        }
+    }
+    if(probeEl == nullptr){
+        std::cout<<"could not find probe element"<<std::endl;
+        DebugStop();
+    }
+    probeCompEl= probeEl->Reference();
 }

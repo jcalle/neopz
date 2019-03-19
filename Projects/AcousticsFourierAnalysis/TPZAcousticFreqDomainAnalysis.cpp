@@ -129,7 +129,6 @@ void TPZAcousticFreqDomainAnalysis::RunSimulationSteps() {
 
 
     ///////
-    TPZCompEl * sourceCompel = nullptr;
     TPZGeoMesh *gmesh = fCompMesher->fGeoMesh->fGmesh;
     TPZCompMesh *cmesh = fCompMesher->fCmesh;
     const int &matIdSource = fCompMesher->fGeoMesh->fMatIdSource;
@@ -140,30 +139,17 @@ void TPZAcousticFreqDomainAnalysis::RunSimulationSteps() {
         DebugStop();
     }
     matSourcePtr->SetSource(fFreqDomainSource);
-    {
-        TPZGeoElRefLess<pzgeom::TPZGeoPoint> *sourceEl = nullptr;
-        for (int iEl = 0; iEl < gmesh->NElements(); ++iEl) {
-            if (gmesh->Element(iEl)->MaterialId() == matIdSource){
-                sourceEl = dynamic_cast<TPZGeoElRefLess<pzgeom::TPZGeoPoint>*>(gmesh->Element(iEl));
-                if(sourceEl){
-                    break;
-                }else{
-                    DebugStop();
-                }
-            }
-        }
-        if(sourceEl == nullptr){
-            std::cout<<"could not find source element"<<std::endl;
-            DebugStop();
-        }
-        sourceCompel = sourceEl->Reference();
+
+    TPZCompEl * probeCompEl= nullptr;
+    if(isThereAProbe){
+        FindProbe(probeCompEl,gmesh,matIdSource);
     }
 
-    fProbeSolution.Resize(nSamples-1,2);
 
 
 //    const int solSize = fFilterBoundaryEquations ? fCompMesher->fNeqReduced : fCompMesher->fNeqOriginal;
     const int solSize = fNeqOriginal;
+    fProbeSolution.Resize(fNTimeSteps,2);
     fTimeDomainSolution.Resize(solSize,fNTimeSteps);
     for(int iW = 0; iW < nSamples-1; iW++){
 
@@ -222,18 +208,25 @@ void TPZAcousticFreqDomainAnalysis::RunSimulationSteps() {
         TPZFMatrix<STATE> &currentSol = fPzAnalysis.Solution();//p omega
 
         //get spectrum
-        fProbeSolution(iW,0) = currentW;
         TPZVec<REAL> qsi(1,0);
         int var = 1;
-        TPZVec<STATE> sol(1,0);
-        sourceCompel->Solution(qsi,var,sol);
-        fProbeSolution(iW,1) = sol[0];
+        TPZVec<STATE> probeSol(1,0);
+        probeCompEl->Solution(qsi,var,probeSol);
         //inverse transform
 
 
-        for(int iPt = 0; iPt < solSize; iPt++){
-            for(int iTime = 0; iTime < fNTimeSteps; iTime++){
-                const REAL currentTime = (REAL)iTime * fDeltaT;
+        for(int iTime = 0; iTime < fNTimeSteps; iTime++){
+            const REAL currentTime = (REAL)iTime * fDeltaT;
+            if(isThereAProbe){
+                fProbeSolution(iTime,0) =currentTime;
+                fProbeSolution(iTime,1)+= std::exp(fAFactor*currentTime)*//fator para compensar o shift na frequência
+                                          wSample *//fator para compensar o trem de impulso com intensidade wSample
+                                          0.5*(1.+std::cos(std::real(currentW)*M_PI/wMax))*//Hanning windowing, atenua frequencias altas
+                                          std::real(probeSol[0]) * std::cos(-1. * currentTime * std::real(currentW))*
+                                          M_2_SQRTPI * M_SQRT2 * M_SQRT1_2;//1/sqrt(2pi), para ser coerente com a
+                // transformada feita no mathematica
+            }
+            for(int iPt = 0; iPt < solSize; iPt++){
                 fTimeDomainSolution(iPt,iTime) +=
                         std::exp(fAFactor*currentTime)*//fator para compensar o shift na frequência
                         wSample *//fator para compensar o trem de impulso com intensidade wSample
