@@ -4,8 +4,8 @@ DefineConstant[r1 = 0.09525];
 DefineConstant[r2 = 0.01750];
 DefineConstant[r3 = 0.03725];
 DefineConstant[r4 = 0.01750];
-DefineConstant[r5 = 0.04950];
-DefineConstant[r6 = 0.00050];
+DefineConstant[r5 = 0.04900];
+DefineConstant[r6 = 0.00100];
 DefineConstant[r7 = 0.08500];
 
 DefineConstant[el_size_1 = 0.0125];

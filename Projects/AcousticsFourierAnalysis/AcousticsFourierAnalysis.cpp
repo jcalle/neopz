@@ -23,8 +23,8 @@ int main(int argc, char *argv[]) {
 //    ESimulationCases simCase = ESimulationCases::timeAxiSymmetricHomo;
 //    ESimulationCases simCase = ESimulationCases::timeHomogeneous2D;
 //    ESimulationCases simCase = ESimulationCases::freqHomogeneous2D;
-    ESimulationCases simCase = ESimulationCases::freqConcentric2D;
-//    ESimulationCases simCase = ESimulationCases::timeConcentric2D;
+//    ESimulationCases simCase = ESimulationCases::freqConcentric2D;
+    ESimulationCases simCase = ESimulationCases::timeConcentric2D;
     switch(simCase){
         case ESimulationCases::freqAxiSymmetricHetero:
             ConfigureFreqAxiHeterogeneousCase(sim);
@@ -71,22 +71,22 @@ void ConfigureConcentricCase(TPZAcousticsSimulation &sim){
     sim.fSimData.fSimulationSettings.boundType.Resize(1);
     sim.fSimData.fSimulationSettings.boundType[0] = SPZAcousticData::EBoundType::softwall;
     sim.fSimData.fSimulationSettings.nElemPerLambda = 12;
-    sim.fSimData.fSimulationSettings.totalTime = sim.fSimData.fSourceSettings.peakTime * 12;
+    sim.fSimData.fSimulationSettings.totalTime = sim.fSimData.fSourceSettings.peakTime * 100;
     sim.fSimData.fSimulationSettings.cfl = 0.2;
     sim.fSimData.fSimulationSettings.nTimeSteps = 721;
-    sim.fSimData.fSimulationSettings.isCflBound = false;
+    sim.fSimData.fSimulationSettings.isCflBound = true;
     sim.fSimData.fSimulationSettings.pOrder = 2;
     sim.fSimData.fSimulationSettings.filterBoundaryEqs = true;
     sim.fSimData.fSimulationSettings.axiSymmetricSimulation = false;
     sim.fSimData.fSimulationSettings.nThreads = 8;
 
 
-    sim.fSimData.fOutputSettings.resultsDir = "results/concentricTime/";
-    sim.fSimData.fOutputSettings.printGmeshVtk = true;
+    sim.fSimData.fOutputSettings.resultsDir = "results/concentricTimeWFilm/";
+    sim.fSimData.fOutputSettings.printGmeshVtk = false;
     sim.fSimData.fOutputSettings.printGmeshTxt = true;
-    sim.fSimData.fOutputSettings.printCmeshTxt = true;
+    sim.fSimData.fOutputSettings.printCmeshTxt = false;
     sim.fSimData.fOutputSettings.printCmeshVtk = true;
-    sim.fSimData.fOutputSettings.vtkSol = true;
+    sim.fSimData.fOutputSettings.vtkSol = false;
     sim.fSimData.fOutputSettings.probeSol = true;
     sim.fSimData.fOutputSettings.probePosX = sim.fSimData.fSourceSettings.posX + 0.05;
     sim.fSimData.fOutputSettings.probePosY = sim.fSimData.fSourceSettings.posY;
@@ -98,9 +98,10 @@ void ConfigureFreqConcentricCase(TPZAcousticsSimulation &sim){
     ConfigureConcentricCase(sim);
     sim.fSimData.fSimulationSettings.simType = SPZAcousticData::ESimulationType::frequencyDomain;
     sim.fSimData.fOutputSettings.resultsDir = "results/concentricFreqWFilm/";
-    sim.fSimData.fFourierSettings.nSamples = 200;
+    sim.fSimData.fFourierSettings.nSamples = 450;
     sim.fSimData.fFourierSettings.wMax = sim.fSimData.fSourceSettings.centralFrequency * 3;
     sim.fSimData.fFourierSettings.alphaFreqShift = -1;
+    sim.fSimData.fSimulationSettings.isCflBound = false;
 //    sim.fSimData.fSimulationSettings.nTimeSteps = 361;
 //    sim.fSimData.fSimulationSettings.isCflBound = false;
 }
