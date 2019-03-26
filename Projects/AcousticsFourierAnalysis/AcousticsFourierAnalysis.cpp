@@ -18,13 +18,13 @@ void ConfigureFreqAxiHeterogeneousCase(TPZAcousticsSimulation &sim);
 int main(int argc, char *argv[]) {
     TPZAcousticsSimulation sim;
 //    ESimulationCases simCase = ESimulationCases::freqAxiSymmetricHetero;
-//    ESimulationCases simCase = ESimulationCases::timeAxiSymmetricHetero;
+    ESimulationCases simCase = ESimulationCases::timeAxiSymmetricHetero;
 //    ESimulationCases simCase = ESimulationCases::freqAxiSymmetricHomo;
 //    ESimulationCases simCase = ESimulationCases::timeAxiSymmetricHomo;
 //    ESimulationCases simCase = ESimulationCases::timeHomogeneous2D;
 //    ESimulationCases simCase = ESimulationCases::freqHomogeneous2D;
 //    ESimulationCases simCase = ESimulationCases::freqConcentric2D;
-    ESimulationCases simCase = ESimulationCases::timeConcentric2D;
+//    ESimulationCases simCase = ESimulationCases::timeConcentric2D;
     switch(simCase){
         case ESimulationCases::freqAxiSymmetricHetero:
             ConfigureFreqAxiHeterogeneousCase(sim);
@@ -212,12 +212,12 @@ void ConfigureAxiHeterogeneousCase(TPZAcousticsSimulation &sim){
     sim.fSimData.fSourceSettings.peakTime = 1./18000;
 
     sim.fSimData.fSimulationSettings.simType = SPZAcousticData::ESimulationType::timeDomain;
-    sim.fSimData.fSimulationSettings.meshName = "axiRealWell.geo";
+    sim.fSimData.fSimulationSettings.meshName = "axiRealWellWFilm.geo";
     sim.fSimData.fSimulationSettings.boundType.Resize(2);
     sim.fSimData.fSimulationSettings.boundType[0] = SPZAcousticData::EBoundType::softwall;
     sim.fSimData.fSimulationSettings.boundType[1] = SPZAcousticData::EBoundType::hardwall;
     sim.fSimData.fSimulationSettings.nElemPerLambda = 12;
-    sim.fSimData.fSimulationSettings.totalTime = 12 * sim.fSimData.fSourceSettings.peakTime;
+    sim.fSimData.fSimulationSettings.totalTime = 50 * sim.fSimData.fSourceSettings.peakTime;
     sim.fSimData.fSimulationSettings.cfl = 0.2;
     sim.fSimData.fSimulationSettings.nTimeSteps = 100;
     sim.fSimData.fSimulationSettings.isCflBound = true;
@@ -227,14 +227,14 @@ void ConfigureAxiHeterogeneousCase(TPZAcousticsSimulation &sim){
     sim.fSimData.fSimulationSettings.nThreads = 8;
 
 
-    sim.fSimData.fOutputSettings.resultsDir = "results/axiHeterogeneousTime/";
+    sim.fSimData.fOutputSettings.resultsDir = "results/axiHeterogeneousTimeWFilm/";
     sim.fSimData.fOutputSettings.printGmeshVtk = true;
     sim.fSimData.fOutputSettings.printGmeshTxt = true;
     sim.fSimData.fOutputSettings.printCmeshTxt = true;
     sim.fSimData.fOutputSettings.printCmeshVtk = true;
-    sim.fSimData.fOutputSettings.vtkSol = true;
+    sim.fSimData.fOutputSettings.vtkSol = false;
     sim.fSimData.fOutputSettings.probeSol = true;
-    sim.fSimData.fOutputSettings.probePosX = sim.fSimData.fSourceSettings.posX;
+    sim.fSimData.fOutputSettings.probePosX = sim.fSimData.fSourceSettings.posX + 0.05;
     sim.fSimData.fOutputSettings.probePosY = sim.fSimData.fSourceSettings.posY;
     sim.fSimData.fOutputSettings.vtkResolution = 0;
 
