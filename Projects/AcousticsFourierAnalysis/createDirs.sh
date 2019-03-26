@@ -1,8 +1,16 @@
 mkdir -p results/concentricTime
+mkdir -p results/concentricTimeW
+mkdir -p results/concentricTimeWFilm
 mkdir -p results/concentricFreq
+mkdir -p results/concentricFreqW
+mkdir -p results/concentricFreqWFilm
 mkdir -p results/homogeneousTime
 mkdir -p results/homogeneousFreq
 mkdir -p results/axiHomogeneousTime
 mkdir -p results/axiHomogeneousFreq
 mkdir -p results/axiHeterogeneousTime
+mkdir -p results/axiHeterogeneousTimeW
+mkdir -p results/axiHeterogeneousTimeWFilm
 mkdir -p results/axiHeterogeneousFreq
+mkdir -p results/axiHeterogeneousFreqW
+mkdir -p results/axiHeterogeneousFreqWFilm
