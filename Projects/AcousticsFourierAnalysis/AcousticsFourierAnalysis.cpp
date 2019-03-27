@@ -16,6 +16,9 @@ void ConfigureAxiHeterogeneousCase(TPZAcousticsSimulation &sim);
 void ConfigureFreqAxiHeterogeneousCase(TPZAcousticsSimulation &sim);
 
 int main(int argc, char *argv[]) {
+    {
+
+    }
     TPZAcousticsSimulation sim;
 //    ESimulationCases simCase = ESimulationCases::freqAxiSymmetricHetero;
     ESimulationCases simCase = ESimulationCases::timeAxiSymmetricHetero;
@@ -54,6 +57,9 @@ int main(int argc, char *argv[]) {
             PZError<<"What are you trying to run?"<<std::endl;
             DebugStop();
     }
+    sim.RunSimulation();
+    sim.fSimData.fOutputSettings.resultsDir = "results/axiHeterogeneousTimeWFilm/";
+    sim.fSimData.fSimulationSettings.meshName = "axiRealWellWFilm.geo";
     sim.RunSimulation();
 }
 
@@ -212,12 +218,12 @@ void ConfigureAxiHeterogeneousCase(TPZAcousticsSimulation &sim){
     sim.fSimData.fSourceSettings.peakTime = 1./18000;
 
     sim.fSimData.fSimulationSettings.simType = SPZAcousticData::ESimulationType::timeDomain;
-    sim.fSimData.fSimulationSettings.meshName = "axiRealWellWFilm.geo";
+    sim.fSimData.fSimulationSettings.meshName = "axiRealWell.geo";
     sim.fSimData.fSimulationSettings.boundType.Resize(2);
     sim.fSimData.fSimulationSettings.boundType[0] = SPZAcousticData::EBoundType::softwall;
     sim.fSimData.fSimulationSettings.boundType[1] = SPZAcousticData::EBoundType::hardwall;
     sim.fSimData.fSimulationSettings.nElemPerLambda = 12;
-    sim.fSimData.fSimulationSettings.totalTime = 50 * sim.fSimData.fSourceSettings.peakTime;
+    sim.fSimData.fSimulationSettings.totalTime = 150 * sim.fSimData.fSourceSettings.peakTime;
     sim.fSimData.fSimulationSettings.cfl = 0.2;
     sim.fSimData.fSimulationSettings.nTimeSteps = 100;
     sim.fSimData.fSimulationSettings.isCflBound = true;
@@ -227,7 +233,7 @@ void ConfigureAxiHeterogeneousCase(TPZAcousticsSimulation &sim){
     sim.fSimData.fSimulationSettings.nThreads = 8;
 
 
-    sim.fSimData.fOutputSettings.resultsDir = "results/axiHeterogeneousTimeWFilm/";
+    sim.fSimData.fOutputSettings.resultsDir = "results/axiHeterogeneousTime/";
     sim.fSimData.fOutputSettings.printGmeshVtk = true;
     sim.fSimData.fOutputSettings.printGmeshTxt = true;
     sim.fSimData.fOutputSettings.printCmeshTxt = true;
