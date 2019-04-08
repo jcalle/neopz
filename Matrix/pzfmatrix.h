@@ -379,6 +379,15 @@ public:
      */
     virtual int SolveGeneralisedEigenProblem(TPZFMatrix< TVar > &B , TPZVec < std::complex<double> > &w);    
     /** @} */
+    
+#endif
+    
+#ifdef USING_MKL
+    /** @brief
+     Calculates the inverse of low rank matrices
+     * @param A output pseudoinverse matrix
+     */
+    void PseudoInverse(TPZFMatrix<REAL> &A);
 #endif
     
     /** @brief Routines to send and receive messages */

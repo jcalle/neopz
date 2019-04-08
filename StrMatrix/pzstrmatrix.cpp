@@ -285,7 +285,6 @@ void TPZStructMatrixOR::Serial_Assemble(TPZMatrix<STATE> & stiffness, TPZFMatrix
             fEquationFilter.Filter(ek.fSourceIndex, ek.fDestinationIndex);
             stiffness.AddKel(ek.fConstrMat, ek.fSourceIndex, ek.fDestinationIndex);
             rhs.AddFel(ef.fConstrMat, ek.fSourceIndex, ek.fDestinationIndex);
-
 #ifdef LOG4CXX
             if (loggerel->isDebugEnabled()) {
                 std::stringstream sout;

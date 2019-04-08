@@ -35,8 +35,20 @@ class TPZSBFemVolume : public TPZInterpolationSpace
     /// Eigenvlues associated with the internal shape functions
     TPZManVector<std::complex<double> > fEigenvalues;
     
+    /// Coefficient matrix
+    TPZFMatrix<REAL> fP0;
+    
     /// Multiplier coeficients associated with the solution
     TPZFNMatrix<30,std::complex<double> > fCoeficients;
+    
+    /// Coefficient matrix
+    TPZFMatrix<REAL> fPhi12;
+    
+    /// Coefficient matrix
+    TPZFMatrix<REAL> fA22;
+    
+    /// Coefficient matrix
+    TPZFMatrix<REAL> fA12;
     
     /// vector of local indices of multipliers in the group
     TPZManVector<int64_t> fLocalIndices;
@@ -46,6 +58,9 @@ class TPZSBFemVolume : public TPZInterpolationSpace
     
     /// Density associated with the mass matrix
     REAL fDensity = 1.;
+    
+    /// Coefficient matrix
+    TPZFMatrix<REAL> fPhi12A22P0loc;
 
     /// adjust the axes and jacobian of the 3D element
     void AdjustAxes3D(const TPZFMatrix<REAL> &axes2D, TPZFMatrix<REAL> &axes3D, TPZFMatrix<REAL> &jac3D, TPZFMatrix<REAL> &jacinv3D, REAL detjac);
@@ -58,8 +73,14 @@ public:
         Reference()->ResetReference();
     }
     
+    //Karol
+    
+    void LocalBodyForces(TPZFNMatrix<200,std::complex<double>> &f, TPZFNMatrix<200,std::complex<double>> &Phiu, TPZManVector<std::complex<double>> &eigval, int i, int j);
+    
+    void ComputeLocalForces(TPZElementMatrix &E0, TPZElementMatrix &E1, TPZElementMatrix &E2, TPZElementMatrix &P0, TPZElementMatrix &RF);
+    
     /// Compute the E0, E1 and E2 matrices
-    void ComputeKMatrices(TPZElementMatrix &E0, TPZElementMatrix &E1, TPZElementMatrix &E2, TPZElementMatrix &M0);
+    void ComputeKMatrices(TPZElementMatrix &E0, TPZElementMatrix &E1, TPZElementMatrix &E2, TPZElementMatrix &M0, TPZElementMatrix &P0, TPZElementMatrix &RF);
     
     /// Data structure initialization
     void SetSkeleton(int64_t skeleton);
@@ -242,6 +263,8 @@ public:
     /// initialize the data structures of the eigenvectors and eigenvalues associated with this volume element
     void SetPhiEigVal(TPZFMatrix<std::complex<double> > &phi, TPZManVector<std::complex<double> > &eigval);
     
+    void SetCoefNonHomogeneous(TPZFMatrix<REAL> &Phi12, TPZFMatrix<REAL> &A22, TPZFMatrix<REAL> &A12, TPZFMatrix<REAL> &Phi12A22P0, TPZFMatrix<REAL> &P0);
+    
     TPZFMatrix<std::complex<double> > Phi()
     {
         return fPhi;
@@ -312,9 +335,18 @@ public:
      */
     virtual void ComputeSolution(TPZVec<REAL> &qsi,
                                  TPZSolVec &sol, TPZGradSolVec &dsol,TPZFMatrix<REAL> &axes);
+    /**
+     * @brief Computes solution and its derivatives in the local coordinate qsi fon differential equations with non homogeneous terms.
+     * @param qsi master element coordinate
+     * @param sol finite element solution
+     * @param dsol solution derivatives
+     * @param axes axes associated with the derivative of the solution
+     */
+    void ComputeSolutionNH(TPZVec<REAL> &qsi,
+                           TPZSolVec &sol, TPZGradSolVec &dsol, TPZFMatrix<REAL> &axes);
     
-    void EvaluateError(void (* /*fp*/)(const TPZVec<REAL> &loc,TPZVec<STATE> &val,TPZFMatrix<STATE> &deriv),
-                       TPZVec<REAL> &/*errors*/,TPZBlock<REAL> * /*flux*/);
+    void EvaluateError(std::function<void(const TPZVec<REAL> &loc,TPZVec<STATE> &val,TPZFMatrix<STATE> &deriv)> fp,
+                       TPZVec<REAL> &errors,bool store_error);
     
     /**
      * @brief Computes the shape function set at the point x.

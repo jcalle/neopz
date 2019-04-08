@@ -18,19 +18,287 @@
 #include "pzvec_extras.h"
 #include "pzcmesh.h"
 
+#ifdef USING_MKL
+#include <mkl.h>
+#endif
+
 #ifdef LOG4CXX
 static LoggerPtr logger(Logger::getLogger("pz.mesh.sbfemvolume"));
 #endif
 
-TPZSBFemVolume::TPZSBFemVolume(TPZCompMesh &mesh, TPZGeoEl *gel, int64_t &index) : TPZInterpolationSpace(mesh, gel, index), fElementGroupIndex(-1), fSkeleton(-1), fDensity(1.) {
+//#define SBFem_NHom
+
+TPZSBFemVolume::TPZSBFemVolume(TPZCompMesh &mesh, TPZGeoEl *gel, int64_t &index) : TPZInterpolationSpace(mesh, gel, index), fElementGroupIndex(-1), fSkeleton(-1), fDensity(1.), fA12(0), fA22(0) {
 
 }
 
+//Karol
 
+void TPZSBFemVolume::LocalBodyForces(TPZFNMatrix<200,std::complex<double>> &f, TPZFNMatrix<200,std::complex<double>> &Phiu, TPZManVector<std::complex<double>> &eigval, int if0, int j){
+    
+    TPZCompMesh *cmesh = Mesh();
+    TPZGeoEl *Ref2D = Reference();
+    int matid = Ref2D->MaterialId();
+    TPZMaterial *mat2d = cmesh->FindMaterial(matid);
+    
+    int dim = Ref2D->Dimension();
+    
+    TPZMaterial * material = Material();
+    if (!material) {
+        PZError << "TPZInterpolatedElement::EvaluateError : no material for this element\n";
+        Print(PZError);
+        return;
+    }
+    if (dynamic_cast<TPZBndCond *> (material)) {
+        std::cout << "Exiting EvaluateError - null error - boundary condition material.";
+        DebugStop();
+    }
+    int problemdimension = Mesh()->Dimension();
+    if (Ref2D->Dimension() < problemdimension) return;
+    
+    TPZAutoPointer<TPZIntPoints> intrule = Ref2D->CreateSideIntegrationRule(Ref2D->NSides() - 1, 5);
+    TPZManVector<int, 3> maxorder(2, 4);
+    intrule->SetOrder(maxorder);
+
+    int nstate = material->NStateVariables();
+    TPZManVector<REAL, 10> intpoint(problemdimension);
+    REAL weight;
+
+    TPZMaterialData data;
+    data.x.Resize(3);
+    int npts = intrule->NPoints();
+    
+    TPZManVector<REAL> bodyforce(dim*nstate, 0.);
+    TPZFMatrix<REAL> dbodyforce(dim*nstate, dim, 0.);
+    
+    TPZFNMatrix<200,REAL> u(Phiu.Rows(), f.Rows());
+    
+    
+    TPZInterpolatedElement *CSkeleton = dynamic_cast<TPZInterpolatedElement *> (cmesh->Element(fSkeleton));
+    int ncon = CSkeleton->NConnects();
+    TPZGeoEl *Ref1D = CSkeleton->Reference();
+    
+    for (int inodes=0; inodes<ncon; inodes++) {
+        
+        int icon = this->fLocalIndices[inodes];
+        
+        for (int ipts=0; ipts<npts; ipts++) {
+            
+            intrule->Point(ipts, intpoint, weight);
+            Ref1D->Jacobian(intpoint, data.jacobian, data.axes, data.detjac, data.jacinv);
+            
+            REAL sbfemparam = (1. + intpoint[dim - 1]) / 2.;
+            if (sbfemparam < 0.) {
+                std::cout << "sbfemparam " << sbfemparam << std::endl;
+                sbfemparam = 0.;
+            }
+            if (IsZero(sbfemparam)) {
+                for (int i = 0; i < dim - 1; i++) {
+                    intpoint[i] = 0.;
+                }
+                if (dim == 2) {
+                    sbfemparam = 1.e-6;
+                    intpoint[dim - 1] = 1. - 2.e-6;
+                } else {
+                    sbfemparam = 1.e-4;
+                    intpoint[dim - 1] = 1. - 2.e-4;
+                }
+            }
+            REAL eta = intpoint[0];
+            
+            Ref2D->X(intpoint, data.x);
+            
+            weight *= fabs(data.detjac)/2;
+            
+            fCoeficients.Resize(Phi().Cols(), 1);
+            fCoeficients.Zero();
+            
+            TPZVec<REAL> qsi(1,eta);
+            TPZFNMatrix<200,REAL> phi(CSkeleton->NShapeF(),1,0.);
+            TPZFNMatrix<200,REAL> dphidxi(CSkeleton->NShapeF(),CSkeleton->NShapeF(),0.);
+            CSkeleton->Shape(qsi, phi, dphidxi);
+            
+            if (material->ForcingFunction()) {
+                TPZAutoPointer<TPZFunction<STATE> > autodummy = material->ForcingFunction();
+                autodummy->Execute(data.x, bodyforce, dbodyforce);
+            }
+            std::complex<double> xiexp;
+            
+            if (IsZero(eigval[if0])) {
+                xiexp = 1;
+            } else {
+                xiexp = pow(sbfemparam, eigval[if0].real());
+            }
+            
+            if (nstate == 1){
+                f(if0,0) += Phiu(icon,if0) * xiexp * phi(inodes,0) * bodyforce[0] * weight * sbfemparam;
+            } else{
+                std::cout << "nstate > 1 not implemented yet";
+                DebugStop();
+            }
+            
+        }
+
+    }
+    
+}
+
+void TPZSBFemVolume::ComputeLocalForces(TPZElementMatrix &E0, TPZElementMatrix &E1, TPZElementMatrix &E2, TPZElementMatrix &P0, TPZElementMatrix &RF)
+{
+//    Matrix for eigenvectors calculation for each bar
+    if (Dimension() !=2 ) {
+        return;
+    }
+    
+    TPZElementMatrix P0Copy(P0);
+
+    int n = E0.fMat.Rows();
+    TPZFMatrix<REAL> matloc(2*n, 2*n, 0.);
+    
+    TPZFMatrix<REAL> E0Inv(E0.fMat);
+    {
+        TPZFMatrix<REAL> E0copy(E0.fMat);
+        TPZManVector<int> pivot;
+        E0copy.Decompose_LU(pivot);
+        E0Inv.Identity();
+        E0copy.Substitution(&E0Inv, pivot);
+    }
+    
+    TPZFMatrix<REAL> E0InvE1(n,n,0);
+    E0Inv.Multiply(E1.fMat, E0InvE1);
+    
+    TPZFMatrix<REAL> E1E0InvE1(n,n,0);
+    E1.fMat.Multiply(E0InvE1, E1E0InvE1);
+    
+    TPZFMatrix<REAL> E1E0Inv(n,n,0);
+    E1.fMat.Multiply(E0Inv, E1E0Inv);
+    
+    for (int64_t i=0; i<n; i++) {
+        for (int64_t j=0; j<n; j++) {
+            matloc(i, j) += E0InvE1(i,j);
+            matloc(i, n+j) += -E0Inv(i,j);
+            matloc(n+i, j) += E1E0InvE1(i,j) - E2.fMat(i,j);
+            matloc(n+i, n+j) += -E1E0Inv(i,j);
+        }
+    }
+
+    TPZVec<std::complex<double> > eigenvalues;
+    TPZFMatrix<std::complex<double> > eigenVectors;
+    matloc.SolveEigenProblem(eigenvalues, eigenVectors);
+//    eigenVectors.Transpose();
+//    eigenVectors.Print(std::cout);
+//    std::cout << eigenvalues << std::endl;
+    
+    // ----- Ordenando autovetores -----
+    TPZFMatrix<REAL> Phiun(n,n,0.),Phiqn(n,n,0.);
+    TPZManVector<std::complex<double> > eigvalselneg(n,0);
+    int count = 0;
+    for (int i=0; i<2*n; i++) {
+        if (eigenvalues[i].real() < -1.e-6) {
+            for (int j=0; j<n; j++) {
+                Phiun(j,count) = eigenVectors(j,i).real();
+                Phiqn(j,count) = eigenVectors(j+n,i).real();
+            }
+            eigvalselneg[count] = eigenvalues[i];
+            count++;
+        }
+    }
+    
+    TPZFMatrix<REAL> Phiup(n,n,0.),Phiqp(n,n,0.);
+    TPZManVector<std::complex<double> > eigvalselpos(n,0);
+    count=0;
+    for (int i=0; i<2*n; i++) {
+        if (eigenvalues[i].real() > 1.e-6){
+            for (int j=0; j<n; j++) {
+                Phiup(j,count) = eigenVectors(j,i).real();
+                Phiqp(j,count) = eigenVectors(j+n,i).real();
+            }
+            eigvalselpos[count] = eigenvalues[i];
+            count++;
+        }
+    }
+    
+    int nstate = Connect(0).NState();
+    if (nstate != 2 && nstate != 1) {
+        DebugStop();
+    }
+    if(count != n-nstate) {
+        DebugStop();
+    }
+    int ncon = fLocalIndices.size();
+    int eq=0;
+    std::set<int64_t> cornercon;
+    BuildCornerConnectList(cornercon);
+    for (int ic=0; ic<ncon; ic++) {
+        int64_t conindex = ConnectIndex(ic);
+        if (cornercon.find(conindex) != cornercon.end())
+        {
+            Phiup(eq,count) = 1;
+            Phiun(eq,count) = 1;
+            if (nstate == 2)
+            {
+                Phiup(eq+1,count+1) = 1;
+                Phiun(eq+1,count+1) = 1;
+            }
+        }
+        eq += Connect(ic).NShape()*Connect(ic).NState();
+    }
+    
+//    std::cout << eigenvalues << std::endl;
+    
+    TPZFMatrix<REAL> PhiunInv(Phiun);
+    {
+        TPZFMatrix<REAL> PhiunCopy(Phiun);
+        PhiunCopy.PseudoInverse(PhiunInv);
+    }
+    
+    TPZFMatrix<REAL> PhiunInvPhiup(n,n,0);
+    PhiunInv.Multiply(Phiup,PhiunInvPhiup);
+    
+    TPZFMatrix<REAL> A22Inv(n,n,0);
+    Phiqn.Multiply(PhiunInvPhiup,A22Inv);
+    
+    A22Inv = Phiqp - A22Inv;
+    P0Copy.fMat(0,0) = P0Copy.fMat(0,0) - P0Copy.fMat(2,0)/2; P0Copy.fMat(1,0) = P0Copy.fMat(1,0) - P0Copy.fMat(2,0)/2;
+    A22Inv(0,2) = 1; A22Inv(1,2) = 1; A22Inv(2,2) = 4;
+    
+    TPZFMatrix<REAL> A22(n,n,0), A22InvCopy(A22Inv);
+    {
+        TPZVec<int> pivot;
+        A22InvCopy.Decompose_LU(pivot);
+        A22.Identity();
+        A22InvCopy.Substitution(&A22, pivot);
+    }
+    
+    TPZFMatrix<REAL> coefmatInv(n,n,0);
+    for (int64_t i=0; i<n; i++) {
+        if (IsZero(2-eigvalselpos[i].real())) {
+            coefmatInv(i,i) = 0;
+        }
+        else {
+            coefmatInv(i,i) = 1/(2-eigvalselpos[i].real());
+        }
+    }
+    
+    TPZFMatrix<REAL> A22InvMat(n,n,0);
+    A22Inv.Multiply(coefmatInv, A22InvMat);
+    TPZFMatrix<REAL> RFpartial(n,n,0);
+    A22InvMat.Multiply(A22, RFpartial);
+    
+    TPZFMatrix<REAL> RFloc(n,1,0.);
+    RFpartial.Multiply(P0Copy.fMat, RFloc);
+    
+    RF.fMat = RFloc;
+    
+    RF.fMat(0,0) = RF.fMat(0,0) + RF.fMat(2,0)/2;
+    RF.fMat(1,0) = RF.fMat(1,0) + RF.fMat(2,0)/2;
+    
+}
 
 /// Compute the K matrices
 
-void TPZSBFemVolume::ComputeKMatrices(TPZElementMatrix &E0, TPZElementMatrix &E1, TPZElementMatrix &E2, TPZElementMatrix &M0) {
+void TPZSBFemVolume::ComputeKMatrices(TPZElementMatrix &E0, TPZElementMatrix &E1, TPZElementMatrix &E2, TPZElementMatrix &M0, TPZElementMatrix &P0, TPZElementMatrix &RF)
+{
     // do all the computations here
 
     TPZElementMatrix efmat(Mesh(), TPZElementMatrix::EF);
@@ -46,6 +314,8 @@ void TPZSBFemVolume::ComputeKMatrices(TPZElementMatrix &E0, TPZElementMatrix &E1
     CSkeleton->InitializeElementMatrix(E1, efmat);
     CSkeleton->InitializeElementMatrix(E2, efmat);
     CSkeleton->InitializeElementMatrix(M0, efmat);
+    CSkeleton->InitializeElementMatrix(P0); //LALALALA
+    CSkeleton->InitializeElementMatrix(RF); //LALALALA
 
     TPZGeoEl *Ref1D = CSkeleton->Reference();
     int dim1 = Ref1D->Dimension();
@@ -96,16 +366,24 @@ void TPZSBFemVolume::ComputeKMatrices(TPZElementMatrix &E0, TPZElementMatrix &E1
     for (int ip = 0; ip < npoint; ip++) {
         TPZManVector<REAL, 3> xi(dim1), xiquad(dim2), xivol(dim2);
         REAL weight;
+        REAL detjac;
         intpoints.Point(ip, xi, weight);
         tr.Apply(xi, xiquad);
         xivol = xiquad;
         xivol[dim2 - 1] = -0.5;
         TPZFNMatrix<9, REAL> jacobian(dim1, dim1), axes(dim1, 3), jacinv(dim1, dim1);
-        REAL detjac;
         Ref1D->Jacobian(xi, jacobian, axes, detjac, jacinv);
         Ref2D->Jacobian(xiquad, data2d.jacobian, data2d.axes, data2d.detjac, data2d.jacinv);
         Ref2D->X(xivol, data2d.x);
         CSkeleton->ComputeRequiredData(data1d, xi);
+        
+        TPZManVector<double> bodyforce(dim2*nstate, 0.);
+        TPZFMatrix<double> dbodyforce(dim2*nstate, dim2, 0.);
+        if (mat2d->ForcingFunction()) {
+            TPZAutoPointer<TPZFunction<STATE> > autodummy = mat2d->ForcingFunction();
+            autodummy->Execute(data2d.x, bodyforce, dbodyforce);
+        }
+        
 #ifdef PZDEBUG
         // if the dimension of the problem is 2, we assume that the 1D axes corresponds to the first axis of the 2D problem
         if (dim2 == 2) {
@@ -145,7 +423,14 @@ void TPZSBFemVolume::ComputeKMatrices(TPZElementMatrix &E0, TPZElementMatrix &E1
         }
 #endif
         ExtendShapeFunctions(data1d, data2d);
-
+        
+        
+        for (int i = 0; i < nshape; i++) {
+            for (int st = 0; st < nstate; st++) { //LALALALA
+                P0.fMat(i * nstate + st, 0) += weight * data1d.detjac * data1d.phi(i, 0) * bodyforce[st];
+            }
+        }
+        
         weight *= fabs(data2d.detjac)*2.;
         for (int i = 0; i < nshape; i++) {
             for (int j = 0; j < nshape; j++) {
@@ -157,23 +442,28 @@ void TPZSBFemVolume::ComputeKMatrices(TPZElementMatrix &E0, TPZElementMatrix &E1
         // compute the contributions to K11 K12 and K22
         mat2d->Contribute(data2d, weight, ek, ef);
 #ifdef PZDEBUG
-        if (Norm(ef) > 1.e-6) {
-            DebugStop();
-        }
+//        if (Norm(ef) > 1.e-6) {
+//            DebugStop();
+//        }
 #endif
     }
     for (int i = 0; i < nstate * nshape; i++) {
         for (int j = 0; j < nstate * nshape; j++) {
             E0.fMat(i, j) = ek(i, j);
             E1.fMat(j, i) = ek(i, j + nstate * nshape);
-            E2.fMat(i, j) = ek(i + nstate*nshape, j + nstate * nshape);
+            E2.fMat(i, j) = ek(i + nstate*nshape, j + nstate*nshape);
         }
+        P0.fMat(i, 0) = ef(i + nstate*nshape, 0);
     }
+#ifdef SBFem_NHom
+    ComputeLocalForces(E0, E1, E2, P0, RF);
+#endif
 }
 
 /// adjust the axes and jacobian of the 3D element
 
-void TPZSBFemVolume::AdjustAxes3D(const TPZFMatrix<REAL> &axes2D, TPZFMatrix<REAL> &axes3D, TPZFMatrix<REAL> &jac3D, TPZFMatrix<REAL> &jacinv3D, REAL detjac) {
+void TPZSBFemVolume::AdjustAxes3D(const TPZFMatrix<REAL> &axes2D, TPZFMatrix<REAL> &axes3D, TPZFMatrix<REAL> &jac3D, TPZFMatrix<REAL> &jacinv3D, REAL detjac)
+{
     TPZManVector<REAL, 3> ax1(3), ax2(3), ax3(3);
     for (int i = 0; i < 3; i++) {
         ax1[i] = axes2D.g(0, i);
@@ -225,7 +515,8 @@ void TPZSBFemVolume::AdjustAxes3D(const TPZFMatrix<REAL> &axes2D, TPZFMatrix<REA
 
 /// extend the border shape functions for SBFem computations
 
-void TPZSBFemVolume::ExtendShapeFunctions(TPZMaterialData &data1d, TPZMaterialData &data2d) {
+void TPZSBFemVolume::ExtendShapeFunctions(TPZMaterialData &data1d, TPZMaterialData &data2d)
+{
     int dim = Reference()->Dimension();
     int64_t nshape = data2d.phi.Rows() / 2;
     for (int ish = 0; ish < nshape; ish++) {
@@ -241,13 +532,15 @@ void TPZSBFemVolume::ExtendShapeFunctions(TPZMaterialData &data1d, TPZMaterialDa
 
 }
 
-TPZCompEl * CreateSBFemCompEl(TPZGeoEl *gel, TPZCompMesh &mesh, int64_t &index) {
+TPZCompEl * CreateSBFemCompEl(TPZGeoEl *gel, TPZCompMesh &mesh, int64_t &index)
+{
     return new TPZSBFemVolume(mesh, gel, index);
 }
 
 /// initialize the data structures of the eigenvectors and eigenvalues associated with this volume element
 
-void TPZSBFemVolume::SetPhiEigVal(TPZFMatrix<std::complex<double> > &phi, TPZManVector<std::complex<double> > &eigval) {
+void TPZSBFemVolume::SetPhiEigVal(TPZFMatrix<std::complex<double> > &phi, TPZManVector<std::complex<double> > &eigval)
+{
     fEigenvalues = eigval;
     int nrow = fLocalIndices.size();
     fPhi.Resize(nrow, phi.Cols());
@@ -258,13 +551,34 @@ void TPZSBFemVolume::SetPhiEigVal(TPZFMatrix<std::complex<double> > &phi, TPZMan
     }
 }
 
+/// initialize the data structures of the coefficient matrices associated with this volume element
+
+void TPZSBFemVolume::SetCoefNonHomogeneous(TPZFMatrix<REAL> &Phi12, TPZFMatrix<REAL> &A22, TPZFMatrix<REAL> &A12, TPZFMatrix<REAL> &Phi12A22P0, TPZFMatrix<REAL> &P0)
+{
+    fPhi12 = Phi12;
+    fA22 = A22;
+    fA12 = A12;
+    fPhi12A22P0loc = Phi12A22P0;
+    fP0 = P0;
+    int nrow = fLocalIndices.size();
+    fPhi12A22P0loc.Resize(fA22.Rows(), 1);
+    
+    for (int i = 0; i < nrow; i++) {
+        for (int j = 0; j < fA22.Cols(); j++) {
+            fPhi12(i, j) = Phi12(fLocalIndices[i], j);
+        }
+        fPhi12A22P0loc(i, 0) = Phi12A22P0(fLocalIndices[i], 0);
+    }
+}
+
 /** @brief Loads the solution within the internal data structure of the element */
 
 /**
  * Is used to initialize the solution of connect objects with dependency. \n
  * Is also used to load the solution within SuperElements
  */
-void TPZSBFemVolume::LoadCoef(TPZFMatrix<std::complex<double> > &coef) {
+void TPZSBFemVolume::LoadCoef(TPZFMatrix<std::complex<double> > &coef)
+{
     fCoeficients = coef;
 }
 
@@ -276,7 +590,8 @@ void TPZSBFemVolume::LoadCoef(TPZFMatrix<std::complex<double> > &coef) {
  * @param axes axes associated with the derivative of the solution
  */
 void TPZSBFemVolume::ComputeSolution(TPZVec<REAL> &qsi,
-        TPZSolVec &sol, TPZGradSolVec &dsol, TPZFMatrix<REAL> &axes) {
+        TPZSolVec &sol, TPZGradSolVec &dsol, TPZFMatrix<REAL> &axes)
+{
     TPZCompMesh *cmesh = Mesh();
     sol.Resize(fCoeficients.Cols());
     dsol.Resize(fCoeficients.Cols());
@@ -406,6 +721,183 @@ void TPZSBFemVolume::ComputeSolution(TPZVec<REAL> &qsi,
     //    dsol[0].Print("DSol",std::cout);
 }
 
+
+
+/**
+ * @brief Computes solution and its derivatives in the local coordinate qsi fon differential equations with non homogeneous terms.
+ * @param qsi master element coordinate
+ * @param sol finite element solution
+ * @param dsol solution derivatives
+ * @param axes axes associated with the derivative of the solution
+ */
+void TPZSBFemVolume::ComputeSolutionNH(TPZVec<REAL> &qsi,
+                                     TPZSolVec &sol, TPZGradSolVec &dsol, TPZFMatrix<REAL> &axes)
+{
+    TPZCompMesh *cmesh = Mesh();
+    sol.Resize(fCoeficients.Cols());
+    dsol.Resize(fCoeficients.Cols());
+    TPZGeoEl *Ref2D = Reference();
+    int matid = Ref2D->MaterialId();
+    TPZMaterial *mat2d = cmesh->FindMaterial(matid);
+    
+    int dim = Ref2D->Dimension();
+    REAL sbfemparam = (1. - qsi[dim - 1]) / 2.;
+    if (sbfemparam < 0.) {
+        std::cout << "sbfemparam " << sbfemparam << std::endl;
+        sbfemparam = 0.;
+    }
+    if (IsZero(sbfemparam)) {
+        for (int i = 0; i < dim - 1; i++) {
+            qsi[i] = 0.;
+        }
+        if (dim == 2) {
+            sbfemparam = 1.e-6;
+            qsi[dim - 1] = 1. - 2.e-6;
+        } else {
+            sbfemparam = 1.e-4;
+            qsi[dim - 1] = 1. - 2.e-4;
+        }
+    }
+    TPZInterpolatedElement *CSkeleton = dynamic_cast<TPZInterpolatedElement *> (cmesh->Element(fSkeleton));
+    TPZMaterialData data1d, data2d;
+    // compute the lower dimensional shape functions
+    TPZManVector<REAL, 3> qsilow(qsi);
+    qsilow.Resize(dim - 1);
+    CSkeleton->InitMaterialData(data1d);
+    TPZGeoEl *Ref1D = CSkeleton->Reference();
+    
+    Ref1D->Jacobian(qsilow, data1d.jacobian, data1d.axes, data1d.detjac, data1d.jacinv);
+    Ref2D->Jacobian(qsi, data2d.jacobian, data2d.axes, data2d.detjac, data2d.jacinv);
+    if (dim == 3) {
+        
+        AdjustAxes3D(data1d.axes, data2d.axes, data2d.jacobian, data2d.jacinv, data2d.detjac);
+    }
+    axes = data2d.axes;
+    CSkeleton->ComputeRequiredData(data1d, qsilow);
+    
+    int nshape = data1d.phi.Rows();
+    int nstate = mat2d->NStateVariables();
+#ifdef PZDEBUG
+    if (fPhi.Cols() != fCoeficients.Rows()) {
+        DebugStop();
+    }
+#endif
+#ifdef LOG4CXX2
+    if (logger->isDebugEnabled()) {
+        TPZManVector<std::complex<double> > coefcol(fCoeficients.Rows());
+        for (int i = 0; i < fCoeficients.Rows(); i++) {
+            coefcol[i] = fCoeficients(i, 0);
+        }
+        std::stringstream sout;
+        sout << "coefficients " << coefcol << std::endl;
+        LOGPZ_DEBUG(logger, sout.str())
+    }
+#endif
+    
+    int d=0;
+    TPZFMatrix<REAL> P0Copy(fP0);
+//    P0Copy(0,0) = P0Copy(0,0) + P0Copy(2,0)/2; P0Copy(1,0) = P0Copy(1,0) + P0Copy(2,0)/2;
+    std::complex<double> xi2 = pow(sbfemparam, d + 2);
+    TPZFMatrix<REAL> coef1, coef2;
+    {
+        TPZFMatrix<REAL> fA12Copy(fA12);
+        fA12Copy.Multiply(P0Copy, coef1);
+    }
+    {
+        TPZFMatrix<REAL> fA22Copy(fA22);
+        fA22Copy.Multiply(P0Copy, coef2);
+    }
+    
+    for (int s = 0; s < sol.size(); s++) {
+        TPZManVector<std::complex<double>, 10> uh_xi(fPhi.Rows(), 0.), uhh_xi(fPhi.Rows(), 0.), unh_xi(fPhi.Rows(), 0.), Duh_xi(fPhi.Rows(), 0.);
+        int nphixi = fPhi.Rows();
+        int numeig = fPhi.Cols();
+        for (int c = 0; c < numeig; c++) {
+            std::complex<double> xiexp;
+            std::complex<double> xiexpm1;
+            if (IsZero(fEigenvalues[c] + 0.5 * (dim - 2))) {
+                xiexp = 1;
+                xiexpm1 = 0;
+            } else if (IsZero(fEigenvalues[c] + 1. + 0.5 * (dim - 2))) {
+                xiexp = sbfemparam;
+                xiexpm1 = 1;
+            } else {
+                xiexp = pow(sbfemparam, -fEigenvalues[c] - 0.5 * (dim - 2));
+                xiexpm1 = pow(sbfemparam, -fEigenvalues[c] - 1. - 0.5 * (dim - 2));
+            }
+            
+            std::complex<double> diexp;
+            if ((fEigenvalues[c] + 0.5 * dim).real() + d== -1) {
+                diexp = -pow(sbfemparam, d+2)*log(sbfemparam);
+            } else {
+                diexp = (pow(sbfemparam, -fEigenvalues[c].real() - 0.5 * dim + 1) - pow(sbfemparam, d + 2))/(fEigenvalues[c].real() + 0.5 * dim + d + 1);
+            }
+
+            std::complex<double> matinv;
+            matinv = fEigenvalues[c].real() + 0.5 * dim + 1 + d;
+            if (IsZero(matinv)) {
+                matinv = 0;
+            } else {
+                matinv = 1./matinv;
+            }
+            
+            for (int i = 0; i < nphixi; i++) {
+                uhh_xi[i] += fCoeficients(c, s) * xiexp * fPhi(i, c);
+                unh_xi[i] += fPhi(i, c) * diexp * coef1(c, 0) + xi2 * fPhi12(i, c) * matinv * coef2 (c, 0);
+//                uh_xi[i] += uhh_xi[i] + unh_xi[i];
+                Duh_xi[i] += -fCoeficients(c, s)*(fEigenvalues[c] + 0.5 * (dim - 2)) * xiexpm1 * fPhi(i, c);
+            }
+        }
+        for (int i = 0; i < uh_xi.size(); i++){
+            uh_xi[i] = uhh_xi[i] - unh_xi[i];
+        }
+#ifdef LOG4CXX2
+        if (s == 0 && logger->isDebugEnabled()) {
+            std::stringstream sout;
+            sout << "uh_xi " << uh_xi << std::endl;
+            sout << "Duh_xi " << Duh_xi << std::endl;
+            data1d.phi.Print(sout);
+            LOGPZ_DEBUG(logger, sout.str())
+        }
+#endif
+        //        std::cout << "uh_xi " << uh_xi << std::endl;
+        //        std::cout << "Duh_xi " << Duh_xi << std::endl;
+        sol[s].Resize(nstate);
+        sol[s].Fill(0.);
+        TPZFNMatrix<9, STATE> dsollow(dim - 1, nstate, 0.), dsolxieta(dim, nstate, 0.);
+        TPZManVector<STATE, 3> dsolxi(nstate, 0.);
+        for (int ishape = 0; ishape < nshape; ishape++) {
+            for (int istate = 0; istate < nstate; istate++) {
+                sol[s][istate] += data1d.phi(ishape) * uh_xi[ishape * nstate + istate].real();
+                dsolxi[istate] += data1d.phi(ishape) * Duh_xi[ishape * nstate + istate].real();
+                for (int d = 0; d < dim - 1; d++) {
+                    dsollow(d, istate) += data1d.dphi(d, ishape) * uh_xi[ishape * nstate + istate].real();
+                }
+            }
+        }
+        for (int istate = 0; istate < nstate; istate++) {
+            for (int d = 0; d < dim - 1; d++) {
+                dsolxieta(d, istate) = dsollow(d, istate);
+            }
+            dsolxieta(dim - 1, istate) = -dsolxi[istate] / 2.;
+        }
+        dsol[s].Resize(dim, nstate);
+        dsol[s].Zero();
+        for (int istate = 0; istate < nstate; istate++) {
+            for (int d1 = 0; d1 < dim; d1++) {
+                for (int d2 = 0; d2 < dim; d2++) {
+                    dsol[s](d1, istate) += data2d.jacinv(d2, d1) * dsolxieta(d2, istate);
+                }
+            }
+        }
+    }
+    
+    // tototototot
+    //    std::cout << "qsi " << qsi << " Solution " << sol[0] << std::endl;
+    //    dsol[0].Print("DSol",std::cout);
+}
+
+
 /**
  * @brief Computes the shape function set at the point x.
  * @param qsi point in master element coordinates
@@ -417,7 +909,8 @@ void TPZSBFemVolume::ComputeSolution(TPZVec<REAL> &qsi,
  * This method uses the order of interpolation
  * of the element along the sides to compute the number of shapefunctions
  */
-void TPZSBFemVolume::Shape(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi, TPZFMatrix<REAL> &dphidxi) {
+void TPZSBFemVolume::Shape(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi, TPZFMatrix<REAL> &dphidxi)
+{
     TPZCompMesh *cmesh = Mesh();
     TPZCompEl *celgroup = cmesh->Element(fElementGroupIndex);
     TPZSBFemElementGroup *elgr = dynamic_cast<TPZSBFemElementGroup *> (celgroup);
@@ -562,7 +1055,8 @@ void TPZSBFemVolume::Shape(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi, TPZFMatrix<
  * @param var variable name
  * @param sol vetor for the solution
  */
-void TPZSBFemVolume::Solution(TPZVec<REAL> &qsi, int var, TPZVec<STATE> &sol) {
+void TPZSBFemVolume::Solution(TPZVec<REAL> &qsi, int var, TPZVec<STATE> &sol)
+{
     TPZGeoEl *Ref2D = Reference();
     int matid = Ref2D->MaterialId();
     TPZCompMesh *cmesh = Mesh();
@@ -570,14 +1064,19 @@ void TPZSBFemVolume::Solution(TPZVec<REAL> &qsi, int var, TPZVec<STATE> &sol) {
     TPZMaterial *mat2d = cmesh->FindMaterial(matid);
     TPZMaterialData data2d;
 
+#ifdef SBFem_NHom
+    ComputeSolutionNH(qsi, data2d.sol, data2d.dsol, data2d.axes);
+#else
     ComputeSolution(qsi, data2d.sol, data2d.dsol, data2d.axes);
+#endif
     data2d.x.Resize(3, 0.);
     Reference()->X(qsi, data2d.x);
     mat2d->Solution(data2d, var, sol);
 
 }
 
-void TPZSBFemVolume::CreateGraphicalElement(TPZGraphMesh &graphmesh, int dimension) {
+void TPZSBFemVolume::CreateGraphicalElement(TPZGraphMesh &graphmesh, int dimension)
+{
 
     TPZGeoEl *ref = Reference();
     if (ref->Dimension() != dimension) {
@@ -597,8 +1096,9 @@ void TPZSBFemVolume::CreateGraphicalElement(TPZGraphMesh &graphmesh, int dimensi
 
 #include "pzaxestools.h"
 
-void TPZSBFemVolume::EvaluateError(void (* fp)(const TPZVec<REAL> &loc, TPZVec<STATE> &val, TPZFMatrix<STATE> &deriv),
-        TPZVec<REAL> &errors, TPZBlock<REAL> * /*flux*/) {
+void TPZSBFemVolume::EvaluateError(std::function<void(const TPZVec<REAL> &loc,TPZVec<STATE> &val,TPZFMatrix<STATE> &deriv)> fp,
+                                   TPZVec<REAL> &errors,bool store_error)
+{
     int NErrors = this->Material()->NEvalErrors();
     errors.Resize(NErrors);
     errors.Fill(0.);
@@ -674,7 +1174,8 @@ void TPZSBFemVolume::EvaluateError(void (* fp)(const TPZVec<REAL> &loc, TPZVec<S
 
 }
 
-void TPZSBFemVolume::SetIntegrationRule(int order) {
+void TPZSBFemVolume::SetIntegrationRule(int order)
+{
     if (!fIntRule) {
         InitializeIntegrationRule();
     }
@@ -687,7 +1188,8 @@ void TPZSBFemVolume::SetIntegrationRule(int order) {
     //    std::cout << "Number of integration points " << fIntRule->NPoints() << std::endl;
 }
 
-void TPZSBFemVolume::SetElementGroupIndex(int64_t index) {
+void TPZSBFemVolume::SetElementGroupIndex(int64_t index)
+{
     fElementGroupIndex = index;
     std::map<int64_t, int> globtolocal;
     TPZCompEl *celgr = Mesh()->Element(index);
@@ -727,7 +1229,8 @@ void TPZSBFemVolume::SetElementGroupIndex(int64_t index) {
 #endif
 }
 
-void TPZSBFemVolume::InitMaterialData(TPZMaterialData &data) {
+void TPZSBFemVolume::InitMaterialData(TPZMaterialData &data)
+{
 
     data.fShapeType = TPZMaterialData::EVecShape;
     data.gelElId = this->Reference()->Id();
@@ -761,7 +1264,8 @@ void TPZSBFemVolume::InitMaterialData(TPZMaterialData &data) {
 void TPZSBFemVolume::ComputeShape(TPZVec<REAL> &intpoint, TPZVec<REAL> &X,
         TPZFMatrix<REAL> &jacobian, TPZFMatrix<REAL> &axes,
         REAL &detjac, TPZFMatrix<REAL> &jacinv,
-        TPZFMatrix<REAL> &phi, TPZFMatrix<REAL> &dphi, TPZFMatrix<REAL> &dphidx) {
+        TPZFMatrix<REAL> &phi, TPZFMatrix<REAL> &dphi, TPZFMatrix<REAL> &dphidx)
+{
     TPZGeoEl * ref = this->Reference();
     if (!ref) {
         PZError << "\nERROR AT " << __PRETTY_FUNCTION__ << " - this->Reference() == NULL\n";
@@ -773,27 +1277,31 @@ void TPZSBFemVolume::ComputeShape(TPZVec<REAL> &intpoint, TPZVec<REAL> &X,
 
 }
 
-void TPZSBFemVolume::BuildCornerConnectList(std::set<int64_t>& connectindexes) const {
+void TPZSBFemVolume::BuildCornerConnectList(std::set<int64_t>& connectindexes) const
+{
     if (fSkeleton == -1) {
         DebugStop();
     }
     Mesh()->Element(fSkeleton)->BuildCornerConnectList(connectindexes);
 }
 
-void TPZSBFemVolume::PRefine(int order) {
+void TPZSBFemVolume::PRefine(int order)
+{
     TPZCompEl *cel = Mesh()->Element(fSkeleton);
     TPZInterpolationSpace *intel = dynamic_cast<TPZInterpolationSpace *> (cel);
     intel->PRefine(order);
 }
 
-void TPZSBFemVolume::SetPreferredOrder(int order) {
+void TPZSBFemVolume::SetPreferredOrder(int order)
+{
     fPreferredOrder = order;
     TPZCompEl *cel = Mesh()->Element(fSkeleton);
     TPZInterpolationSpace *intel = dynamic_cast<TPZInterpolationSpace *> (cel);
     intel->SetPreferredOrder(order);
 }
 
-void TPZSBFemVolume::SetSkeleton(int64_t skeleton) {
+void TPZSBFemVolume::SetSkeleton(int64_t skeleton)
+{
 #ifdef PZDEBUG
     if (fSkeleton != -1) {
         DebugStop();

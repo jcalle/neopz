@@ -1144,7 +1144,7 @@ void TPZInterpolationSpace::EvaluateError(std::function<void(const TPZVec<REAL> 
                 
 			}
 			else{
-				this->ComputeSolution(intpoint, data.phi, data.dphix, data.axes, data.sol, data.dsol);
+                this->ComputeSolution(intpoint, data.phi, data.dphix, data.axes, data.sol, data.dsol);
 				material->Errors(data.x,data.sol[0],data.dsol[0],data.axes,flux_el,u_exact,du_exact,values);
 			}
         

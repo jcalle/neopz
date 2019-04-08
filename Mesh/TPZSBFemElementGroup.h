@@ -26,6 +26,9 @@ private:
     /// Matrix of eigenvectors which compose the stiffness matrix
     TPZFMatrix<std::complex<double> > fPhi;
     
+    /// Matrix of all eigenvectors ordered
+    TPZFMatrix<std::complex<double> > fEigenvectors;
+    
     /// Inverse of the eigenvector matrix (transfers eigenvector coeficients to side shape coeficients)
     TPZFMatrix<std::complex<double> > fPhiInverse;
     
@@ -44,6 +47,24 @@ private:
     
     /// timestep coeficient
     REAL fDelt = 1.;
+    
+    ///Coefficient to calculate the coefficient vector
+    TPZFMatrix<REAL> fPhi11;
+    
+    ///Coefficient to calculate the coefficient vector
+    TPZFMatrix<REAL> fPhi12A22P0;
+    
+    /// Coefficient matrix
+    TPZFMatrix<REAL> fPhi12;
+    
+    /// Coefficient matrix
+    TPZFMatrix<REAL> fA22;
+    
+    /// Coefficient matrix
+    TPZFMatrix<REAL> fA12;
+    
+    /// Coefficient matrix
+    TPZFMatrix<REAL> fek, fef;
     
     /// Compute the mass matrix based on the value of M0 and the eigenvectors
     void ComputeMassMatrix(TPZElementMatrix &M0);
@@ -65,10 +86,13 @@ public:
      */
     virtual void AddElement(TPZCompEl *cel);
     
+    
+    //Karol
+//    void ComputeBodyForces(TPZElementMatrix &P0);
 
     /// Compute the SBFem matrices
     /// method to assemble E0, E1, E2
-    void ComputeMatrices(TPZElementMatrix &E0, TPZElementMatrix &E1, TPZElementMatrix &E2, TPZElementMatrix &M0);
+    void ComputeMatrices(TPZElementMatrix &E0, TPZElementMatrix &E1, TPZElementMatrix &E2, TPZElementMatrix &M0, TPZElementMatrix &P0, TPZElementMatrix &RF);
     
     /**
      * @brief Computes the element stifness matrix and right hand side
@@ -76,6 +100,16 @@ public:
      * @param ef element load vector
      */
     virtual void CalcStiff(TPZElementMatrix &ek,TPZElementMatrix &ef);
+    
+    
+    void CalcStiff2(TPZElementMatrix &ek, TPZElementMatrix &ef);
+    
+    /**
+     * @brief Computes the element stifness matrix and the body forces vector with additional positions due to the non homogeneous part of equation
+     * @param ek element stiffness matrix
+     * @param ef element load vector
+     */
+    void CalcStiffBodyLoads(TPZElementMatrix &ek, TPZElementMatrix &ef);
     
     /// set the density or specific heat of the material
     void SetDensity(REAL density)

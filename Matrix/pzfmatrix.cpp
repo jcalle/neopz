@@ -47,6 +47,11 @@ static LoggerPtr loggerCheck(Logger::getLogger("pz.checkconsistency"));
 #endif
 
 
+
+#define min(a, b) ((a) < (b) ? (a) : (b))
+#define max(a, b) ((a) > (b) ? (a) : (b))
+
+
 //#define IsZero( a )  ( fabs(a) < 1.e-20)
 
 
@@ -3085,6 +3090,73 @@ TPZFMatrix<complex<double> >::SolveGeneralisedEigenProblem(TPZFMatrix<complex<do
 }
 
 #endif // USING_LAPACK
+
+
+#ifdef USING_MKL
+
+template<>
+void TPZFMatrix<REAL>::PseudoInverse(TPZFMatrix<REAL> &A){
+    
+    MKL_INT  mrows = this->Rows();
+    MKL_INT  ncols = this->Cols();
+    MKL_INT  k = min(mrows,ncols);
+    MKL_INT  lda = mrows; //column-major, n for row-major
+    MKL_INT  ldu = mrows; //column-major, min(m,n) for row-major
+    MKL_INT  ldvt = k; //column-major, n for row-major
+    MKL_INT  lwork;
+    MKL_INT info;
+    double wkopt;
+    double * work;
+    char jobu='S';
+    char jobvt= 'S';
+    
+    double* a = fElem;
+    double* s = (double*)malloc(k*sizeof(double));
+    double* u = (double*)malloc(ldu*k*sizeof(double));
+    double* vt = (double*)malloc(ldvt*ncols*sizeof(double));
+    
+    /* Query and allocate the optimal workspace */
+    lwork = -1;
+    dgesvd( &jobu, &jobvt, &mrows, &ncols, a, &lda, s, u, &ldu, vt, &ldvt, &wkopt, &lwork, &info );
+    lwork = (MKL_INT)wkopt;
+    work = (double*)malloc( lwork*sizeof(double) );
+    /* Compute SVD */
+    dgesvd( &jobu, &jobvt, &mrows, &ncols, a, &lda, s, u, &ldu, vt, &ldvt, work, &lwork, &info );
+    /* Check for convergence */
+    if( info > 0 ) {
+        std::cout << "TPZFMatrix::PseudoInverse does not converge\n" <<std::endl;
+        DebugStop();
+    }
+    //u=(s^-1)*U
+    MKL_INT incx=1;
+    for(int i=0; i<k; i++)
+    {
+        double ss;
+        if(s[i] > 1.0e-9) //lalala
+            ss=1.0/s[i];
+        else
+            ss=s[i];
+        dscal(&mrows, &ss, &u[i*mrows], &incx);
+    }
+    //inv(A)=(Vt)^T *u^T
+    double* inva = (double*)malloc(ncols*mrows*sizeof(double));
+    double alpha=1.0, beta=0.0;
+    MKL_INT ld_inva=ncols;
+    dgemm( "T", "T", &ncols, &mrows, &k, &alpha, vt, &ldvt, u, &ldu, &beta, inva, &ld_inva);
+    
+    A.Resize(ncols,mrows);
+    int64_t size = ncols*mrows;
+    for (int64_t el=0; el<size; el++) {
+        A.fElem[el] = inva[el];
+    }
+//    for(int64_t irows=0; irows<ncols; irows++){
+//        for(int64_t jcols=0; jcols<mrows; jcols++){
+//            A(irows, jcols) = inva[jcols+irows*mrows];
+//        }
+//    }
+}
+
+#endif
 
 
 #ifdef _AUTODIFF
