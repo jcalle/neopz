@@ -567,12 +567,11 @@ void TPZSBFemElementGroup::CalcStiff(TPZElementMatrix &ek,TPZElementMatrix &ef)
 //#endif
         
     }
-    
-#ifdef NONHomogeneous
-    this->CalcStiffBodyLoads(ek, ef);
-#else
-    this->CalcStiff2(ek, ef);
-#endif
+    if (TPZSBFemElementGroup::gDefaultPolynomialOrder) {
+        this->CalcStiffBodyLoads(ek, ef);
+    } else {
+        this->CalcStiff2(ek, ef);
+    }
     
 //#ifdef NONHomogeneous2
 //    this->CollapsedStiffness(E0, E1, E2, P0, ek, ef);
@@ -831,9 +830,9 @@ void TPZSBFemElementGroup::CalcStiffBodyLoads(TPZElementMatrix &ek, TPZElementMa
             sbfem->LocalBodyForces(f, Phiu, eigval, i, j);
         }
     }
-    for (int i=0; i<EigenValues().size()+1; i++) {
-        fEigenvalues[i] = eigval[i];
-    }
+//    for (int i=0; i<EigenValues().size()+1; i++) {
+//        fEigenvalues[i] = eigval[i];
+//    }
     
     ef.fMat.Resize(n*norder+1,1);
     ef.fMat.Zero();
