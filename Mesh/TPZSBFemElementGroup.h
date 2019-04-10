@@ -21,6 +21,8 @@ class TPZSBFemElementGroup : public TPZElementGroup
 public:
     enum EComputationMode {EStiff, EOnlyMass, EMass};
     
+    static int gDefaultPolynomialOrder;
+    
 private:
     
     /// Matrix of eigenvectors which compose the stiffness matrix
@@ -66,6 +68,10 @@ private:
     /// Coefficient matrix
     TPZFMatrix<REAL> fek, fef;
     
+    int fInternalPolynomialOrder;
+    
+    int64_t fInternalConnectIndex;
+    
     /// Compute the mass matrix based on the value of M0 and the eigenvectors
     void ComputeMassMatrix(TPZElementMatrix &M0);
     
@@ -77,10 +83,7 @@ public:
     }
     
     /// constructor
-    TPZSBFemElementGroup(TPZCompMesh &mesh, int64_t &index) : TPZElementGroup(mesh,index)
-    {
-        
-    }
+    TPZSBFemElementGroup(TPZCompMesh &mesh, int64_t &index);
     
     /** @brief add an element to the element group
      */
@@ -299,6 +302,13 @@ public:
         }
         return coefreal;
     }
+    
+    void InitializeInternalConnect();
+    
+    void SetInternalPolynomialOrder(int intpolyorder)
+    {
+        fInternalPolynomialOrder = intpolyorder;
+    };
 
 };
 

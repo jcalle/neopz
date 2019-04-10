@@ -462,7 +462,7 @@ void TPZCompMesh::LoadSolution(const TPZFMatrix<STATE> &mat){
 	for(i=0; i<nelem; i++) {
 		cel = fElementVec[i];
 		if(!cel) continue;
-		cel->LoadSolution();
+        cel->TPZCompEl::LoadSolution();
 	}
 }
 

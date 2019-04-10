@@ -11,6 +11,10 @@
 #include "pzcmesh.h"
 #include "tpzintpoints.h"
 #include "pzintel.h"
+#include "pzelctemp.h"
+
+int TPZSBFemElementGroup::gDefaultPolynomialOrder = 0;
+
 
 
 #ifdef USING_MKL
@@ -42,6 +46,26 @@ static LoggerPtr loggerBF(Logger::getLogger("pz.mesh.sbfemelementgroupBF"));
  * @param ef element load vector
  */
 
+
+TPZSBFemElementGroup::TPZSBFemElementGroup(TPZCompMesh &mesh, int64_t &index) : TPZElementGroup(mesh,index)
+{
+    fInternalPolynomialOrder = TPZSBFemElementGroup::gDefaultPolynomialOrder;
+    
+    
+//    int nshape = 0;
+    int nshape = fInternalPolynomialOrder*(Phi().Rows()) + 1;
+    int nvar = 1;
+    int64_t newindex = Mesh()->AllocateNewConnect(nshape, nvar, fInternalPolynomialOrder);
+    fInternalConnectIndex = newindex;
+    
+//    int64_t newnodeindex = Mesh()->AllocateNewConnect(nshape, nvar, order);
+//    SetConnectIndex(0,newnodeindex);
+//    TPZConnect &newnod = Mesh()->ConnectVec()[newnodeindex];
+//    int64_t seqnum = newnod.SequenceNumber();
+//    Mesh()->Block().Set(seqnum,nvar*nshape);
+//    Mesh()->ConnectVec()[ConnectIndex()].IncrementElConnected()
+}
+
 void TPZSBFemElementGroup::ComputeMatrices(TPZElementMatrix &E0, TPZElementMatrix &E1, TPZElementMatrix &E2, TPZElementMatrix &M0, TPZElementMatrix &P0, TPZElementMatrix &RF)
 {
     std::map<int64_t,int64_t> locindex;
@@ -57,6 +81,20 @@ void TPZSBFemElementGroup::ComputeMatrices(TPZElementMatrix &E0, TPZElementMatri
     InitializeElementMatrix(M0, ef);
     InitializeElementMatrix(P0);// LALALALA
     InitializeElementMatrix(RF);// LALALALA
+    
+    
+    
+    if(TPZSBFemElementGroup::gDefaultPolynomialOrder){
+        int ndof=0;
+        for (int64_t ic=0; ic<ncon-1; ic++) {
+            ndof += Mesh()->ConnectVec()[fConnectIndexes[ic]].NShape()* Mesh()->ConnectVec()[fConnectIndexes[ic]].NState();
+        }
+        E0.fMat.Resize(ndof, ndof);
+        E1.fMat.Resize(ndof, ndof);
+        E2.fMat.Resize(ndof, ndof);
+    }
+    
+    
     for (int64_t el = 0; el<nel; el++) {
         TPZCompEl *cel = fElGroup[el];
         TPZSBFemVolume *sbfem = dynamic_cast<TPZSBFemVolume *>(cel);
@@ -791,9 +829,12 @@ void TPZSBFemElementGroup::CalcStiffBodyLoads(TPZElementMatrix &ek, TPZElementMa
             }
 #endif
             sbfem->LocalBodyForces(f, Phiu, eigval, i, j);
-            cel->SetConnectIndex(8, NConnects());
         }
     }
+    for (int i=0; i<EigenValues().size()+1; i++) {
+        fEigenvalues[i] = eigval[i];
+    }
+    
     ef.fMat.Resize(n*norder+1,1);
     ef.fMat.Zero();
     TPZFNMatrix<200,std::complex<double>> efcomplex;
@@ -801,6 +842,10 @@ void TPZSBFemElementGroup::CalcStiffBodyLoads(TPZElementMatrix &ek, TPZElementMa
     for (int i=0; i<n*norder+1; i++) {
         ef.fMat(i,0) = efcomplex(i,0).real();
     }
+    fek = ek.fMat;
+    fef = ef.fMat;
+    
+    std::cout << ek.fSourceIndex << std::endl;
     
 #ifdef LOG4CXX
     if (loggerBF->isDebugEnabled()) {
@@ -818,15 +863,40 @@ void TPZSBFemElementGroup::CalcStiffBodyLoads(TPZElementMatrix &ek, TPZElementMa
     }
 #endif
     
+    fEigenvalues = eigval;
+    fPhi.Zero();
+    Phiu.Multiply(rot, fPhi);
+    
+    for (int i=0; i<n+norder*n+1; i++) {
+        for (int64_t j = 0; j<nel; j++) {
+            TPZCompEl *cel = fElGroup[j];
+            TPZSBFemVolume *sbfem = dynamic_cast<TPZSBFemVolume *>(cel);
+#ifdef PZDEBUG
+            if (!sbfem) {
+                DebugStop();
+            }
+#endif
+            sbfem->SetPhiEigVal(fPhi, fEigenvalues);
+        }
+    }
+    
 }
 
 void TPZSBFemElementGroup::LoadSolution()
 {
-    TPZFNMatrix<200,std::complex<double> > sol(fPhi.Rows(),fMesh->Solution().Cols(),0.);
-    fCoef.Resize(fPhi.Rows(), fPhi.Cols());
-    TPZFNMatrix<200,std::complex<double> > unh_local(fPhi.Rows(),fMesh->Solution().Cols(),0.);
-    
     int nc = NConnects();
+    int ndof = fPhi.Rows();
+    if(TPZSBFemElementGroup::gDefaultPolynomialOrder){
+        ndof=0;
+        for (int64_t ic=0; ic<nc; ic++) {
+            ndof += Mesh()->ConnectVec()[fConnectIndexes[ic]].NShape()* Mesh()->ConnectVec()[fConnectIndexes[ic]].NState();
+        }
+    }
+    
+    TPZFNMatrix<200,std::complex<double> > sol(ndof, fMesh->Solution().Cols(),0.);
+    fCoef.Resize(ndof, fPhi.Cols());
+    TPZFNMatrix<200,std::complex<double> > unh_local(ndof, fMesh->Solution().Cols(),0.);
+    
     int count = 0;
     for (int ic=0; ic<nc; ic++) {
         TPZConnect &c = Connect(ic);
@@ -846,7 +916,11 @@ void TPZSBFemElementGroup::LoadSolution()
         }
         count += blsize;
     }
-    fPhiInverse.Multiply(sol-unh_local, fCoef);
+    if(TPZSBFemElementGroup::gDefaultPolynomialOrder){
+//        fCoef = Mesh()
+    } else{
+        fPhiInverse.Multiply(sol-unh_local, fCoef);
+    }
     
     int64_t nel = fElGroup.size();
     for (int64_t el = 0; el<nel; el++) {
@@ -947,6 +1021,32 @@ void TPZSBFemElementGroup::AddElement(TPZCompEl *cel)
         }
     }
     TPZElementGroup::AddElement(cel);
+}
+
+void TPZSBFemElementGroup::InitializeInternalConnect()
+{
+    int64_t ncon = NConnects();
+    int64_t nshape = 0;
+    
+    std::vector<int64_t> connects(ncon);
+    for (int64_t i=0; i<ncon; i++) {
+        connects[i] = fConnectIndexes[i];
+        nshape += Mesh()->ConnectVec()[fConnectIndexes[i]].NShape();
+    }
+    
+    std::vector<int64_t>::iterator it = std::find(connects.begin(), connects.end(), fInternalConnectIndex);
+    if (it != connects.end()) {
+        return;
+    }
+    else{
+        fConnectIndexes.resize(ncon+1);
+        fConnectIndexes[ncon] = fInternalConnectIndex;
+        
+        TPZConnect &c = Mesh()->ConnectVec()[fInternalConnectIndex];
+        c.SetNShape(nshape);
+        int64_t seq = c.SequenceNumber();
+        Mesh()->Block().Set(seq, nshape);
+    }
 }
 
 

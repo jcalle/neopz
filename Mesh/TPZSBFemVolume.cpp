@@ -1099,6 +1099,10 @@ void TPZSBFemVolume::CreateGraphicalElement(TPZGraphMesh &graphmesh, int dimensi
 void TPZSBFemVolume::EvaluateError(std::function<void(const TPZVec<REAL> &loc,TPZVec<STATE> &val,TPZFMatrix<STATE> &deriv)> fp,
                                    TPZVec<REAL> &errors,bool store_error)
 {
+//    if (TPZSBFemElementGroup::gDefaultPolynomialOrder) {
+//        TPZInterpolationSpace::EvaluateError(fp, errors, store_error);
+//        return;
+//    }
     int NErrors = this->Material()->NEvalErrors();
     errors.Resize(NErrors);
     errors.Fill(0.);

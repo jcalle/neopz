@@ -657,16 +657,22 @@ void TPZBuildSBFem::CreateElementGroups(TPZCompMesh &cmesh)
             {
                 DebugStop();
             }
+            // side is the basis side of sbfem volume element
+            // the basis side will not be collapsed
             TPZGeoElSide gelside(gel,side);
+            // geldim is the dimension of sbfem volume element
             int geldim = gel->Dimension();
+            // nsidenodes number of nodes of the basis of sbfem volume
             int nsidenodes = gel->NSideNodes(side);
+            // cornernodes are the indexes of the corner nodes of the basis
             TPZManVector<int64_t,8> cornernodes(nsidenodes);
             for (int node = 0; node<nsidenodes; node++) {
                 cornernodes[node] = gel->SideNodeIndex(side, node);
             }
             
             TPZGeoElSide neighbour = gelside.Neighbour();
-            while (neighbour != gelside) {
+            while (neighbour != gelside) { //verifies mesh consistency
+                //searching for skeleton computational element
                 if(neighbour.Element()->Dimension() == geldim-1 && neighbour.Element()->Reference())
                 {
                     int nsidenodesneighbour = neighbour.Element()->NCornerNodes();
@@ -693,7 +699,9 @@ void TPZBuildSBFem::CreateElementGroups(TPZCompMesh &cmesh)
                 // we are not handling open sides (yet)
                 DebugStop();
             }
+            // neighbour is a geometric element corresponding to the skeleton computational element
             int64_t skelindex = neighbour.Element()->Reference()->Index();
+            // at this point we associate a boundary approximation space with sbfem volume
             sbfem->SetSkeleton(skelindex);
             
             int64_t gelgroup = fElementPartition[gelindex];
@@ -706,6 +714,8 @@ void TPZBuildSBFem::CreateElementGroups(TPZCompMesh &cmesh)
             if (!sbfemgr) {
                 DebugStop();
             }
+            
+            // adding the internal connect of the sbfem element group to the sbfem volume
             sbfemgr->AddElement(sbfem);
             //            sbfem->SetElementGroupIndex(celgroupindex);
         }
@@ -730,7 +740,12 @@ void TPZBuildSBFem::CreateElementGroups(TPZCompMesh &cmesh)
             }
             femvol->SetElementGroupIndex(index);
         }
+        
+        sbfemgroup->InitializeInternalConnect();
     }
+    
+    cmesh.InitializeBlock();
+    
     
 }
 
