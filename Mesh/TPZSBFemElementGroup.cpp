@@ -724,7 +724,6 @@ void TPZSBFemElementGroup::CalcStiffBodyLoads(TPZElementMatrix &ek, TPZElementMa
             }
         }
     }
-    std::cout << eigval << std::endl;
     
     TPZFNMatrix<200,std::complex<REAL>> Phiu(n,n+n*norder+1);
     for (int i=0; i<n; i++) {
@@ -854,8 +853,6 @@ void TPZSBFemElementGroup::CalcStiffBodyLoads(TPZElementMatrix &ek, TPZElementMa
     fef = ef.fMat;
     rot.Transpose();
     fRot = rot;
-    
-    std::cout << ek.fSourceIndex << std::endl;
     
 #ifdef LOG4CXX
     if (loggerBF->isDebugEnabled()) {

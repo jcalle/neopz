@@ -1432,7 +1432,11 @@ void TPZSBFemVolume::EvaluateError(std::function<void(const TPZVec<REAL> &loc,TP
         ref->Jacobian(intpoint, data.jacobian, data.axes, data.detjac, data.jacinv);
 
         weight *= fabs(data.detjac);
-        ComputeSolution(intpoint, data.sol, data.dsol, data.axes);
+        if (TPZSBFemElementGroup::gDefaultPolynomialOrder) {
+            ComputeSolutionNH(intpoint, data.sol, data.dsol, data.axes);
+        } else{
+            ComputeSolution(intpoint, data.sol, data.dsol, data.axes);
+        }
         // this->ComputeSolution(intpoint, data.phi, data.dphix, data.axes, data.sol, data.dsol);
         //this->ComputeSolution(intpoint, data);
         //contribuicoes dos erros
