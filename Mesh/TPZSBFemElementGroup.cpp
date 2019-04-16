@@ -710,7 +710,7 @@ void TPZSBFemElementGroup::CalcStiffBodyLoads(TPZElementMatrix &ek, TPZElementMa
     TPZFNMatrix<100,std::complex<REAL>> K0(n + norder*n + 1,n+norder*n + 1,0);
     TPZFNMatrix<100,std::complex<REAL>> rot(n+norder*n + 1, norder*n + 1,0);
     
-    TPZManVector<std::complex<double>> eigval(n + norder*n + 1,0);
+    TPZManVector<std::complex<double> > eigval(n + norder*n + 1,0);
     for (int i=0; i<n; i++) {
         eigval[i] = -EigenValues()[i];
     }
@@ -747,36 +747,39 @@ void TPZSBFemElementGroup::CalcStiffBodyLoads(TPZElementMatrix &ek, TPZElementMa
             Phiu(i,n*(iorder+2)) = Phiu(i,n-1);
         }
     }
+    fPhi = Phiu;
+//    TPZFMatrix<std::complex<double> > fPhiInv(fPhi);
+    
     
     for (int i=0; i<n; i++) {
         for (int j=0; j<n; j++) {
             for (int k=0; k<n; k++) {
                 for (int l=0; l<n; l++) {
-                    K0(i,j) += (Phiu(k,i).real() * E0.fMat(k,l) * Phiu(l,j) * (eigval[i]*eigval[j])/(eigval[i]+eigval[j]));
-                    K0(i,j) += (Phiu(k,i).real() * E1.fMat(l,k) * Phiu(l,j) * (eigval[i])/(eigval[i]+eigval[j]));
-                    K0(i,j) += (Phiu(k,i).real() * E1.fMat(k,l) * Phiu(l,j) * (eigval[j])/(eigval[i]+eigval[j]));
-                    K0(i,j) += (Phiu(k,i).real() * E2.fMat(k,l) * Phiu(l,j) / (eigval[i]+eigval[j]));
+                    K0(i,j) += (Phiu(k,i) * E0.fMat(k,l) * Phiu(l,j) * (eigval[i]*eigval[j])/(eigval[i]+eigval[j]));
+                    K0(i,j) += (Phiu(k,i) * E1.fMat(l,k) * Phiu(l,j) * (eigval[i])/(eigval[i]+eigval[j]));
+                    K0(i,j) += (Phiu(k,i) * E1.fMat(k,l) * Phiu(l,j) * (eigval[j])/(eigval[i]+eigval[j]));
+                    K0(i,j) += (Phiu(k,i) * E2.fMat(k,l) * Phiu(l,j) / (eigval[i]+eigval[j]));
                 }
                 
-                K0(i,j+n) += Phiu(k, i).real() * E0.fMat(k,j) * (eigval[i] * eigval[j + n]) / (eigval[i] + eigval[j + n]);
-                K0(i,j+n) += Phiu(k, i).real() * E1.fMat(j,k) * (eigval[i]) / (eigval[i] + eigval[j + n]);
-                K0(i,j+n) += Phiu(k, i).real() * E1.fMat(k,j) * (eigval[j+n]) / (eigval[i] + eigval[j + n]);
-                K0(i,j+n) += Phiu(k, i).real() * E2.fMat(k,j) / (eigval[i] + eigval[j + n]);
+                K0(i,j+n) += Phiu(k, i) * E0.fMat(k,j) * (eigval[i] * eigval[j + n]) / (eigval[i] + eigval[j + n]);
+                K0(i,j+n) += Phiu(k, i) * E1.fMat(j,k) * (eigval[i]) / (eigval[i] + eigval[j + n]);
+                K0(i,j+n) += Phiu(k, i) * E1.fMat(k,j) * (eigval[j+n]) / (eigval[i] + eigval[j + n]);
+                K0(i,j+n) += Phiu(k, i) * E2.fMat(k,j) / (eigval[i] + eigval[j + n]);
                 
-                K0(i,j+norder*n+1) += Phiu(k, i).real() * E0.fMat(k,j) * (eigval[i] * eigval[j + norder*n+1]) / (eigval[i] + eigval[j + norder*n+1]);
-                K0(i,j+norder*n+1) += Phiu(k, i).real() * E1.fMat(j,k) * (eigval[i]) / (eigval[i] + eigval[j + norder*n+1]);
-                K0(i,j+norder*n+1) += Phiu(k, i).real() * E1.fMat(k,j) * (eigval[j + norder*n+1]) / (eigval[i] + eigval[j + norder*n+1]);
-                K0(i,j+norder*n+1) += Phiu(k, i).real() * E2.fMat(k,j) / (eigval[i] + eigval[j + norder*n+1]);
+                K0(i,j+norder*n+1) += Phiu(k, i) * E0.fMat(k,j) * (eigval[i] * eigval[j + norder*n+1]) / (eigval[i] + eigval[j + norder*n+1]);
+                K0(i,j+norder*n+1) += Phiu(k, i) * E1.fMat(j,k) * (eigval[i]) / (eigval[i] + eigval[j + norder*n+1]);
+                K0(i,j+norder*n+1) += Phiu(k, i) * E1.fMat(k,j) * (eigval[j + norder*n+1]) / (eigval[i] + eigval[j + norder*n+1]);
+                K0(i,j+norder*n+1) += Phiu(k, i) * E2.fMat(k,j) / (eigval[i] + eigval[j + norder*n+1]);
                 
-                K0(i+n,j) += Phiu(k,j).real() * E0.fMat(i,k) * (eigval[i + n] * eigval[j])/(eigval[i + n] + eigval[j]);
-                K0(i+n,j) += Phiu(k,j).real() * E1.fMat(k,i) * (eigval[i + n]) / (eigval[i + n] + eigval[j]);
-                K0(i+n,j) += Phiu(k,j).real() * E1.fMat(i,k) * (eigval[j])/(eigval[i + n] + eigval[j]);
-                K0(i+n,j) += Phiu(k,j).real() * E2.fMat(i,k) / (eigval[i + n] + eigval[j]);
+                K0(i+n,j) += Phiu(k,j) * E0.fMat(i,k) * (eigval[i + n] * eigval[j])/(eigval[i + n] + eigval[j]);
+                K0(i+n,j) += Phiu(k,j) * E1.fMat(k,i) * (eigval[i + n]) / (eigval[i + n] + eigval[j]);
+                K0(i+n,j) += Phiu(k,j) * E1.fMat(i,k) * (eigval[j])/(eigval[i + n] + eigval[j]);
+                K0(i+n,j) += Phiu(k,j) * E2.fMat(i,k) / (eigval[i + n] + eigval[j]);
                 
-                K0(i+norder*n+1,j) += Phiu(k, j).real() * E0.fMat(i,k) * (eigval[i + norder*n+1] * eigval[j])/(eigval[i + norder*n+1] + eigval[j]);
-                K0(i+norder*n+1,j) += Phiu(k, j).real() * E1.fMat(k,i) * (eigval[i + norder*n+1])/(eigval[i + norder*n+1] + eigval[j]);
-                K0(i+norder*n+1,j) += Phiu(k, j).real() * E1.fMat(i,k) * (eigval[j])/(eigval[i + norder*n+1] + eigval[j]);
-                K0(i+norder*n+1,j) += Phiu(k, j).real() * E2.fMat(i,k) / (eigval[i + norder*n+1] + eigval[j]);
+                K0(i+norder*n+1,j) += Phiu(k, j) * E0.fMat(i,k) * (eigval[i + norder*n+1] * eigval[j])/(eigval[i + norder*n+1] + eigval[j]);
+                K0(i+norder*n+1,j) += Phiu(k, j) * E1.fMat(k,i) * (eigval[i + norder*n+1])/(eigval[i + norder*n+1] + eigval[j]);
+                K0(i+norder*n+1,j) += Phiu(k, j) * E1.fMat(i,k) * (eigval[j])/(eigval[i + norder*n+1] + eigval[j]);
+                K0(i+norder*n+1,j) += Phiu(k, j) * E2.fMat(i,k) / (eigval[i + norder*n+1] + eigval[j]);
                 
             }
             
@@ -797,7 +800,7 @@ void TPZSBFemElementGroup::CalcStiffBodyLoads(TPZElementMatrix &ek, TPZElementMa
     }
     
     for (int i=0; i<n; i++) {
-        rot(i+n,n) = -Phi()(i,7).real();
+        rot(i+n,n) = -Phi()(i,7);
     }
     rot(norder*n,n)=1;
     
@@ -817,6 +820,12 @@ void TPZSBFemElementGroup::CalcStiffBodyLoads(TPZElementMatrix &ek, TPZElementMa
     // force vector
     int64_t nel = fElGroup.size();
     TPZFNMatrix<200,std::complex<double>> f(n+norder*n+1,1,0);
+    
+    //    fEigenvalues = eigval;
+    fEigenvalues.resize(eigval.size());
+    for (int64_t i=0; i<eigval.size(); i++) {
+        fEigenvalues[i] = -eigval[i];
+    }
     
     for (int i=0; i<n+norder*n+1; i++) {
         for (int64_t j = 0; j<nel; j++) {
@@ -843,6 +852,8 @@ void TPZSBFemElementGroup::CalcStiffBodyLoads(TPZElementMatrix &ek, TPZElementMa
     }
     fek = ek.fMat;
     fef = ef.fMat;
+    rot.Transpose();
+    fRot = rot;
     
     std::cout << ek.fSourceIndex << std::endl;
     
@@ -853,7 +864,6 @@ void TPZSBFemElementGroup::CalcStiffBodyLoads(TPZElementMatrix &ek, TPZElementMa
         E1.fMat.Print("E1 = ", sout, EMathematicaInput);
         E2.fMat.Print("E2 = ", sout, EMathematicaInput);
         Phiu.Print("Phiu = ", sout, EMathematicaInput);
-        rot.Transpose();
         rot.Print("rot = ", sout, EMathematicaInput);
         ek.fMat.Print("ek = ", sout, EMathematicaInput);
         ef.fMat.Print("ef = ", sout, EMathematicaInput);
@@ -861,10 +871,6 @@ void TPZSBFemElementGroup::CalcStiffBodyLoads(TPZElementMatrix &ek, TPZElementMa
         LOGPZ_DEBUG(loggerBF, sout.str())
     }
 #endif
-    
-    fEigenvalues = eigval;
-    fPhi.Zero();
-    Phiu.Multiply(rot, fPhi);
     
     for (int i=0; i<n+norder*n+1; i++) {
         for (int64_t j = 0; j<nel; j++) {
@@ -876,6 +882,7 @@ void TPZSBFemElementGroup::CalcStiffBodyLoads(TPZElementMatrix &ek, TPZElementMa
             }
 #endif
             sbfem->SetPhiEigVal(fPhi, fEigenvalues);
+            sbfem->SetCoefNonHomogeneous(fRot);
         }
     }
     
@@ -883,56 +890,106 @@ void TPZSBFemElementGroup::CalcStiffBodyLoads(TPZElementMatrix &ek, TPZElementMa
 
 void TPZSBFemElementGroup::LoadSolution()
 {
-    int nc = NConnects();
-    int ndof = fPhi.Rows();
-    if(TPZSBFemElementGroup::gDefaultPolynomialOrder){
-        ndof=0;
-        for (int64_t ic=0; ic<nc; ic++) {
-            ndof += Mesh()->ConnectVec()[fConnectIndexes[ic]].NShape()* Mesh()->ConnectVec()[fConnectIndexes[ic]].NState();
-        }
-    }
-    
-    TPZFNMatrix<200,std::complex<double> > sol(ndof, fMesh->Solution().Cols(),0.);
-    fCoef.Resize(ndof, fPhi.Cols());
-    TPZFNMatrix<200,std::complex<double> > unh_local(ndof, fMesh->Solution().Cols(),0.);
-    
-    int count = 0;
-    for (int ic=0; ic<nc; ic++) {
-        TPZConnect &c = Connect(ic);
-        int nshape = c.NShape();
-        int nstate = c.NState();
-        int blsize = nshape*nstate;
-        int64_t seqnum = c.SequenceNumber();
-        int64_t pos = fMesh->Block().Position(seqnum);
-        for (int seq=0; seq < blsize; seq++) {
-            for (int c=0; c<sol.Cols(); c++)
-            {
-                sol(count+seq,c) = fMesh->Solution()(pos+seq,c);
-//#ifdef NONHomogeneous
-//                unh_local(count+seq,c) = -fPhi12A22P0(count+seq,0);
-//#endif
+    if (TPZSBFemElementGroup::gDefaultPolynomialOrder)
+    {
+        TPZCompEl::LoadSolution();
+        
+        int nc = NConnects();
+        int ndof = fPhi.Rows();
+        if(TPZSBFemElementGroup::gDefaultPolynomialOrder){
+            ndof=0;
+            for (int64_t ic=0; ic<nc; ic++) {
+                ndof += Mesh()->ConnectVec()[fConnectIndexes[ic]].NShape()* Mesh()->ConnectVec()[fConnectIndexes[ic]].NState();
             }
         }
-        count += blsize;
+        
+        TPZFNMatrix<200,std::complex<double> > sol(ndof, fMesh->Solution().Cols(),0.);
+        fCoef.Resize(ndof, fMesh->Solution().Cols());
+        TPZFNMatrix<200,std::complex<double> > unh_local(ndof, fMesh->Solution().Cols(),0.);
+        
+        int count = 0;
+        for (int ic=0; ic<nc; ic++) {
+            TPZConnect &con = Connect(ic);
+            int nshape = con.NShape();
+            int nstate = con.NState();
+            int blsize = nshape*nstate;
+            int64_t seqnum = con.SequenceNumber();
+            int64_t pos = fMesh->Block().Position(seqnum);
+            for (int seq=0; seq < blsize; seq++) {
+                for (int c=0; c<sol.Cols(); c++)
+                {
+                    fCoef(count+seq,c) = fMesh->Solution()(pos+seq,c);
+                }
+            }
+            count += blsize;
+        }
+        
+        int64_t nel = fElGroup.size();
+        for (int64_t el = 0; el<nel; el++) {
+            TPZCompEl *cel = fElGroup[el];
+            TPZSBFemVolume *sbfem = dynamic_cast<TPZSBFemVolume *>(cel);
+#ifdef PZDEBUG
+            if (!sbfem) {
+                DebugStop();
+            }
+#endif
+            sbfem->LoadCoef(fCoef);
+        }
     }
-    if(TPZSBFemElementGroup::gDefaultPolynomialOrder){
-//        fCoef = Mesh()
-    } else{
-        fPhiInverse.Multiply(sol-unh_local, fCoef);
+    else
+    {
+        int nc = NConnects();
+        int ndof = fPhi.Rows();
+//        if(TPZSBFemElementGroup::gDefaultPolynomialOrder){
+//            ndof=0;
+//            for (int64_t ic=0; ic<nc; ic++) {
+//                ndof += Mesh()->ConnectVec()[fConnectIndexes[ic]].NShape()* Mesh()->ConnectVec()[fConnectIndexes[ic]].NState();
+//            }
+//        }
+        
+        TPZFNMatrix<200,std::complex<double> > sol(ndof, fMesh->Solution().Cols(),0.);
+        fCoef.Resize(ndof, fPhi.Cols());
+        TPZFNMatrix<200,std::complex<double> > unh_local(ndof, fMesh->Solution().Cols(),0.);
+        
+        int count = 0;
+        for (int ic=0; ic<nc; ic++) {
+            TPZConnect &c = Connect(ic);
+            int nshape = c.NShape();
+            int nstate = c.NState();
+            int blsize = nshape*nstate;
+            int64_t seqnum = c.SequenceNumber();
+            int64_t pos = fMesh->Block().Position(seqnum);
+            for (int seq=0; seq < blsize; seq++) {
+                for (int c=0; c<sol.Cols(); c++)
+                {
+                    sol(count+seq,c) = fMesh->Solution()(pos+seq,c);
+                    //#ifdef NONHomogeneous
+                    //                unh_local(count+seq,c) = -fPhi12A22P0(count+seq,0);
+                    //#endif
+                }
+            }
+            count += blsize;
+        }
+        if(TPZSBFemElementGroup::gDefaultPolynomialOrder){
+            //        fCoef = Mesh()
+        } else{
+            fPhiInverse.Multiply(sol-unh_local, fCoef);
+        }
+        
+        int64_t nel = fElGroup.size();
+        for (int64_t el = 0; el<nel; el++) {
+            TPZCompEl *cel = fElGroup[el];
+            TPZSBFemVolume *sbfem = dynamic_cast<TPZSBFemVolume *>(cel);
+#ifdef PZDEBUG
+            if (!sbfem) {
+                DebugStop();
+            }
+#endif
+            sbfem->LoadCoef(fCoef);
+        }
+
     }
     
-    int64_t nel = fElGroup.size();
-    for (int64_t el = 0; el<nel; el++) {
-        TPZCompEl *cel = fElGroup[el];
-        TPZSBFemVolume *sbfem = dynamic_cast<TPZSBFemVolume *>(cel);
-#ifdef PZDEBUG
-        if (!sbfem) {
-            DebugStop();
-        }
-#endif
-        sbfem->LoadCoef(fCoef);
-    }
-
 }
 
 /// Compute the mass matrix based on the value of M0 and the eigenvectors
@@ -1025,7 +1082,7 @@ void TPZSBFemElementGroup::AddElement(TPZCompEl *cel)
 void TPZSBFemElementGroup::InitializeInternalConnect()
 {
     int64_t ncon = NConnects();
-    int64_t nshape = 0;
+    int64_t nshape = 1;
     
     std::vector<int64_t> connects(ncon);
     for (int64_t i=0; i<ncon; i++) {

@@ -40,6 +40,10 @@ private:
     /// Multiplying coefficients of each eigenvector
     TPZFMatrix<std::complex<double> > fCoef;
     
+    TPZFNMatrix<200,std::complex<double> > fRot;
+    
+    TPZFMatrix<REAL> fek, fef;
+    
     TPZFMatrix<STATE> fMassMatrix;
     
     EComputationMode fComputationMode = EStiff;
@@ -50,23 +54,20 @@ private:
     /// timestep coeficient
     REAL fDelt = 1.;
     
-    ///Coefficient to calculate the coefficient vector
-    TPZFMatrix<REAL> fPhi11;
-    
-    ///Coefficient to calculate the coefficient vector
-    TPZFMatrix<REAL> fPhi12A22P0;
-    
-    /// Coefficient matrix
-    TPZFMatrix<REAL> fPhi12;
-    
-    /// Coefficient matrix
-    TPZFMatrix<REAL> fA22;
-    
-    /// Coefficient matrix
-    TPZFMatrix<REAL> fA12;
-    
-    /// Coefficient matrix
-    TPZFMatrix<REAL> fek, fef;
+//    ///Coefficient to calculate the coefficient vector
+//    TPZFMatrix<REAL> fPhi11;
+//    
+//    ///Coefficient to calculate the coefficient vector
+//    TPZFMatrix<REAL> fPhi12A22P0;
+//    
+//    /// Coefficient matrix
+//    TPZFMatrix<REAL> fPhi12;
+//    
+//    /// Coefficient matrix
+//    TPZFMatrix<REAL> fA22;
+//    
+//    /// Coefficient matrix
+//    TPZFMatrix<REAL> fA12;
     
     int fInternalPolynomialOrder;
     

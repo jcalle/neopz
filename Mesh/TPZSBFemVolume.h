@@ -1,4 +1,4 @@
-//
+ //
 //  TPZSBFemVolume.hpp
 //  PZ
 //
@@ -41,15 +41,6 @@ class TPZSBFemVolume : public TPZInterpolationSpace
     /// Multiplier coeficients associated with the solution
     TPZFNMatrix<30,std::complex<double> > fCoeficients;
     
-    /// Coefficient matrix
-    TPZFMatrix<REAL> fPhi12;
-    
-    /// Coefficient matrix
-    TPZFMatrix<REAL> fA22;
-    
-    /// Coefficient matrix
-    TPZFMatrix<REAL> fA12;
-    
     /// vector of local indices of multipliers in the group
     TPZManVector<int64_t> fLocalIndices;
     
@@ -59,8 +50,19 @@ class TPZSBFemVolume : public TPZInterpolationSpace
     /// Density associated with the mass matrix
     REAL fDensity = 1.;
     
-    /// Coefficient matrix
-    TPZFMatrix<REAL> fPhi12A22P0loc;
+    TPZFNMatrix<200,std::complex<double> > fRot;
+    
+//    /// Coefficient matrix
+//    TPZFMatrix<REAL> fPhi12;
+//    
+//    /// Coefficient matrix
+//    TPZFMatrix<REAL> fA22;
+//    
+//    /// Coefficient matrix
+//    TPZFMatrix<REAL> fA12;
+//    
+//    /// Coefficient matrix
+//    TPZFMatrix<REAL> fPhi12A22P0loc;
 
     /// adjust the axes and jacobian of the 3D element
     void AdjustAxes3D(const TPZFMatrix<REAL> &axes2D, TPZFMatrix<REAL> &axes3D, TPZFMatrix<REAL> &jac3D, TPZFMatrix<REAL> &jacinv3D, REAL detjac);
@@ -263,7 +265,8 @@ public:
     /// initialize the data structures of the eigenvectors and eigenvalues associated with this volume element
     void SetPhiEigVal(TPZFMatrix<std::complex<double> > &phi, TPZManVector<std::complex<double> > &eigval);
     
-    void SetCoefNonHomogeneous(TPZFMatrix<REAL> &Phi12, TPZFMatrix<REAL> &A22, TPZFMatrix<REAL> &A12, TPZFMatrix<REAL> &Phi12A22P0, TPZFMatrix<REAL> &P0);
+//    void SetCoefNonHomogeneous(TPZFMatrix<REAL> &Phi12, TPZFMatrix<REAL> &A22, TPZFMatrix<REAL> &A12, TPZFMatrix<REAL> &Phi12A22P0, TPZFMatrix<REAL> &P0);
+    void SetCoefNonHomogeneous(TPZFNMatrix<200,std::complex<double> > &rot);
     
     TPZFMatrix<std::complex<double> > Phi()
     {
