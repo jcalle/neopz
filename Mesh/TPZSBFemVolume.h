@@ -77,6 +77,8 @@ public:
     
     //Karol
     
+    void InternalLocalBodyForces(TPZFNMatrix<200,std::complex<double>> &f, TPZFNMatrix<200,std::complex<double>> &Phiu, TPZManVector<std::complex<double>> &eigval, int icon);
+    
     void LocalBodyForces(TPZFNMatrix<200,std::complex<double>> &f, TPZFNMatrix<200,std::complex<double>> &Phiu, TPZManVector<std::complex<double>> &eigval, int i, int j);
     
     void ComputeLocalForces(TPZElementMatrix &E0, TPZElementMatrix &E1, TPZElementMatrix &E2, TPZElementMatrix &P0, TPZElementMatrix &RF);

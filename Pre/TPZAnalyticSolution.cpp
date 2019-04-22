@@ -1056,6 +1056,11 @@ void TLaplaceExample1::uxy(const TPZVec<TVar> &x, TPZVec<TVar> &disp) const
             disp[0] = B*temp;
         }
             break;
+        case ESinCos:
+        {
+            disp[0] = 8*M_PI*M_PI*cos(2*TVar(M_PI)*x[1])*sin(2*TVar(M_PI)*x[0]);
+        }
+            break;
             
         default:
             disp[0] = 0.;
@@ -1133,6 +1138,10 @@ void TLaplaceExample1::uxy(const TPZVec<FADFADREAL > &x, TPZVec<FADFADREAL > &di
             }
             TVar temp = 0.5*M_PI + FADatan(arc);
             disp[0] = B*temp;
+        }
+        case ESinCos:
+        {
+            disp[0] = 8*M_PI*M_PI*FADcos(2*TVar(M_PI)*x[1])*FADsin(2*TVar(M_PI)*x[0]);
         }
             break;
         default:
