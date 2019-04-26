@@ -250,6 +250,10 @@ ENABLE_TESTING()
 				add_subdirectory(PardisoSample)
 			endif(USING_MKL)
 
+			if(USING_MKL)
+				add_subdirectory(SBFemTests)
+			endif(USING_MKL)
+
 		endif(BUILD_COMPLEX_PROJECTS)
 		
 	endif(BUILD_PROJECTS)
