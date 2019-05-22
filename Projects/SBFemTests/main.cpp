@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
                 usepoly = atoi(optarg);
                 break;
             case 'e':
-                example = true;
+                example = atoi(optarg);
                 break;
             case 'f':
                 plotshapefunctions = false;
@@ -102,7 +102,6 @@ int main(int argc, char *argv[])
 //    usepoly = false;
 //    maxporder = 4;
 //    maxnelxcount = 4;
-//    example = 3;
     SetExample(example);
     
 #ifdef _AUTODIFF
@@ -126,18 +125,19 @@ int main(int argc, char *argv[])
     else{
         sout << "Elastic2DRegularSolution.csv";
     }
-    TPZManVector<std::string> description(11);
-    description[0] = "p";
-    description[1] = "pinternal";
-    description[2] = "h";
-    description[3] = "Number of equations";
-    description[4] = "Error Energy";
-    description[5] = "Error L2";
-    description[6] = "Error Seminorm Energy";
-    description[7] = "Scalar problem?";
-    description[8] = "With SBFem?";
-    description[9] = "With internal polynomials?";
-    description[10] = "With polynomial functions?";
+    TPZManVector<std::string> description(12);
+    description[0] = "Example";
+    description[1] = "p";
+    description[2] = "pinternal";
+    description[3] = "h";
+    description[4] = "Number of equations";
+    description[5] = "Error Energy";
+    description[6] = "Error L2";
+    description[7] = "Error Seminorm Energy";
+    description[8] = "Scalar problem?";
+    description[9] = "With SBFem?";
+    description[10] = "With internal polynomials?";
+    description[11] = "With polynomial functions?";
     
     std::ofstream descr(sout.str(),std::ios::app);
     
@@ -316,7 +316,7 @@ int main(int argc, char *argv[])
                 Analysis->PostProcessError(errors,store_error);
                 
                 std::ofstream results(sout.str(),std::ios::app);
-                results << POrder << ", " << pinternal << ", " << 2./nelx << ", " << SBFem->NEquations() << ", ";
+                results << example << ", " << POrder << ", " << pinternal << ", " << 2./nelx << ", " << SBFem->NEquations() << ", ";
                 //            for(int i=0;i<3;i++) errors[i] *= 1e6;
                 for (int ier=0; ier<errors.size(); ier++) {
                     results << errors[ier] << ", ";
