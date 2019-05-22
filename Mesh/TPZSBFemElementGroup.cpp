@@ -12,10 +12,13 @@
 #include "tpzintpoints.h"
 #include "pzintel.h"
 #include "pzelctemp.h"
+#include "TPZMaterial.h"
+
+#include <numeric>
 
 int TPZSBFemElementGroup::gDefaultPolynomialOrder = 0;
 
-
+int TPZSBFemElementGroup::gPolynomialShapeFunctions = 0;
 
 #ifdef USING_MKL
 #include <mkl.h>
@@ -68,7 +71,7 @@ TPZSBFemElementGroup::TPZSBFemElementGroup(TPZCompMesh &mesh, int64_t &index) : 
 //    Mesh()->ConnectVec()[ConnectIndex()].IncrementElConnected()
 }
 
-void TPZSBFemElementGroup::ComputeMatrices(TPZElementMatrix &E0, TPZElementMatrix &E1, TPZElementMatrix &E2, TPZElementMatrix &M0, TPZElementMatrix &P0, TPZElementMatrix &RF)
+void TPZSBFemElementGroup::ComputeMatrices(TPZElementMatrix &E0, TPZElementMatrix &E1, TPZElementMatrix &E2, TPZElementMatrix &M0)
 {
     std::map<int64_t,int64_t> locindex;
     int64_t ncon = fConnectIndexes.size();
@@ -81,9 +84,6 @@ void TPZSBFemElementGroup::ComputeMatrices(TPZElementMatrix &E0, TPZElementMatri
     InitializeElementMatrix(E1, ef);
     InitializeElementMatrix(E2, ef);
     InitializeElementMatrix(M0, ef);
-    InitializeElementMatrix(P0);// LALALALA
-    InitializeElementMatrix(RF);// LALALALA
-    
     
     
     if(TPZSBFemElementGroup::gDefaultPolynomialOrder){
@@ -109,9 +109,7 @@ void TPZSBFemElementGroup::ComputeMatrices(TPZElementMatrix &E0, TPZElementMatri
         TPZElementMatrix E1Loc(Mesh(),TPZElementMatrix::EK);
         TPZElementMatrix E2Loc(Mesh(),TPZElementMatrix::EK);
         TPZElementMatrix M0Loc(Mesh(),TPZElementMatrix::EK);
-        TPZElementMatrix P0Loc(Mesh(),TPZElementMatrix::EF); //LALALALA
-        TPZElementMatrix RFLoc(Mesh(),TPZElementMatrix::EF); //LALALALA
-        sbfem->ComputeKMatrices(E0Loc, E1Loc, E2Loc, M0Loc, P0Loc, RFLoc); //LALALAL
+        sbfem->ComputeKMatrices(E0Loc, E1Loc, E2Loc, M0Loc); //LALALAL
         
 //        boost::crc_32_type crc;
 //        crc.process_bytes(&E0Loc.fMat(0,0),E0Loc.fMat.Rows()*E0Loc.fMat.Rows()*sizeof(STATE));
@@ -176,15 +174,9 @@ void TPZSBFemElementGroup::ComputeMatrices(TPZElementMatrix &E0, TPZElementMatri
                     }
                 }
             }
-            
-            for (int idf = 0; idf<iblsize; idf++) {
-                P0.fBlock(ibldest,0,idf,0) += P0Loc.fBlock(ic,0,idf,0); //LALALALA
-                RF.fBlock(ibldest,0,idf,0) += RFLoc.fBlock(ic,0,idf,0); //LALALALA
-            }
         }
     }
 }
-
 /**
  * @brief Computes the element stifness matrix and right hand side
  * @param ek element stiffness matrix
@@ -194,15 +186,17 @@ void TPZSBFemElementGroup::CalcStiff(TPZElementMatrix &ek,TPZElementMatrix &ef)
 {
     InitializeElementMatrix(ek, ef);
     
-    // Cálculo de E0, E1, E2, M0 e P0
     if (fComputationMode == EOnlyMass) {
         ek.fMat = fMassMatrix;
         ek.fMat *= fMassDensity;
         ef.fMat.Zero();
         return;
     }
-    TPZElementMatrix E0, E1, E2, M0, P0, RF;
-    ComputeMatrices(E0, E1, E2, M0, P0, RF);
+    TPZElementMatrix E0,E1,E2, M0;
+    ComputeMatrices(E0, E1, E2, M0);
+    
+    //    crc.process_bytes(&E0.fMat(0,0),E0.fMat.Rows()*E0.fMat.Rows()*sizeof(STATE));
+    //    EMatcrc[Index()]= crc.checksum();
     
 #ifdef LOG4CXX
     if (logger->isDebugEnabled()) {
@@ -216,6 +210,7 @@ void TPZSBFemElementGroup::CalcStiff(TPZElementMatrix &ek,TPZElementMatrix &ef)
 #endif
     
     int n = E0.fMat.Rows();
+    
     int dim = Mesh()->Dimension();
     
     TPZFMatrix<STATE> E0Inv(E0.fMat);
@@ -236,81 +231,88 @@ void TPZSBFemElementGroup::CalcStiff(TPZElementMatrix &ek,TPZElementMatrix &ef)
     }
     else
     {
+        //        E0.fMat.Print("E0 = ",std::cout,EMathematicaInput);
+        
         TPZVec<int> pivot(E0Inv.Rows(),0);
         int nwork = 4*n*n + 2*n;
         TPZVec<STATE> work(2*nwork,0.);
         int info=0;
 #ifdef STATEdouble
-        dgetrf_(&n, &n, &E0Inv(0,0), &n, &pivot[0], &info); //LU factorization
+        dgetrf_(&n, &n, &E0Inv(0,0), &n, &pivot[0], &info);
 #endif
 #ifdef STATEfloat
-        sgetrf_(&n, &n, &E0Inv(0,0), &n, &pivot[0], &info); //LU factorization
+        sgetrf_(&n, &n, &E0Inv(0,0), &n, &pivot[0], &info);
 #endif
         if (info != 0) {
             DebugStop();
         }
 #ifdef STATEdouble
-        dgetri_(&n, &E0Inv(0,0), &n, &pivot[0], &work[0], &nwork, &info); //Inverse of a LU-factored matrix
+        dgetri_(&n, &E0Inv(0,0), &n, &pivot[0], &work[0], &nwork, &info);
 #endif
 #ifdef STATEfloat
-        sgetri_(&n, &E0Inv(0,0), &n, &pivot[0], &work[0], &nwork, &info); //Inverse of a LU-factored matrix
+        sgetri_(&n, &E0Inv(0,0), &n, &pivot[0], &work[0], &nwork, &info);
 #endif
         if (info != 0) {
             DebugStop();
         }
     }
+    //    E0Inv.Print("E0InvCheck = ",std::cout,EMathematicaInput);
     
-    // ----- Cálculo de globmat -----
+    
+    
     TPZFMatrix<STATE> globmat(2*n,2*n,0.);
-    {
+    
+    //    cblas_dgemm(<#const enum CBLAS_ORDER __Order#>, <#const enum CBLAS_TRANSPOSE __TransA#>, <#const enum CBLAS_TRANSPOSE __TransB#>, <#const int __M#>, <#const int __N#>, <#const int __K#>, <#const double __alpha#>, <#const double *__A#>, <#const int __lda#>, <#const double *__B#>, <#const int __ldb#>, <#const double __beta#>, <#double *__C#>, <#const int __ldc#>)
 #ifdef STATEdouble
-        cblas_dgemm(CblasColMajor, CblasNoTrans, CblasTrans, n, n, n, 1., &E0Inv(0,0), n, &E1.fMat(0,0), n, 0., &globmat(0,0), 2*n); //Matrix-matrix product
+    cblas_dgemm(CblasColMajor, CblasNoTrans, CblasTrans, n, n, n, 1., &E0Inv(0,0), n, &E1.fMat(0,0), n, 0., &globmat(0,0), 2*n);
 #elif defined STATEfloat
-        cblas_sgemm(CblasColMajor, CblasNoTrans, CblasTrans, n, n, n, 1., &E0Inv(0,0), n, &E1.fMat(0,0), n, 0., &globmat(0,0), 2*n); //Matrix-matrix product
+    cblas_sgemm(CblasColMajor, CblasNoTrans, CblasTrans, n, n, n, 1., &E0Inv(0,0), n, &E1.fMat(0,0), n, 0., &globmat(0,0), 2*n);
 #else
-        std::cout << "SBFem does not execute for this configuration\n";
-        DebugStop();
+    std::cout << "SBFem does not execute for this configuration\n";
+    DebugStop();
 #endif
-        
-        for (int i=0; i<n; i++) {
-            for (int j=0; j<n; j++) {
-                globmat(i,j+n) = -E0Inv(i,j);
-            }
+    
+    for (int i=0; i<n; i++) {
+        for (int j=0; j<n; j++) {
+            globmat(i,j+n) = -E0Inv(i,j);
         }
+    }
 #ifdef STATEdouble
-        cblas_dgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n, 1., &E1.fMat(0,0), n, &globmat(0,0), 2*n, 0., &globmat(n,0), 2*n);
+    cblas_dgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n, 1., &E1.fMat(0,0), n, &globmat(0,0), 2*n, 0., &globmat(n,0), 2*n);
 #elif defined STATEfloat
-        cblas_sgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n, 1., &E1.fMat(0,0), n, &globmat(0,0), 2*n, 0., &globmat(n,0), 2*n);
+    cblas_sgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n, 1., &E1.fMat(0,0), n, &globmat(0,0), 2*n, 0., &globmat(n,0), 2*n);
 #else
-        std::cout << "SBFem does not execute for this configuration\n";
-        DebugStop();
+    std::cout << "SBFem does not execute for this configuration\n";
+    DebugStop();
 #endif
-        for (int i=0; i<n; i++) {
-            for (int j=0; j<n; j++) {
-                globmat(i+n,j) -= E2.fMat(i,j);
-            }
-        }
-        
-#ifdef STATEdouble
-        cblas_dgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n, -1., &E1.fMat(0,0), n, &E0Inv(0,0), n, 0., &globmat(n,n), 2*n);
-#elif defined STATEfloat
-        cblas_sgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n, -1., &E1.fMat(0,0), n, &E0Inv(0,0), n, 0., &globmat(n,n), 2*n);
-#else
-        std::cout << "SBFem does not execute for this configuration\n";
-        DebugStop();
-#endif
-        
-        for (int i=0; i<n; i++) {
-            globmat(i,i) -= (dim-2)*0.5;
-            globmat(i+n,i+n) += (dim-2)*0.5;
+    for (int i=0; i<n; i++) {
+        for (int j=0; j<n; j++) {
+            globmat(i+n,j) -= E2.fMat(i,j);
         }
     }
     
-    // ----- Solução do problema de autovalor -----
+#ifdef STATEdouble
+    cblas_dgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n, -1., &E1.fMat(0,0), n, &E0Inv(0,0), n, 0., &globmat(n,n), 2*n);
+#elif defined STATEfloat
+    cblas_sgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n, -1., &E1.fMat(0,0), n, &E0Inv(0,0), n, 0., &globmat(n,n), 2*n);
+#else
+    std::cout << "SBFem does not execute for this configuration\n";
+    DebugStop();
+#endif
+    //    globmat.Print("GlobMatCheck = ",std::cout, EMathematicaInput);
+    
+    for (int i=0; i<n; i++) {
+        globmat(i,i) -= (dim-2)*0.5;
+        globmat(i+n,i+n) += (dim-2)*0.5;
+    }
+    
+    
     TPZFMatrix<STATE> globmatkeep(globmat);
     TPZFMatrix< std::complex<double> > eigenVectors;
     TPZManVector<std::complex<double> > eigenvalues;
     
+    
+    //    usleep((1284-Index())*50000);
     {
         globmatkeep.SolveEigenProblem(eigenvalues, eigenVectors);
 #ifdef COMPUTE_CRC
@@ -349,61 +351,42 @@ void TPZSBFemElementGroup::CalcStiff(TPZElementMatrix &ek,TPZElementMatrix &ef)
                 eigvecreal(i,j) = eigenVectors(i,j).real();
             }
         }
+        //        eigenVectors.Print("eigvec =",std::cout,EMathematicaInput);
     }
     
-    // ----- Ordenando autovetores -----
     TPZFNMatrix<200,std::complex<double> > QVectors(n,n,0.);
-    fPhi.Resize(n, n); // DÚVIDA: Mudo pro fPhi com todos os autovalores?
+    fPhi.Resize(n, n);
     TPZManVector<std::complex<double> > eigvalsel(n,0);
     TPZFMatrix<std::complex<double> > eigvecsel(2*n,n,0.),eigvalmat(1,n,0.);
-    
     int count = 0;
     for (int i=0; i<2*n; i++) {
         if (eigenvalues[i].real() < -1.e-6) {
-            //            double maxvaleigenvec = 0;
+            double maxvaleigenvec = 0;
             for (int j=0; j<n; j++) {
                 QVectors(j,count) = eigenVectors(j+n,i);
                 eigvecsel(j,count) = eigenVectors(j,i);
                 eigvecsel(j+n,count) = eigenVectors(j+n,i);
                 fPhi(j,count) = eigenVectors(j,i);
-//                double realvalabs = fabs(fPhi(j,count).real());
-//                if (realvalabs > maxvaleigenvec) {
-//                    maxvaleigenvec = realvalabs;
-//                }
+                double realvalabs = fabs(fPhi(j,count).real());
+                if (realvalabs > maxvaleigenvec) {
+                    maxvaleigenvec = realvalabs;
+                }
             }
             eigvalsel[count] = eigenvalues[i];
             eigvalmat(0,count) = eigenvalues[i];
-//            for (int j=0; j<n; j++) {
-//                QVectors(j,count) /= maxvaleigenvec;
-//                eigvecsel(j,count) /= maxvaleigenvec;
-//                eigvecsel(j+n,count) /= maxvaleigenvec;
-//                fPhi(j,count) /= maxvaleigenvec;
-//            }
-            count++;
-        }
-    }
-    
-    TPZFNMatrix<200,std::complex<double> > QVectorsp(n,n,0.); // Adicionei as matrizes relativas aos autovetores positivos
-    TPZManVector<std::complex<double> > eigvalselp(n,0);
-    TPZFMatrix<std::complex<double> > eigvecselp(2*n,n,0.),eigvalmatp(1,n,0.);
-    count=0;
-    for (int i=0; i<2*n; i++) {
-        if (eigenvalues[i].real() > 1.e-6){
-            double maxvaleigenvec = 0;
             for (int j=0; j<n; j++) {
-                QVectorsp(j,count) = eigenVectors(j+n,i);
-                eigvecselp(j,count) = eigenVectors(j,i);
-                eigvecselp(j+n,count) = eigenVectors(j+n,i);
+                QVectors(j,count) /= maxvaleigenvec;
+                eigvecsel(j,count) /= maxvaleigenvec;
+                eigvecsel(j+n,count) /= maxvaleigenvec;
+                fPhi(j,count) /= maxvaleigenvec;
+                
             }
-            eigvalselp[count] = eigenvalues[i];
-            eigvalmat(0,count) = eigenvalues[i];
             count++;
         }
     }
     
 #ifdef PZDEBUG
 //    std::cout << "eigval = {" << eigvalsel << "};\n";
-//    std::cout << "eigvalpos = {" << eigvalselp << "};\n";
 #endif
     
     if (dim == 2)
@@ -425,7 +408,6 @@ void TPZSBFemElementGroup::CalcStiff(TPZElementMatrix &ek,TPZElementMatrix &ef)
             {
                 fPhi(eq,count) = 1;
                 eigvecsel(eq,count) = 1;
-                eigvecselp(eq,count) = 1;
                 if (nstate == 2)
                 {
                     fPhi(eq+1,count+1) = 1;
@@ -435,7 +417,6 @@ void TPZSBFemElementGroup::CalcStiff(TPZElementMatrix &ek,TPZElementMatrix &ef)
             eq += Connect(ic).NShape()*Connect(ic).NState();
         }
     }
-    
     if(dim==3 && count != n)
     {
         DebugStop();
@@ -449,12 +430,12 @@ void TPZSBFemElementGroup::CalcStiff(TPZElementMatrix &ek,TPZElementMatrix &ef)
         fPhi.Print("Phivec =",sout,EMathematicaInput);
         LOGPZ_DEBUG(logger, sout.str())
     }
-//    double phinorm = Norm(fPhi);
-//    if (loggerMT->isDebugEnabled()) {
-//        std::stringstream sout;
-//        sout << "Element index " << Index() << " phinorm = " << phinorm;
-//        LOGPZ_DEBUG(loggerMT, sout.str())
-//    }
+    //    double phinorm = Norm(fPhi);
+    //    if (loggerMT->isDebugEnabled()) {
+    //        std::stringstream sout;
+    //        sout << "Element index " << Index() << " phinorm = " << phinorm;
+    //        LOGPZ_DEBUG(loggerMT, sout.str())
+    //    }
 #endif
     
     TPZFMatrix<std::complex<double> > phicopy(fPhi);
@@ -475,15 +456,25 @@ void TPZSBFemElementGroup::CalcStiff(TPZElementMatrix &ek,TPZElementMatrix &ef)
     if (logger->isDebugEnabled())
     {
         std::stringstream sout;
-//    phicopy.Inverse(fPhiInverse, ELU);
-//    phicopy.Print("phidec = ",std::cout,EMathematicaInput);
+        //   phicopy.Inverse(fPhiInverse, ELU);
+        //    phicopy.Print("phidec = ",std::cout,EMathematicaInput);
         fPhiInverse.Print("fPhiInverse = ",sout,EMathematicaInput);
-//    QVectors.Print("QVectors ", std::cout);
+        //    QVectors.Print("QVectors ", std::cout);
         LOGPZ_DEBUG(logger, sout.str())
     }
 #endif
     TPZFMatrix<std::complex<double> > ekloc;
     QVectors.Multiply(fPhiInverse, ekloc);
+    if(0)
+    {
+        std::ofstream out("EigenProblem.nb");
+        globmatkeep.Print("matrix = ",out,EMathematicaInput);
+        eigvecsel.Print("eigvec =",out,EMathematicaInput);
+        eigvalmat.Print("lambda =",out,EMathematicaInput);
+        fPhi.Print("phi = ",out,EMathematicaInput);
+        fPhiInverse.Print("phiinv = ",out,EMathematicaInput);
+        QVectors.Print("qvec = ",out,EMathematicaInput);
+    }
     
     TPZFMatrix<double> ekimag(ekloc.Rows(),ekloc.Cols());
     for (int i=0; i<ekloc.Rows(); i++) {
@@ -491,6 +482,18 @@ void TPZSBFemElementGroup::CalcStiff(TPZElementMatrix &ek,TPZElementMatrix &ef)
             ek.fMat(i,j) = ekloc(i,j).real();
             ekimag(i,j) = ekloc(i,j).imag();
         }
+    }
+    
+    int64_t nel = fElGroup.size();
+    for (int64_t el = 0; el<nel; el++) {
+        TPZCompEl *cel = fElGroup[el];
+        TPZSBFemVolume *sbfem = dynamic_cast<TPZSBFemVolume *>(cel);
+#ifdef PZDEBUG
+        if (!sbfem) {
+            DebugStop();
+        }
+#endif
+        sbfem->SetPhiEigVal(fPhi, fEigenvalues);
     }
 #ifdef COMPUTE_CRC
     pthread_mutex_lock(&mutex);
@@ -549,118 +552,425 @@ void TPZSBFemElementGroup::CalcStiff(TPZElementMatrix &ek,TPZElementMatrix &ef)
         }
     }
     
-    int64_t nel = fElGroup.size();
-    for (int64_t el = 0; el<nel; el++) {
-        TPZCompEl *cel = fElGroup[el];
-        TPZSBFemVolume *sbfem = dynamic_cast<TPZSBFemVolume *>(cel);
-#ifdef PZDEBUG
-        if (!sbfem) {
-            DebugStop();
-        }
-#endif
-        sbfem->SetPhiEigVal(fPhi, fEigenvalues);
-//#ifdef NONHomogeneous
-//        sbfem->SetCoefNonHomogeneous(Phi12, A22, A12, fPhi12A22P0, P0.fMat);
-//        for (int i=0; i<ef.fMat.Rows(); i++) {
-//            for (int j=0; j<ef.fMat.Cols(); j++) {
-//                ef.fMat(i,j) = RF.fMat(i,j);
-//            }
-//        }
-//#endif
-        
-    }
-    if (TPZSBFemElementGroup::gDefaultPolynomialOrder) {
+//    if (TPZSBFemElementGroup::gDefaultPolynomialOrder) {
         this->CalcStiffBodyLoads(ek, ef);
-    } else {
-        this->CalcStiff2(ek, ef);
-    }
+//    }
     
-//#ifdef NONHomogeneous2
-//    this->CollapsedStiffness(E0, E1, E2, P0, ek, ef);
-//#endif
-//
-//#ifdef NONHomogeneous
-//    TPZFMatrix<REAL> partial(n,n,0.), partial2(n,n,0.);
-//    TPZFMatrix<REAL> A22Inv(n,n,0.), A12(n,n,0.), A22(n,n,0.);
-//    TPZFMatrix<REAL> CoefMatInv(n,n,0.);
-//
-//    TPZFMatrix<REAL> Phi11(n,n,0.), Phi21(n,n,0.), Phi12(n,n,0.), Phi22(n,n,0.), Phi11Inv(n,n,0.);
-//    {
-//        TPZFMatrix<REAL> Phi(2*n, 2*n, 0.);
-//
-//        int64_t nrows = eigvecsel.Rows();
-//        int64_t ncols = eigvecsel.Cols();
-//        for (int64_t i=0; i<nrows; i++) {
-//            for (int64_t j=0; j<ncols; j++) {
-//                Phi(i,j) = eigvecsel(i,j).real();
-//                Phi(i,j+ncols) = eigvecselp(i,j).real();
-//            }
-//        }
-//        for (int64_t i=0; i<n; i++) {
-//            for (int64_t j=0; j<n; j++) {
-//                Phi11(i,j) = fPhi(i,j).real();
-//                Phi11(i,j) = Phi(i,j);
-//                Phi21(i,j) = Phi(i+n,j);
-//                Phi12(i,j) = Phi(i,j+n);
-//                Phi22(i,j) = Phi(i+n,j+n);
-//                Phi11Inv(i,j) = fPhiInverse(i,j).real();
-//            }
-//        }
-//
-//        // A22Inv
-//        TPZFMatrix<REAL> kstiff = ek.fMat;
-//        partial.Zero();
-//        kstiff.Multiply(Phi12, partial);
-//        A22Inv = Phi22 - partial;
-//        nrows = A22Inv.Rows();
-//
-//        // A22
-//        partial = A22Inv;
-//        partial.Resize(n, n-1);
-//        partial.PseudoInverse(A22);
-//        A22.Resize(n, n);
-//
-//        // CoefMatInv
-//        int polyorder = 0;
-//        REAL coefval = 1 + polyorder + 0.5*dim;
-//        for (int64_t i =0; i<n; i++) {
-//            if (IsZero(-eigvalselp[i].real() + coefval)) {
-//                CoefMatInv(i,i) = 0;
-//            }
-//            else {
-//                CoefMatInv(i,i) = 1/(-eigvalselp[i].real() + coefval);
-//            }
-//        }
-//
-//        // A12
-//        partial.Zero();
-//        TPZFMatrix<REAL> Phi12Copy(Phi12);
-//        Phi12Copy.Multiply(A22, partial);
-//        Phi11Inv.Multiply(partial, A12);
-//        fA12.Resize(A12.Rows(), A12.Cols());
-//        for (int64_t i=0; i<A12.Rows(); i++) {
-//            for (int64_t j=0; j<A12.Cols(); j++) {
-//                fA12(i,j) = -A12(i,j);
-//            }
-//        }
-//
-//        // fPhi12A22P0
-//        fPhi12A22P0.Resize(n, 1);
-//        partial.Zero();
-//
-//        A22.Multiply(P0.fMat, partial);
-//        CoefMatInv.Multiply(partial, partial2);
-//        Phi12.Multiply(partial2, fPhi12A22P0);
+    //    ek.fMat.Print("Stiffness",std::cout,EMathematicaInput);
+#ifdef PZDEBUG
+    //    std::cout << "Norm of imaginary part " << Norm(ekimag) << std::endl;
+#endif
+}
+//{
+//    InitializeElementMatrix(ek, ef);
+//    
+//    // Cálculo de E0, E1, E2, M0 e P0
+//    if (fComputationMode == EOnlyMass) {
+//        ek.fMat = fMassMatrix;
+//        ek.fMat *= fMassDensity;
+//        ef.fMat.Zero();
+//        return;
+//    }
+//    TPZElementMatrix E0, E1, E2, M0;
+//    ComputeMatrices(E0, E1, E2, M0);
+//    
+//#ifdef LOG4CXX
+//    if (logger->isDebugEnabled()) {
+//        std::stringstream sout;
+//        E0.fMat.Print("E0 = ",sout, EMathematicaInput);
+//        E1.fMat.Print("E1 = ",sout, EMathematicaInput);
+//        E2.fMat.Print("E2 = ",sout, EMathematicaInput);
+//        M0.fMat.Print("M0 = ",sout, EMathematicaInput);
+//        LOGPZ_DEBUG(logger, sout.str())
 //    }
 //#endif
-    
-}
+//    
+//    int n = E0.fMat.Rows();
+//    int dim = Mesh()->Dimension();
+//    
+//    TPZFMatrix<STATE> E0Inv(E0.fMat);
+//    if(0)
+//    {
+//        try
+//        {
+//            TPZFMatrix<STATE> E0copy(E0.fMat);
+//            TPZVec<int> pivot;
+//            E0copy.Decompose_LU(pivot);
+//            E0Inv.Identity();
+//            E0copy.Substitution(&E0Inv, pivot);
+//        }
+//        catch(...)
+//        {
+//            exit(-1);
+//        }
+//    }
+//    else
+//    {
+//        TPZVec<int> pivot(E0Inv.Rows(),0);
+//        int nwork = 4*n*n + 2*n;
+//        TPZVec<STATE> work(2*nwork,0.);
+//        int info=0;
+//#ifdef STATEdouble
+//        dgetrf_(&n, &n, &E0Inv(0,0), &n, &pivot[0], &info); //LU factorization
+//#endif
+//#ifdef STATEfloat
+//        sgetrf_(&n, &n, &E0Inv(0,0), &n, &pivot[0], &info); //LU factorization
+//#endif
+//        if (info != 0) {
+//            DebugStop();
+//        }
+//#ifdef STATEdouble
+//        dgetri_(&n, &E0Inv(0,0), &n, &pivot[0], &work[0], &nwork, &info); //Inverse of a LU-factored matrix
+//#endif
+//#ifdef STATEfloat
+//        sgetri_(&n, &E0Inv(0,0), &n, &pivot[0], &work[0], &nwork, &info); //Inverse of a LU-factored matrix
+//#endif
+//        if (info != 0) {
+//            DebugStop();
+//        }
+//    }
+//    
+//    // ----- Cálculo de globmat -----
+//    TPZFMatrix<STATE> globmat(2*n,2*n,0.);
+//    {
+//#ifdef STATEdouble
+//        cblas_dgemm(CblasColMajor, CblasNoTrans, CblasTrans, n, n, n, 1., &E0Inv(0,0), n, &E1.fMat(0,0), n, 0., &globmat(0,0), 2*n); //Matrix-matrix product
+//#elif defined STATEfloat
+//        cblas_sgemm(CblasColMajor, CblasNoTrans, CblasTrans, n, n, n, 1., &E0Inv(0,0), n, &E1.fMat(0,0), n, 0., &globmat(0,0), 2*n); //Matrix-matrix product
+//#else
+//        std::cout << "SBFem does not execute for this configuration\n";
+//        DebugStop();
+//#endif
+//        
+//        for (int i=0; i<n; i++) {
+//            for (int j=0; j<n; j++) {
+//                globmat(i,j+n) = -E0Inv(i,j);
+//            }
+//        }
+//#ifdef STATEdouble
+//        cblas_dgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n, 1., &E1.fMat(0,0), n, &globmat(0,0), 2*n, 0., &globmat(n,0), 2*n);
+//#elif defined STATEfloat
+//        cblas_sgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n, 1., &E1.fMat(0,0), n, &globmat(0,0), 2*n, 0., &globmat(n,0), 2*n);
+//#else
+//        std::cout << "SBFem does not execute for this configuration\n";
+//        DebugStop();
+//#endif
+//        for (int i=0; i<n; i++) {
+//            for (int j=0; j<n; j++) {
+//                globmat(i+n,j) -= E2.fMat(i,j);
+//            }
+//        }
+//        
+//#ifdef STATEdouble
+//        cblas_dgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n, -1., &E1.fMat(0,0), n, &E0Inv(0,0), n, 0., &globmat(n,n), 2*n);
+//#elif defined STATEfloat
+//        cblas_sgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n, -1., &E1.fMat(0,0), n, &E0Inv(0,0), n, 0., &globmat(n,n), 2*n);
+//#else
+//        std::cout << "SBFem does not execute for this configuration\n";
+//        DebugStop();
+//#endif
+//        
+//        for (int i=0; i<n; i++) {
+//            globmat(i,i) -= (dim-2)*0.5;
+//            globmat(i+n,i+n) += (dim-2)*0.5;
+//        }
+//    }
+//    
+//    // ----- Solução do problema de autovalor -----
+//    TPZFMatrix<STATE> globmatkeep(globmat);
+//    TPZFMatrix<STATE> identity(globmat);
+//    identity.Identity();
+//    TPZFMatrix< std::complex<double> > eigenVectors;
+//    TPZManVector<std::complex<double> > eigenvalues;
+//    
+//    {
+////        globmatkeep.SolveEigenProblem(eigenvalues, eigenVectors);
+//        globmatkeep.SolveGeneralisedEigenProblem(identity, eigenvalues, eigenVectors);
+////        std::cout << eigenvalues << std::endl;
+////        eigenVectors.Print("eigvec = ", std::cout, EMathematicaInput);
+//        
+//#ifdef COMPUTE_CRC
+//        static pthread_mutex_t mutex =PTHREAD_MUTEX_INITIALIZER;
+//        pthread_mutex_lock(&mutex);
+//        extern int gnumthreads;
+//        std::stringstream sout;
+//        sout << "eigval" << gnumthreads << ".nb";
+//        static int count = 0;
+//        std::ofstream file;
+//        if (count == 0) {
+//            file.open(sout.str());
+//        }
+//        else
+//        {
+//            file.open(sout.str(),std::ios::app);
+//        }
+//        std::stringstream eigv;
+//        eigv << "EigVec" << Index() << " = ";
+//        if(count < 1)
+//        {
+//            eigenVectors.Print(eigv.str().c_str(),file,EMathematicaInput);
+//        }
+//        count++;
+//        pthread_mutex_unlock(&mutex);
+//#endif
+//    }
+//    
+////    if(0)
+////    {
+////        for (int i=0; i<2*n; i++) {
+////            eigvalreal[i] = eigenvalues[i].real();
+////            for (int j=0; j<2*n; j++) {
+////                eigvecreal(i,j) = eigenVectors(i,j).real();
+////            }
+////        }
+////    }
+//    
+//    // ----- Ordenando autovetores -----
+//    TPZFNMatrix<200,std::complex<double> > QVectors(n,n,0.);
+//    fPhi.Resize(n, n);
+//    TPZManVector<std::complex<double> > eigvalsel(n,0);
+//    TPZFMatrix<std::complex<double> > eigvecsel(2*n,n,0.),eigvalmat(1,n,0.);
+//    
+//    int count = 0;
+//    for (int i=0; i<2*n; i++) {
+//        if (eigenvalues[i].real() < -1.e-6) {
+//            double maxvaleigenvec = 0;
+//            for (int j=0; j<n; j++) {
+//                QVectors(j,count) = eigenVectors(j+n,i);
+//                eigvecsel(j,count) = eigenVectors(j,i);
+//                eigvecsel(j+n,count) = eigenVectors(j+n,i);
+//                fPhi(j,count) = eigenVectors(j,i);
+//                double realvalabs = fabs(fPhi(j,count).real());
+//                if (realvalabs > maxvaleigenvec) {
+//                    maxvaleigenvec = realvalabs;
+//                }
+//            }
+//            eigvalsel[count] = eigenvalues[i];
+//            eigvalmat(0,count) = eigenvalues[i];
+//            for (int j=0; j<n; j++) {
+//                QVectors(j,count) /= maxvaleigenvec;
+//                eigvecsel(j,count) /= maxvaleigenvec;
+//                eigvecsel(j+n,count) /= maxvaleigenvec;
+//                fPhi(j,count) /= maxvaleigenvec;
+//            }
+//            count++;
+//        }
+//    }
+//    
+//#ifdef PZDEBUG
+////    std::cout << "eigval = {" << eigvalsel << "};\n";
+//    //    std::cout << "eigvalpos = {" << eigvalselp << "};\n";
+//#endif
+//    
+//    if (dim == 2)
+//    {
+//        int nstate = Connect(0).NState();
+//        if (nstate != 2 && nstate != 1) {
+//            DebugStop();
+//        }
+//        if(count != n-nstate) {
+//            DebugStop();
+//        }
+//        int ncon = fConnectIndexes.size();
+//        int eq=0;
+//        std::set<int64_t> cornercon;
+//        BuildCornerConnectList(cornercon);
+//        for (int ic=0; ic<ncon; ic++) {
+//            int64_t conindex = ConnectIndex(ic);
+//            if (cornercon.find(conindex) != cornercon.end())
+//            {
+//                fPhi(eq,count) = 1;
+//                eigvecsel(eq,count) = 1;
+////                eigvecselp(eq,count) = 1;
+//                if (nstate == 2)
+//                {
+//                    fPhi(eq+1,count+1) = 1;
+//                    eigvecsel(eq+1,count+1) = 1;
+//                }
+//            }
+//            eq += Connect(ic).NShape()*Connect(ic).NState();
+//        }
+//    }
+//    
+//    
+//    TPZManVector<STATE> eigvalreal(n,0.);
+//    TPZFMatrix<STATE> eigvecreal(n,n,0.);
+//    for (int i=0; i<n; i++) {
+//        eigvalreal[i] = eigvalsel[i].real();
+//        for (int j=0; j<n; j++) {
+//            eigvecreal(i,j) = eigvecsel(i,j).real();
+//        }
+//    }
+//    TPZManVector<REAL> eigvalselind(eigvalreal);
+//    iota(eigvalselind.begin(), eigvalselind.end(), 0);
+//    std::sort(std::begin(eigvalselind), std::end(eigvalselind), [&](int i1, int i2) { return eigvalreal[i1] < eigvalreal[i2]; } );
+//    for (int i=0; i<n; i++) {
+//        int ind = eigvalselind[i];
+//        eigvalsel[i] = eigvalreal[ind];
+//        for (int j=0; j<n; j++) {
+//            fPhi(j,i) = eigvecsel(j,ind);
+//        }
+//    }
+//    
+//    TPZFNMatrix<200,std::complex<double> > QVectorsp(n,n,0.); // Adicionei as matrizes relativas aos autovetores positivos
+//    TPZManVector<std::complex<double> > eigvalselp(n,0);
+//    TPZFMatrix<std::complex<double> > eigvecselp(2*n,n,0.),eigvalmatp(1,n,0.);
+//    count=0;
+//    for (int i=0; i<2*n; i++) {
+//        if (eigenvalues[i].real() > 1.e-6){
+//            double maxvaleigenvec = 0;
+//            for (int j=0; j<n; j++) {
+//                QVectorsp(j,count) = eigenVectors(j+n,i);
+//                eigvecselp(j,count) = eigenVectors(j,i);
+//                eigvecselp(j+n,count) = eigenVectors(j+n,i);
+//            }
+//            eigvalselp[count] = eigenvalues[i];
+//            eigvalmat(0,count) = eigenvalues[i];
+//            count++;
+//        }
+//    }
+//    
+//    if(dim==3 && count != n)
+//    {
+//        DebugStop();
+//    }
+//    fEigenvalues = eigvalsel;
+////    std::cout << "eigval = {" << eigvalsel << "};\n";
+//#ifdef LOG4CXX
+//    if(logger->isDebugEnabled())
+//    {
+//        std::stringstream sout;
+//        sout << "eigenvalues " << eigvalsel << std::endl;
+//        fPhi.Print("Phivec =",sout,EMathematicaInput);
+//        LOGPZ_DEBUG(logger, sout.str())
+//    }
+////    double phinorm = Norm(fPhi);
+////    if (loggerMT->isDebugEnabled()) {
+////        std::stringstream sout;
+////        sout << "Element index " << Index() << " phinorm = " << phinorm;
+////        LOGPZ_DEBUG(loggerMT, sout.str())
+////    }
+//#endif
+//    
+//    TPZFMatrix<std::complex<double> > phicopy(fPhi);
+//    fPhiInverse.Redim(n, n);
+//    fPhiInverse.Identity();
+//    
+//    try
+//    {
+//        TPZVec<int> pivot;
+//        phicopy.Decompose_LU(pivot);
+//        phicopy.Substitution(&fPhiInverse, pivot);
+//    }
+//    catch(...)
+//    {
+//        exit(-1);
+//    }
+//#ifdef LOG4CXX
+//    if (logger->isDebugEnabled())
+//    {
+//        std::stringstream sout;
+////    phicopy.Inverse(fPhiInverse, ELU);
+////    phicopy.Print("phidec = ",std::cout,EMathematicaInput);
+//        fPhiInverse.Print("fPhiInverse = ",sout,EMathematicaInput);
+////    QVectors.Print("QVectors ", std::cout);
+//        LOGPZ_DEBUG(logger, sout.str())
+//    }
+//#endif
+//    
+////    TPZFNMatrix<200,std::complex<double>> teste(n,n,0);
+////    fPhi.Multiply(fPhiInverse, teste);
+////    teste.Print("teste = ", std::cout, EMathematicaInput);
+//    
+//    TPZFMatrix<std::complex<double> > ekloc;
+//    QVectors.Multiply(fPhiInverse, ekloc);
+//    
+//    TPZFMatrix<double> ekimag(ekloc.Rows(),ekloc.Cols());
+//    for (int i=0; i<ekloc.Rows(); i++) {
+//        for (int j=0; j<ekloc.Cols(); j++) {
+//            ek.fMat(i,j) = ekloc(i,j).real();
+//            ekimag(i,j) = ekloc(i,j).imag();
+//        }
+//    }
+//#ifdef COMPUTE_CRC
+//    pthread_mutex_lock(&mutex);
+//    {
+//        boost::crc_32_type crc;
+//        int64_t n = E0.fMat.Rows();
+//        crc.process_bytes(&E0.fMat(0,0), n*n*sizeof(STATE));
+//        crc.process_bytes(&E1.fMat(0,0), n*n*sizeof(STATE));
+//        crc.process_bytes(&E2.fMat(0,0), n*n*sizeof(STATE));
+//        matEcrc[Index()] = crc.checksum();
+//        
+//    }
+//    {
+//        boost::crc_32_type crc;
+//        int64_t n = E0Inv.Rows();
+//        crc.process_bytes(&E0Inv(0,0), n*n*sizeof(STATE));
+//        matEInvcrc[Index()] = crc.checksum();
+//        
+//    }
+//    {
+//        boost::crc_32_type crc;
+//        crc.process_bytes(&globmat(0,0), 4*n*n*sizeof(STATE));
+//        matglobcrc[Index()] = crc.checksum();
+//    }
+//    {
+//        boost::crc_32_type crc;
+//        crc.process_bytes(&eigenVectors(0,0), n*n*sizeof(std::complex<double>));
+//        eigveccrc[Index()] = crc.checksum();
+//    }
+//    {
+//        boost::crc_32_type crc;
+//        int n = ekloc.Rows();
+//        crc.process_bytes(&ekloc(0,0), n*n*sizeof(STATE));
+//        stiffcrc[Index()] = crc.checksum();
+//    }
+//    pthread_mutex_unlock(&mutex);
+//#endif
+//    ComputeMassMatrix(M0);
+//    
+//#ifdef LOG4CXX
+//    if(logger->isDebugEnabled())
+//    {
+//        std::stringstream sout;
+//        ek.fMat.Print("Stiff = ",sout,EMathematicaInput);
+//        fMassMatrix.Print("Mass = ",sout,EMathematicaInput);
+//        LOGPZ_DEBUG(logger, sout.str())
+//    }
+//#endif
+//    if(fComputationMode == EMass)
+//    {
+//        int nr = ek.fMat.Rows();
+//        for (int r=0; r<nr; r++) {
+//            for (int c=0; c<nr; c++) {
+//                ek.fMat(r,c) += fMassMatrix(r,c)/fDelt;
+//            }
+//        }
+//    }
+//    
+//    int64_t nel = fElGroup.size();
+//    for (int64_t el = 0; el<nel; el++) {
+//        TPZCompEl *cel = fElGroup[el];
+//        TPZSBFemVolume *sbfem = dynamic_cast<TPZSBFemVolume *>(cel);
+//#ifdef PZDEBUG
+//        if (!sbfem) {
+//            DebugStop();
+//        }
+//#endif
+//        sbfem->SetPhiEigVal(fPhi, fEigenvalues);
+//    }
+//    
+//    if (TPZSBFemElementGroup::gDefaultPolynomialOrder) {
+//        this->CalcStiffBodyLoads(ek, ef);
+//    }
+//}
 
 void TPZSBFemElementGroup::CalcStiff2(TPZElementMatrix &ek, TPZElementMatrix &ef)
 {
     
     TPZElementMatrix E0, E1, E2, M0, P0, RF;
-    ComputeMatrices(E0, E1, E2, M0, P0, RF);
+    ComputeMatrices(E0, E1, E2, M0);
     
     int n = E0.fMat.Rows();
     
@@ -668,24 +978,30 @@ void TPZSBFemElementGroup::CalcStiff2(TPZElementMatrix &ek, TPZElementMatrix &ef
     TPZFNMatrix<100,std::complex<REAL>> rot(n,n,0);
     
     TPZManVector<std::complex<REAL>> eigval(n,0);
-    for (int i=0; i<8; i++) {
+    for (int i=0; i<n; i++) {
         eigval[i] = -EigenValues()[i];
     }
     for (int i=0; i<n; i++) {
         for (int j=0; j<n; j++) {
             for (int k=0; k<n; k++) {
                 for (int l=0; l<n; l++) {
-                    if((eigval[i]+eigval[j]).real() == 0){
-                        K0(i,j) += 0;
-                    } else{
+//                    if((eigval[i]+eigval[j]).real() == 0){
+//                        K0(i,j) += 0;
+//                    } else{
                         K0(i,j) += (Phi()(k,i) * E0.fMat(k,l) * Phi()(l,j) * (eigval[i]*eigval[j])/(eigval[i]+eigval[j]));
                         K0(i,j) += (Phi()(k,i) * E1.fMat(l,k) * Phi()(l,j) * (eigval[i])/(eigval[i]+eigval[j]));
                         K0(i,j) += (Phi()(k,i) * E1.fMat(k,l) * Phi()(l,j) * (eigval[j])/(eigval[i]+eigval[j]));
                         K0(i,j) += (Phi()(k,i) * E2.fMat(k,l) * Phi()(l,j) / (eigval[i]+eigval[j]));
-                    }
+//                    }
                 }
             }
             rot(i,j) = fPhiInverse(i,j);
+        }
+    }
+    for (int i=0; i<K0.Rows(); i++) {
+        for (int j=0; j<K0.Cols(); j++) {
+            if (isnan(K0(i,j).real()) || isinf(K0(i,j).real()))
+                K0(i,j) = 0;
         }
     }
     
@@ -706,50 +1022,100 @@ void TPZSBFemElementGroup::CalcStiff2(TPZElementMatrix &ek, TPZElementMatrix &ef
 void TPZSBFemElementGroup::CalcStiffBodyLoads(TPZElementMatrix &ek, TPZElementMatrix &ef)
 {
     
-    TPZElementMatrix E0, E1, E2, M0, P0, RF;
-    ComputeMatrices(E0, E1, E2, M0, P0, RF);
+    TPZElementMatrix E0, E1, E2, M0;
+    ComputeMatrices(E0, E1, E2, M0);
     
     int n = E0.fMat.Rows();
     int norder = TPZSBFemElementGroup::gDefaultPolynomialOrder;
-    if (norder ==0) {
-        DebugStop();
+//    if (norder ==0) {
+//        DebugStop();
+//    }
+    
+    TPZFNMatrix<200,std::complex<double>> K0(n, n, 0);
+    TPZFNMatrix<200,std::complex<double>> rot(n, n, 0);
+    TPZManVector<std::complex<double>,50> eigval(n,0);
+    TPZFNMatrix<200,std::complex<double>> Phiu(n, n, 0);
+    TPZFNMatrix<200,std::complex<double>> f(n,1,0);
+    TPZFNMatrix<100,std::complex<REAL>> K(n,n,0);
+    ef.fMat.Resize(n, 1);
+    ek.fMat.Resize(n, n);
+    if (norder > 0) {
+        K0.Resize(n + norder*n + 1,n+norder*n + 1);
+        rot.Resize(n+norder*n + 1, norder*n + 1);
+        eigval.resize(n + norder*n + 1);
+        Phiu.Resize(n,n+n*norder+1);
+        f.Resize(n+norder*n+1,1);
+        K.Resize(norder*n+1,norder*n+1);
+        ef.fMat.Resize(n*norder+1,1);
+        ek.fMat.Resize(norder*n+1,norder*n+1);
     }
     
-    TPZFNMatrix<100,std::complex<double>> K0(n + norder*n + 1,n+norder*n + 1,0);
-    TPZFNMatrix<100,std::complex<double>> rot(n+norder*n + 1, norder*n + 1,0);
-    
-    TPZManVector<std::complex<double> > eigval(n + norder*n + 1,0);
+    int cont = 0;
     for (int i=0; i<n; i++) {
         eigval[i] = -EigenValues()[i];
     }
-    for (int i=0; i<n; i++) {
-        eigval[i+n] = 1;
-    }
-    if (norder>1) {
+    if (norder>=1) {
+        for (int i=0; i<n; i++) {
+            eigval[i+n] = 1;
+        }
         for (int j=2; j<=norder; j++) {
             for (int i=0; i<n; i++) {
                 eigval[i + n*j + 1] = j;
             }
         }
         eigval[2*n]=0;
+        for (int i=0; i<n; i++) {
+            REAL resto = eigval[i].real() - nearbyint(eigval[i].real());
+            if( !IsZero(resto) ){
+                if ( IsZero(fabs(eigval[eigval.size()-1].real()) - fabs(eigval[i].real()) ) ) {
+                    continue;
+                }
+                eigval.resize(eigval.size()+n);
+                cont++;
+                for (int j=0; j<n; j++) {
+                    eigval[eigval.size()-n+j] = eigval[i];
+                }
+            }
+        }
+        TPZConnect &c = Mesh()->ConnectVec()[fInternalConnectIndex];
+        int64_t seq = c.SequenceNumber();
+        int internalpoly = Mesh()->Block().Size(seq);
+        int neq_adc = eigval.size() - (n+norder*n+1);
+//        
+//        int nshape = norder*n+1 + n*cont - n;
+//        c.SetNShape(nshape);
+//        Mesh()->Block().Set(seq, nshape);
+    }
+    int neq_adc = eigval.size() - (n+norder*n+1);
+    
+    int neq = eigval.size();
+    int ncon = norder*n+1 + neq_adc;
+    if (norder > 0) {
+        K0.Resize(neq, neq);
+        rot.Resize(neq, ncon);
+        Phiu.Resize(n, neq);
+        f.Resize(neq,1);
+        K.Resize(ncon, ncon);
+        ef.fMat.Resize(ncon, 1);
+        ek.fMat.Resize(ncon, ncon);
     }
     
-    TPZFNMatrix<200,std::complex<double>> Phiu(n,n+n*norder+1);
     for (int i=0; i<n; i++) {
         for (int j=0; j<n; j++) {
-            Phiu(i,j) = Phi()(i,j);
+            Phiu(i,j) = fPhi(i,j);
         }
-        Phiu(i,n+i) = 1;
-        Phiu(i,n*2) = Phiu(i,n-1);
     }
-    if (norder>1) {
-        for (int j=2; j<=norder; j++) {
+    if (norder>=1) {
+        for (int i=0; i<n; i++) {
+            Phiu(i,n+i) = 1;
+            Phiu(i,n*2) = Phiu(i,n-1);
+        }
+        for (int j=2; j<=norder+cont; j++) {
             for (int i=0; i<n; i++) {
                 Phiu(i,n*j+i+1) = 1;
             }
         }
     }
-    fPhi = Phiu;
     
     
     for (int i=0; i<n; i++) {
@@ -757,75 +1123,71 @@ void TPZSBFemElementGroup::CalcStiffBodyLoads(TPZElementMatrix &ek, TPZElementMa
             rot(i,j) = fPhiInverse(i,j);
         }
     }
-    if(norder > 1){
-        for (int i=0; i<n; i++) {
-            rot(i+n, i+n+1) = 1;
-            rot(n+1 + i+n, i+n+1) = -1;
+    if(norder >= 1){
+        rot(2*n,n) = 1;
+        for (int64_t i=0; i<n; i++) {
+            rot(n+i,n) = -1.;
+            if(IsZero(fPhi(i,n-1).real())){
+                rot(n+i,n) = 0.;
+            }
         }
-        for (int j=2; j<norder; j++) {
+        if(norder > 1){
+            for (int i=0; i<n; i++) {
+                rot(i+n, i+n+1) = 1;
+                rot(n+1 + i+n, i+n+1) = -1;
+            }
+        }
+        for (int j=2; j<norder+cont; j++) {
             int fac = 1;
             for (int i=2; i<=j+1; i++) {
                 fac *= i;
             }
             for (int i=0; i<n; i++) {
-                if ((j+1)%2 == 0){
-                    rot(i+n*j+1, i+n*j+1) = 1;
-                    rot(n+1 + i+n*j, i+n*j+1) = -1;
-                }
-                if( (j+1)%2 != 0 ){
-                    rot(i+n*j+1, i+n*j+1) = -1;
-                    rot(n+1 + i+n*j, i+n*j+1) = 1;
-                }
+                rot(i+n, i+n*j+1) = 1;
+                rot(n+1 + i+n*j, i+n*j+1) = -1;
             }
+            
         }
     }
     
-    for (int i=0; i<n; i++) {
-        rot(i+n,n) = -Phiu(i,n-1);
+    
+    if (TPZSBFemElementGroup::gPolynomialShapeFunctions) {
+        this->OverwritePhis(Phiu, rot, eigval);
     }
-    rot(2*n,n)=1;
+    fPhi = Phiu;
     
     for (int i=0; i<eigval.size(); i++) {
         for (int j=0; j<eigval.size(); j++) {
             for (int k=0; k<n; k++) {
                 for (int l=0; l<n; l++) {
-                    if((eigval[i]+eigval[j]).real() == 0){
-                        K0(i,j) += 0;
-                    } else{
-                        K0(i,j) += (Phiu(k,i) * E0.fMat(k,l) * Phiu(l,j) * (eigval[i]*eigval[j])/(eigval[i]+eigval[j]));
-                        K0(i,j) += (Phiu(k,i) * E1.fMat(l,k) * Phiu(l,j) * (eigval[i])/(eigval[i]+eigval[j]));
-                        K0(i,j) += (Phiu(k,i) * E1.fMat(k,l) * Phiu(l,j) * (eigval[j])/(eigval[i]+eigval[j]));
-                        K0(i,j) += (Phiu(k,i) * E2.fMat(k,l) * Phiu(l,j) / (eigval[i]+eigval[j]));
-                    }
+                    K0(i,j) += (Phiu(k,i) * E0.fMat(k,l) * Phiu(l,j) * (eigval[i]*eigval[j])/(eigval[i]+eigval[j]));
+                    K0(i,j) += (Phiu(k,i) * E1.fMat(l,k) * Phiu(l,j) * (eigval[i])/(eigval[i]+eigval[j]));
+                    K0(i,j) += (Phiu(k,i) * E1.fMat(k,l) * Phiu(l,j) * (eigval[j])/(eigval[i]+eigval[j]));
+                    K0(i,j) += (Phiu(k,i) * E2.fMat(k,l) * Phiu(l,j) / (eigval[i]+eigval[j]));
                 }
-                
             }
-            
         }
     }
-//    for (int i=0; i<K0.Rows(); i++) {
-//        for (int j=0; j<K0.Cols(); j++) {
-//            if (isnan(K0(i,j).real()) || isinf(K0(i,j).real()))
-//                K0(i,j)=0;
-//        }
-//    }
+    for (int i=0; i<K0.Rows(); i++) {
+        for (int j=0; j<K0.Cols(); j++) {
+            if (isnan(K0(i,j).real()) || isinf(K0(i,j).real()))
+                K0(i,j)=0;
+        }
+    }
     
     TPZFNMatrix<100,std::complex<REAL>> partial(n+norder*n+1,norder*n+1,0);
     K0.Multiply(rot, partial);
     rot.Transpose();
-    TPZFNMatrix<100,std::complex<REAL>> K(norder*n+1,norder*n+1,0);
     rot.Multiply(partial, K);
     
-    ek.fMat.Resize(norder*n+1,norder*n+1);
-    for (int i=0; i<norder*n+1; i++) {
-        for (int j=0; j<norder*n+1; j++) {
+    for (int i=0; i<K.Rows(); i++) {
+        for (int j=0; j<K.Cols(); j++) {
             ek.fMat(i,j) = K(i,j).real();
         }
     }
     
     // force vector
     int64_t nel = fElGroup.size();
-    TPZFNMatrix<200,std::complex<double>> f(n+norder*n+1,1,0);
     rot.Transpose();
     fRot = rot;
     
@@ -858,32 +1220,16 @@ void TPZSBFemElementGroup::CalcStiffBodyLoads(TPZElementMatrix &ek, TPZElementMa
         }
 #endif
         sbfem->LocalBodyForces(f, eigval, icon);
-        
     }
     
-//    TPZFNMatrix<200,REAL> rotreal(rot.Rows(),rot.Cols());
-//    TPZFNMatrix<200,REAL> freal(f.Rows(),f.Cols());
-//    for (int64_t i=0; i<rot.Rows(); i++) {
-//        for (int64_t j=0; j<rot.Cols(); j++) {
-//            rotreal(i,j) = rot(i,j).real();
-//        }
-//    }
-//    for (int64_t i=0; i<f.Rows(); i++) {
-//        for (int64_t j=0; j<f.Cols(); j++) {
-//            freal(i,j) = f(i,j).real();
-//        }
-//    }
     
-    ef.fMat.Resize(n*norder+1,1);
     ef.fMat.Zero();
     TPZFNMatrix<200,std::complex<double>> efcomplex;
     rot.Transpose();
     rot.Multiply(f, efcomplex);
-    for (int i=0; i<n*norder+1; i++) {
+    for (int i=0; i<ef.fMat.Rows(); i++) {
         ef.fMat(i,0) = efcomplex(i,0).real();
     }
-//    rotreal.Transpose();
-//    rotreal.Multiply(freal, ef.fMat);
     fek = ek.fMat;
     fef = ef.fMat;
     
@@ -911,11 +1257,31 @@ void TPZSBFemElementGroup::CalcStiffBodyLoads(TPZElementMatrix &ek, TPZElementMa
     
 }
 
+void TPZSBFemElementGroup::OverwritePhis(TPZFNMatrix<200,std::complex<double>> &Phiu, TPZFNMatrix<200,std::complex<double>> &rot, TPZManVector<std::complex<double>,50> &eigval)
+{
+    int64_t n = Phiu.Rows();
+    
+    for (int i=0; i<n; i++) {
+        rot(i+n,n) = -Phiu(i,n-1).real();
+    }
+    rot(2*n,n) = 1;
+    
+    for (int64_t i=0; i<n; i++) {
+        for (int64_t j=0; j<n; j++) {
+            Phiu(i,j) = 0.;
+            rot(i,j) = 0.;
+        }
+        Phiu(i,i) = 1.;
+        rot(i,i) = 1.;
+        eigval[i] = 1;
+    }
+}
+
 void TPZSBFemElementGroup::LoadSolution()
 {
     if (TPZSBFemElementGroup::gDefaultPolynomialOrder)
     {
-        TPZCompEl::LoadSolution();
+//        TPZCompEl::LoadSolution();
         
         int nc = NConnects();
         int ndof = fPhi.Rows();
@@ -930,7 +1296,6 @@ void TPZSBFemElementGroup::LoadSolution()
         
         TPZFNMatrix<200,std::complex<double> > sol(ndof, fMesh->Solution().Cols(),0.);
         fCoef.Resize(ndof, fMesh->Solution().Cols());
-        TPZFNMatrix<200,std::complex<double> > unh_local(ndof, fMesh->Solution().Cols(),0.);
         
         int count = 0;
         for (int ic=0; ic<nc; ic++) {
@@ -960,6 +1325,14 @@ void TPZSBFemElementGroup::LoadSolution()
 #endif
             sbfem->LoadCoef(fCoef);
         }
+#ifdef LOG4CXX
+        if (loggerBF->isDebugEnabled()) {
+            std::stringstream sout;
+            fCoef.Print("fCoef = ", sout, EMathematicaInput);
+            LOGPZ_DEBUG(loggerBF, sout.str())
+        }
+#endif
+        
     }
     else
     {
@@ -998,7 +1371,7 @@ void TPZSBFemElementGroup::LoadSolution()
         if(TPZSBFemElementGroup::gDefaultPolynomialOrder){
 //        fCoef = Mesh()
         } else{
-            fPhiInverse.Multiply(sol-unh_local, fCoef);
+            fPhiInverse.Multiply(sol, fCoef);
         }
         
         int64_t nel = fElGroup.size();
@@ -1114,8 +1487,13 @@ void TPZSBFemElementGroup::InitializeInternalConnect()
         connects[i] = fConnectIndexes[i];
         nshape += Mesh()->ConnectVec()[fConnectIndexes[i]].NShape();
     }
+    int nshapecontorno = nshape;
     nshape += (fInternalPolynomialOrder-2)*nshape;
-    nshape+=1;
+    nshape += 1;
+    int nstate = fElGroup[0]->Material()->NStateVariables();
+    if( Mesh()->GetDefaultOrder() != 1){
+        nshape += nshapecontorno*nshapecontorno/(nstate*4);
+    }
     
     std::vector<int64_t>::iterator it = std::find(connects.begin(), connects.end(), fInternalConnectIndex);
     if (it != connects.end()) {

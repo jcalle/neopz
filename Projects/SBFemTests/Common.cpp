@@ -23,6 +23,8 @@
 #include "tpzarc3d.h"
 #include "tpzgeoblend.h"
 
+#include "pzcondensedcompel.h"
+
 #ifdef _AUTODIFF
 TElasticity2DAnalytic ElastExact;
 
@@ -36,6 +38,8 @@ static LoggerPtr logger(Logger::getLogger("pz.sbfem"));
 #endif
 
 //TElasticity2DAnalytic::EDefState TElasticity2DAnalytic::fProblemType = TElasticity2DAnalytic::EStretchx;
+
+int fExample;
 
 void SolveSist(TPZAnalysis *an, TPZCompMesh *Cmesh)
 {
@@ -85,11 +89,11 @@ void SolveSist(TPZAnalysis *an, TPZCompMesh *Cmesh)
     
 }
 
-void Constant(const TPZVec<REAL> &x, TPZVec<STATE> &val)
-{
-    val.resize(1);
-    val[0] = 1.;
-}
+//void Constant(const TPZVec<REAL> &x, TPZVec<STATE> &val)
+//{
+//    val.resize(1);
+//    val[0] = 1.;
+//}
 
 void HarmonicNeumannLeft(const TPZVec<REAL> &x, TPZVec<STATE> &val)
 {
@@ -154,6 +158,45 @@ void InsertMaterialObjects(TPZCompMesh *cmesh, bool scalarproblem, bool applyexa
             matloc2->SetForcingFunction(ElastExact.ForcingFunction());
         }
 #endif
+        TPZFMatrix<STATE> val1(nstate,nstate,0.), val2(nstate,1,0.);
+        TPZMaterial * BCond1 = material->CreateBC(material,Ebc1,1, val1, val2);
+#ifdef _AUTODIFF
+        if (applyexact) {
+            BCond1->SetForcingFunction(ElastExact.TensorFunction());
+        }
+#endif
+        val1(0,0) = 1.;
+        val1(1,1) = 1.;
+        TPZMaterial * BCond2 = material->CreateBC(material,Ebc2,1, val1, val2);
+#ifdef _AUTODIFF
+        if (applyexact) {
+            BCond2->SetForcingFunction(ElastExact.TensorFunction());
+        }
+#endif
+        val1.Zero();
+        
+        TPZMaterial * BCond3 = material->CreateBC(material,Ebc3,1, val1, val2);
+#ifdef _AUTODIFF
+        if (applyexact) {
+            BCond3->SetForcingFunction(ElastExact.TensorFunction());
+        }
+#endif
+        val2(0,0) *=-1.;
+        TPZMaterial * BCond4 = material->CreateBC(material,Ebc4,1, val1, val2);
+#ifdef _AUTODIFF
+        if (applyexact) {
+            BCond4->SetForcingFunction(ElastExact.TensorFunction());
+        }
+#endif
+        val1.Zero(); val2.Zero();
+        TPZMaterial * BSkeleton = material->CreateBC(material,ESkeleton,1, val1, val2);
+
+        cmesh->InsertMaterialObject(material);
+        cmesh->InsertMaterialObject(BCond1);
+        cmesh->InsertMaterialObject(BCond2);
+        cmesh->InsertMaterialObject(BCond3);
+        cmesh->InsertMaterialObject(BCond4);
+        cmesh->InsertMaterialObject(BSkeleton);
     }
     else
     {
@@ -161,46 +204,259 @@ void InsertMaterialObjects(TPZCompMesh *cmesh, bool scalarproblem, bool applyexa
         matloc->SetDimension(2);
         matloc->SetSymmetric();
         
-        int polynomialorder = 2;
+        int polynomialorder = 0;
 //        matloc->SetForcingFunction(LaplaceExact.ForcingFunction());
-        TPZDummyFunction<STATE> *dummy = new TPZDummyFunction<STATE>(Constant, polynomialorder);
-        TPZAutoPointer<TPZFunction<STATE> > autodummy = dummy;
-        matloc->SetForcingFunction(autodummy);
-    
-//        TPZDummyFunction<STATE> *dummy = new TPZDummyFunction<STATE>(forcefunction, polynomialorder);
+//        TPZDummyFunction<STATE> *dummy = new TPZDummyFunction<STATE>(Constant_Laplacian_Ex1, polynomialorder);
 //        TPZAutoPointer<TPZFunction<STATE> > autodummy = dummy;
 //        matloc->SetForcingFunction(autodummy);
     
         material = matloc;
         nstate = 1;
+        
+        TPZFMatrix<STATE> val1(2,2,0.), val2(2,2,0.);    val2(0,0) = 0.0;
+        
+        TPZMaterial * BSkeleton = material->CreateBC(material,ESkeleton,1, val1, val2);
+        TPZMaterial * BCond2 = material->CreateBC(material,Ebc2, 0, val1, val2);
+        TPZMaterial * BCond4 = material->CreateBC(material,Ebc4, 0, val1, val2);
+        
+        val1.Zero(); val2.Zero();
+        TPZMaterial * BCond1 = material->CreateBC(material,Ebc1, 1, val1, val2);
+        //    TPZMaterial * BCond2 = material->CreateBC(material,Ebc2, 1, val1, val2);
+        TPZMaterial * BCond3 = material->CreateBC(material,Ebc3, 1, val1, val2);
+        //    TPZMaterial * BCond4 = material->CreateBC(material,Ebc4, 1, val1, val2);
+        //    TPZMaterial * BCond1 = material->CreateBC(material,Ebc1, 0, val1, val2);
+        //    TPZMaterial * BCond2 = material->CreateBC(material,Ebc2, 0, val1, val2);
+        //    TPZMaterial * BCond3 = material->CreateBC(material,Ebc3, 0, val1, val2);
+        //    TPZMaterial * BCond4 = material->CreateBC(material,Ebc4, 0, val1, val2);
+        
+//        BCond1->SetForcingFunction(autodummy);
+//        BCond3->SetForcingFunction(autodummy);
+        
+        cmesh->InsertMaterialObject(material);
+        cmesh->InsertMaterialObject(BCond1);
+        cmesh->InsertMaterialObject(BCond2);
+        cmesh->InsertMaterialObject(BCond3);
+        cmesh->InsertMaterialObject(BCond4);
+        cmesh->InsertMaterialObject(BSkeleton);
+        
+        val1.Zero();
+        val2.Zero();
+    }
+//    TPZMaterial * BCond5 = material->CreateBC(material,EBCPoint1, 0, val1, val2);
+//    TPZMaterial * BCond6 = material->CreateBC(material,EBCPoint2, 0, val1, val2);
+//    cmesh->InsertMaterialObject(BCond5);
+//    cmesh->InsertMaterialObject(BCond6);
+    
+}
+
+
+
+void InsertMaterialObjects2(TPZCompMesh *cmesh, bool scalarproblem, bool applyexact)
+{
+    
+    // Getting mesh dimension
+    int dim = 2;
+    
+    TPZMaterial *material;
+    int nstate = 1;
+    bool elasticity = false;
+    if (!scalarproblem) {
+        elasticity = true;
+    }
+    
+    int polynomialorder = 6;
+    TPZDummyFunction<STATE> *dummy;
+    switch (fExample) {
+        case 1:
+            dummy = new TPZDummyFunction<STATE>(ExactSol_Laplacian_Ex1, polynomialorder);
+            break;
+            
+        case 2:
+            dummy = new TPZDummyFunction<STATE>(ExactSol_Laplacian_Ex2, polynomialorder);
+            break;
+            
+        case 3:
+            dummy = new TPZDummyFunction<STATE>(ExactSol_Laplacian_Ex3, polynomialorder);
+            break;
+            
+        case 4:
+            dummy = new TPZDummyFunction<STATE>(ExactSol_Laplacian_Ex4, polynomialorder);
+            break;
+            
+        case 5:
+            dummy = new TPZDummyFunction<STATE>(Laplace_exact, polynomialorder);
+            break;
+            
+        default:
+            break;
+    }
+    TPZAutoPointer<TPZFunction<STATE> > autodummy = dummy;
+  
+    TPZDummyFunction<STATE> *dummyforce;
+    switch (fExample) {
+        case 1:
+            dummyforce = new TPZDummyFunction<STATE>(Constant_Laplacian_Ex1, polynomialorder);
+            break;
+            
+        case 2:
+            dummyforce = new TPZDummyFunction<STATE>(Constant_Laplacian_Ex2, polynomialorder);
+            break;
+            
+        case 3:
+            dummyforce = new TPZDummyFunction<STATE>(Constant_Laplacian_Ex3, polynomialorder);
+            break;
+            
+        case 4:
+            dummyforce = new TPZDummyFunction<STATE>(Constant_Laplacian_Ex4, polynomialorder);
+            break;
+            
+        default:
+            break;
+    }
+    TPZAutoPointer<TPZFunction<STATE> > autodummyforce = dummyforce;
+    if (fExample == 5) {
+        autodummyforce = LaplaceExact.ForcingFunction();
     }
     
     
-    TPZFMatrix<STATE> val1(2,2,0.), val2(2,2,0.);    val2(0,0) = 0.0;
+    if (elasticity)
+    {
+        TPZMatElasticity2D *matloc1 = new TPZMatElasticity2D(Emat1);
+        TPZMatElasticity2D *matloc2 = new TPZMatElasticity2D(Emat2);
+        material = matloc1;
+        nstate = 2;
+        // Plane strain assumption
+//                REAL lamelambda = 1.0e9,lamemu = 0.5e3, fx= 0, fy = 0;
+        REAL lamelambda = 0.,lamemu = 0.5e3, fx= 0, fy = 0;
+        matloc1->SetParameters(lamelambda,lamemu, fx, fy);
+        matloc2->SetParameters(lamelambda,lamemu, fx, fy);
+        TPZManVector<REAL,3> x(3,0.);
+#ifdef _AUTODIFF
+        // Setting up paremeters
+        if (applyexact)
+        {
+            matloc1->SetPlaneStress();
+            matloc1->SetElasticParameters(ElastExact.fE, ElastExact.fPoisson);
+            matloc2->SetPlaneStress();
+            matloc2->SetElasticParameters(ElastExact.fE, ElastExact.fPoisson);
+        }
+#endif
+        REAL Sigmaxx = 0.0, Sigmayx = 0.0, Sigmayy = 0.0, Sigmazz = 0.0;
+        matloc1->SetPreStress(Sigmaxx,Sigmayx,Sigmayy,Sigmazz);
+        matloc2->SetPreStress(Sigmaxx,Sigmayx,Sigmayy,Sigmazz);
+        
+#ifdef _AUTODIFF
+        if(applyexact)
+        {
+            matloc1->SetForcingFunction(ElastExact.ForcingFunction());
+            matloc2->SetForcingFunction(ElastExact.ForcingFunction());
+        }
+#endif
+    }
+    else
+    {
+        TPZMatLaplacian *matloc = new TPZMatLaplacian(Emat1);
+        matloc->SetDimension(2);
+        matloc->SetSymmetric();
+        material = matloc;
+        nstate = 1;
+        
+        matloc->SetForcingFunction(autodummyforce);
+    }
     
+    
+    
+    TPZFMatrix<STATE> val1(nstate,nstate,0.), val2(nstate,1,0.);
+    TPZMaterial * BCond1;
+    if(!elasticity)
+    {
+        BCond1 = material->CreateBC(material,Ebc1,0, val1, val2);
+        BCond1->SetForcingFunction(autodummy);
+    }
+    else
+    {
+        BCond1 = material->CreateBC(material,Ebc1,1, val1, val2);
+#ifdef _AUTODIFF
+        if (applyexact) {
+            BCond1->SetForcingFunction(ElastExact.TensorFunction());
+        }
+#endif
+    }
+    
+    val1.Zero();
+    val2.Zero();
+    TPZMaterial * BCond2 = 0;
+    if(elasticity == 0)
+    {
+        BCond2 = material->CreateBC(material,Ebc2,0, val1, val2);
+        BCond2->SetForcingFunction(autodummy);
+    }
+    else
+    {
+        // mixed condition on the right side to desingularize the problem
+//        val1(0,0) = 1.;
+//        val1(1,1) = 1.;
+        BCond2 = material->CreateBC(material,Ebc2,1, val1, val2);
+#ifdef _AUTODIFF
+        if (applyexact) {
+            BCond2->SetForcingFunction(ElastExact.TensorFunction());
+        }
+#endif
+        val1.Zero();
+    }
+    
+    
+    val1.Zero();
+    val2.Zero();
+    TPZMaterial * BCond3;
+    if(!elasticity)
+    {
+        BCond3 = material->CreateBC(material,Ebc3,0, val1, val2);
+        BCond3->SetForcingFunction(autodummy);
+    }
+    else
+    {
+        BCond3 = material->CreateBC(material,Ebc3,1, val1, val2);
+#ifdef _AUTODIFF
+        if (applyexact) {
+            BCond3->SetForcingFunction(ElastExact.TensorFunction());
+        }
+#endif
+    }
+    
+    val1.Zero();
+    val2.Zero();
+    TPZMaterial * BCond4;
+    if(!elasticity)
+    {
+        BCond4 = material->CreateBC(material,Ebc4,0, val1, val2);
+        BCond4->SetForcingFunction(autodummy);
+    }
+    else
+    {
+        BCond4 = material->CreateBC(material,Ebc4,1, val1, val2);
+#ifdef _AUTODIFF
+        if (applyexact) {
+            BCond4->SetForcingFunction(ElastExact.TensorFunction());
+        }
+#endif
+    }
+    
+    if (elasticity && applyexact) {
+        val1.Zero();
+        val1(0,0) = 0.01;
+        val1(1,1) = 0.01;
+        TPZMaterial * BCond5 = material->CreateBC(material,EBCPoint1, 0, val1, val2);
+        BCond5->SetForcingFunction(ElastExact.TensorFunction());
+        val1(0,0) = 0.;
+        TPZMaterial * BCond6 = material->CreateBC(material,EBCPoint2, 0, val1, val2);
+        BCond6->SetForcingFunction(ElastExact.TensorFunction());
+        cmesh->InsertMaterialObject(BCond5);
+        cmesh->InsertMaterialObject(BCond6);
+    }
+    
+    val1.Zero(); val2.Zero();
     TPZMaterial * BSkeleton = material->CreateBC(material,ESkeleton,1, val1, val2);
-    TPZMaterial * BCond2 = material->CreateBC(material,Ebc2, 0, val1, val2);
-    TPZMaterial * BCond4 = material->CreateBC(material,Ebc4, 0, val1, val2);
-    
-    val1(0,0) = 1.; val2(0,0) = 1.;
-    TPZMaterial * BCond1 = material->CreateBC(material,Ebc1, 1, val1, val2);
-//    TPZMaterial * BCond2 = material->CreateBC(material,Ebc2, 1, val1, val2);
-    TPZMaterial * BCond3 = material->CreateBC(material,Ebc3, 1, val1, val2);
-//    TPZMaterial * BCond4 = material->CreateBC(material,Ebc4, 1, val1, val2);
-//    TPZMaterial * BCond1 = material->CreateBC(material,Ebc1, 0, val1, val2);
-//    TPZMaterial * BCond2 = material->CreateBC(material,Ebc2, 0, val1, val2);
-//    TPZMaterial * BCond3 = material->CreateBC(material,Ebc3, 0, val1, val2);
-//    TPZMaterial * BCond4 = material->CreateBC(material,Ebc4, 0, val1, val2);
-    
-    
-    int polynomialorder = 2;
-    //        matloc->SetForcingFunction(LaplaceExact.ForcingFunction());
-    TPZDummyFunction<STATE> *dummy = new TPZDummyFunction<STATE>(Constant, polynomialorder);
-    TPZAutoPointer<TPZFunction<STATE> > autodummy = dummy;
-//    BCond1->SetBCForcingFunction(LaplaceExact.TensorFunction());
-    BCond2->SetBCForcingFunction(autodummy);
-//    BCond3->SetBCForcingFunction(LaplaceExact.TensorFunction());
-    BCond4->SetBCForcingFunction(autodummy);
     
     cmesh->InsertMaterialObject(material);
     cmesh->InsertMaterialObject(BCond1);
@@ -209,14 +465,9 @@ void InsertMaterialObjects(TPZCompMesh *cmesh, bool scalarproblem, bool applyexa
     cmesh->InsertMaterialObject(BCond4);
     cmesh->InsertMaterialObject(BSkeleton);
     
-    val1.Zero();
-    val2.Zero();
-    TPZMaterial * BCond5 = material->CreateBC(material,EBCPoint1, 0, val1, val2);
-    TPZMaterial * BCond6 = material->CreateBC(material,EBCPoint2, 0, val1, val2);
-    cmesh->InsertMaterialObject(BCond5);
-    cmesh->InsertMaterialObject(BCond6);
-    
 }
+
+
 
 TPZCompMesh *SetupSquareMesh(int nelx, int nrefskeleton, int porder, bool scalarproblem, bool useexact)
 {
@@ -234,30 +485,28 @@ TPZCompMesh *SetupSquareMesh(int nelx, int nrefskeleton, int porder, bool scalar
     TPZAutoPointer<TPZGeoMesh> gmesh = new TPZGeoMesh;
     
     //        OneQuad(gmesh);
-    gengrid.Read(gmesh, EGroup);
+    gengrid.Read(gmesh,EGroup);
     gengrid.SetBC(gmesh, 4, Ebc1);
     gengrid.SetBC(gmesh, 5, Ebc2);
     gengrid.SetBC(gmesh, 6, Ebc3);
     gengrid.SetBC(gmesh, 7, Ebc4);
-//    {
-//        TPZManVector<int64_t,2> nodeindex(1);
-//		int64_t index;
-//        nodeindex[0] = 0;
-//        gmesh->CreateGeoElement(EPoint, nodeindex, EBCPoint1, index);
-//        nodeindex[0] = nelx;
-//        gmesh->CreateGeoElement(EPoint, nodeindex, EBCPoint2, index);
-//        gmesh->BuildConnectivity();
-//    }
+    {
+        TPZManVector<int64_t,2> nodeindex(1);
+        int64_t index;
+        nodeindex[0] = 0;
+        gmesh->CreateGeoElement(EPoint, nodeindex, EBCPoint1, index);
+        nodeindex[0] = nelx;
+        gmesh->CreateGeoElement(EPoint, nodeindex, EBCPoint2, index);
+        gmesh->BuildConnectivity();
+    }
     
     std::map<int,int> matmap;
     matmap[EGroup] = 1;
     TPZBuildSBFem build(gmesh,ESkeleton,matmap);
     
     build.StandardConfiguration();
-    
-//    nrefskeleton=0;
     build.DivideSkeleton(nrefskeleton);
-//    AddSkeletonElements(gmesh);
+    //        AddSkeletonElements(gmesh);
     /// generate the SBFem elementgroups
     
     /// put sbfem pyramids into the element groups
@@ -273,20 +522,18 @@ TPZCompMesh *SetupSquareMesh(int nelx, int nrefskeleton, int porder, bool scalar
     {
         problemtype = 1;
     }
-    InsertMaterialObjects(SBFem,!elasticityproblem, useexact);
-    
-    int polynomialorder=1;
+    InsertMaterialObjects2(SBFem,!elasticityproblem, useexact);
 //    if(problemtype == 1)
 //    {
 //        TPZMaterial *BCond2 = SBFem->FindMaterial(Ebc2);
-//        TPZDummyFunction<STATE> *dummy = new TPZDummyFunction<STATE>(HarmonicNeumannRight, polynomialorder);
+//        TPZDummyFunction<STATE> *dummy = new TPZDummyFunction<STATE>(HarmonicNeumannRight,0);
 //        TPZAutoPointer<TPZFunction<STATE> > autodummy = dummy;
 //        BCond2->SetForcingFunction(autodummy);
 //    }
 //    if(problemtype == 1)
 //    {
 //        TPZMaterial *BCond4 = SBFem->FindMaterial(Ebc4);
-//        TPZDummyFunction<STATE> *dummy = new TPZDummyFunction<STATE>(HarmonicNeumannLeft, polynomialorder);
+//        TPZDummyFunction<STATE> *dummy = new TPZDummyFunction<STATE>(HarmonicNeumannLeft,0);
 //        TPZAutoPointer<TPZFunction<STATE> > autodummy = dummy;
 //        BCond4->SetForcingFunction(autodummy);
 //    }
@@ -303,14 +550,6 @@ TPZCompMesh *SetupSquareMesh(int nelx, int nrefskeleton, int porder, bool scalar
         std::ofstream out("Geometry.vtk");
         TPZVTKGeoMesh vtk;
         vtk.PrintGMeshVTK(gmesh, out,true);
-    }
-    
-    
-    {
-        std::ofstream gout("Geometry_SBFEM.vtk");
-        TPZVTKGeoMesh vtk;
-        vtk.PrintGMeshVTK(gmesh, gout, true);
-        std::cout << Ebc1 << ", " << Ebc2 << ", " << Ebc3 << ", " << Ebc4 << std::endl;
     }
     return SBFem;
 }
@@ -361,7 +600,7 @@ TPZCompMesh *SetupSquareH1Mesh(int nelx, int porder, bool scalarproblem, bool us
     {
         problemtype = 1;
     }
-    InsertMaterialObjects(SBFem,!elasticityproblem, useexact);
+    InsertMaterialObjects2(SBFem,!elasticityproblem, useexact);
 //    int polynomialorder=1;
 //    if(problemtype == 1)
 //    {
@@ -650,41 +889,65 @@ TPZCompMesh *SetupCrackedOneElement(int nrefskeleton, int porder, bool applyexac
 }
 
 
-void Constant_Laplacian(const TPZVec<REAL> &x, TPZVec<STATE> &val)
+void Constant_Laplacian_Ex1(const TPZVec<REAL> &x, TPZVec<STATE> &val)
 {
-    val[0] = 1.0;
-    val[1] = 0;
+    val[0] = 0.0;
 }
 
-void ExactSol_Laplacian(const TPZVec<REAL> &x, TPZVec<REAL> &sol, TPZFMatrix<STATE> &deriv){
-//    REAL Pi = M_PI;
-//    REAL xi = x[0];
-//    REAL eta = x[1];
-//    sol.resize(1);
-//    
-//    sol[0] = (32*(6043467208275*cos((Pi*eta)/2.)*(839475*cos((Pi*xi)/2.) + 12915*cos((5*Pi*xi)/2.) +
-//                                            2275*cos((9*Pi*xi)/2.) + 55965*sin((3*Pi*(1 + xi))/2.) +
-//                                            4797*sin((7*Pi*(1 + xi))/2.)) +
-//         297305883*cos((5*Pi*eta)/2.)*(262528875*cos((Pi*xi)/2.) +
-//                                          27303003*cos((5*Pi*xi)/2.) +
-//                                          1625*(4403*cos((9*Pi*xi)/2.) + 41181*sin((3*Pi*(1 + xi))/2.) +
-//                                                8109*sin((7*Pi*(1 + xi))/2.))) +
-//         25*(58671*(6588266139*cos((Pi*xi)/2.)*
-//                    (35*sin((3*Pi*(1 + eta))/2.) + 3*sin((7*Pi*(1 + eta))/2.)) +
-//                    52370955*cos((5*Pi*xi)/2.)*
-//                    (259*sin((3*Pi*(1 + eta))/2.) + 51*sin((7*Pi*(1 + eta))/2.)) +
-//                    3145*(9947*sin((9*Pi*xi)/2.)*
-//                          (91*sin((3*Pi*(1 + eta))/2.) + 27*sin((7*Pi*(1 + eta))/2.)) +
-//                          66885*sin((3*Pi*(1 + eta))/2.)*
-//                          (203*sin((3*Pi*(1 + xi))/2.) + 27*sin((7*Pi*(1 + xi))/2.)) +
-//                          5265*sin((7*Pi*(1 + eta))/2.)*
-//                          (343*sin((3*Pi*(1 + xi))/2.) + 87*sin((7*Pi*(1 + xi))/2.)))) +
-//             31283315*cos((9*Pi*eta)/2.)*
-//             (17579835*cos((Pi*xi)/2.) +
-//              41*(66339*cos((5*Pi*xi)/2.) +
-//                  53*(455*cos((9*Pi*xi)/2.) + 2457*sin((3*Pi*(1 + xi))/2.) +
-//                      729*sin((7*Pi*(1 + xi))/2.)))))))/(5.073339634666656e18*pow(Pi,4));
-    sol[0] = 1/2*(x[0]*x[0]-1);
+void ExactSol_Laplacian_Ex1(const TPZVec<REAL> &x, TPZVec<REAL> &sol, TPZFMatrix<STATE> &deriv)
+{
+    sol.resize(1);
+    deriv.Resize(2,1);
+    
+    sol[0] = 1./2*(-x[0]*x[0]+x[1]*x[1]);
+    deriv(0,0) = -x[0];
+    deriv(1,0) = x[1];
+}
+
+
+void Constant_Laplacian_Ex2(const TPZVec<REAL> &x, TPZVec<STATE> &val)
+{
+    val[0] = 0.0;
+}
+
+void ExactSol_Laplacian_Ex2(const TPZVec<REAL> &x, TPZVec<REAL> &sol, TPZFMatrix<STATE> &deriv)
+{
+    sol.resize(1);
+    deriv.Resize(2,1);
+    
+    sol[0] = 1./2 * ( sin(M_PI*x[0])*sinh(M_PI*x[1]) );
+    deriv(0,0) = 1./2 * M_PI * cos(M_PI*x[0]) * sinh(M_PI*x[1]);
+    deriv(1,0) = 1./2 * M_PI * cosh(M_PI*x[1]) * sin(M_PI*x[0]);
+}
+
+void Constant_Laplacian_Ex3(const TPZVec<REAL> &x, TPZVec<STATE> &val)
+{
+    val[0] = 1.0;
+}
+
+void ExactSol_Laplacian_Ex3(const TPZVec<REAL> &x, TPZVec<REAL> &sol, TPZFMatrix<STATE> &deriv)
+{
+    sol.resize(1);
+    deriv.Resize(2,1);
+    
+    sol[0] = 1./2*sin(M_PI*x[0])*sinh(M_PI*x[1]) - x[0]*x[0]/2;
+    deriv(0,0) = 1./2*M_PI*cos(M_PI*x[0])*sinh(M_PI*x[1]) - x[0];
+    deriv(1,0) = 1./2*M_PI*cosh(M_PI*x[1])*sin(M_PI*x[0]);
+}
+
+void Constant_Laplacian_Ex4(const TPZVec<REAL> &x, TPZVec<STATE> &val)
+{
+    val[0] = 1.0;
+}
+
+void ExactSol_Laplacian_Ex4(const TPZVec<REAL> &x, TPZVec<REAL> &sol, TPZFMatrix<STATE> &deriv){
+    
+    sol.resize(1);
+    deriv.Resize(2,1);
+    
+    sol[0] = 1./2*(1.-x[0]*x[0]);
+    deriv(0,0) = -x[0];
+    deriv(1,0) = 0;
 }
 
 void forcefunction(const TPZVec<REAL> &co, TPZVec<STATE> &result)
@@ -696,7 +959,6 @@ void forcefunction(const TPZVec<REAL> &co, TPZVec<STATE> &result)
     
     double Pi = M_PI;
     result[0] = 8.0*Pi*Pi*cos(2.0*Pi*yv)*sin(2.0*Pi*xv);
-//    result[1] = -8.0*Pi*Pi*cos(2.0*Pi*yv)*sin(2.0*Pi*xv);
 }
 
 void solexact(const TPZVec<REAL> &x, TPZVec<REAL> &sol, TPZFMatrix<STATE> &deriv)
@@ -718,4 +980,133 @@ void solexact(const TPZVec<REAL> &x, TPZVec<REAL> &sol, TPZFMatrix<STATE> &deriv
     deriv(1,0)= -2*Pi*sin(2*Pi*xv)*sin(2*Pi*yv);
 //    deriv(0,1)= -2*Pi*cos(2*Pi*yv)*cos(2*Pi*xv);
 //    deriv(1,1)=  2*Pi*sin(2*Pi*xv)*sin(2*Pi*yv);
+}
+
+void WriteCSVFile(std::ofstream results, TPZVec<REAL> &errors)
+{
+    for(int i=0;i<3;i++) errors[i] *= 1e6;
+    std::stringstream varname;
+//    results << "Errmat[[" << nelxcount << ", " << POrder << ", " << 1 << ";;" << 3 << "]] = (1/1000000)*";\
+//    results << "{ " << errors << " };" << std::endl;
+    
+}
+
+void SetExample(int example){
+    fExample = example;
+}
+
+void SetInterpolation(TPZCompMesh * cmesh, REAL h){
+    
+    int64_t nel = cmesh->NElements();
+
+    for (int64_t iel=0; iel<nel; iel++) {
+        if(!cmesh->Element(iel)){
+            continue;
+        }
+        
+        TPZCompEl * cel = cmesh->Element(iel);
+        
+        TPZSBFemElementGroup *celelem = dynamic_cast<TPZSBFemElementGroup *>(cel);
+        if(!celelem){
+            continue;
+        }
+        TPZStack<TPZCompEl *, 5> elgroup = celelem->GetElGroup();
+        
+        for (int i=0; i<elgroup.size(); i++) {
+            TPZSBFemVolume *celvol = dynamic_cast<TPZSBFemVolume *>(elgroup[i]);
+            if (!celvol) {
+                continue;
+            }
+            TPZCompEl *celskeleton = cmesh->Element(celvol->SkeletonIndex());
+            TPZGeoEl * gel = celskeleton->Reference();
+            
+//            TPZVec<REAL> qsi(3,0.5);
+//            TPZFMatrix<REAL> jac;
+//            TPZFMatrix<REAL> axes;
+//            REAL detjac;
+//            TPZFMatrix<REAL> jacinv;
+//            gel->Jacobian(qsi, jac, axes, detjac, jacinv);
+//            TPZFMatrix<REAL> coord;
+//            gel->NodesCoordinates(coord);
+//            
+//            celvol->Coeficients().Print(std::cout);
+//
+//            if (coord(1,0) == coord(1,1)) {
+//                TPZFNMatrix<200,std::complex<double>> coef(3,1,0);
+//                TPZManVector<REAL> x(2,0);
+//                TPZManVector<REAL> sol0(1,0);
+//                TPZManVector<REAL> sol1(1,0);
+//                TPZFMatrix<STATE> deriv;
+//                
+//                x[0] = coord(0,0);
+//                x[1] = coord(1,0);
+//                
+//                ExactSol_Laplacian_Ex4(x, sol0, deriv);
+//                TPZConnect * con = &(celskeleton->Connect(0));
+//                int seq = con->SequenceNumber();
+//                cmesh->Block()(seq,0,0,0) = sol0[0];
+//                std::cout << sol0[0] << std::endl;
+//                
+//                x[0] = coord(0,1);
+//                x[1] = coord(1,1);
+//                ExactSol_Laplacian_Ex4(x, sol1, deriv);
+//                con = &(celskeleton->Connect(1));
+//                seq = con->SequenceNumber();
+//                cmesh->Block()(seq,0,0,0) = sol1[0];
+//                std::cout << sol1[0] << std::endl;
+//                
+//                con = &(celskeleton->Connect(2));
+//                seq = con->SequenceNumber();
+//                cmesh->Block()(seq,0,0,0) = sol1[0] + sol0[0] - h*h/4.;
+//                std::cout << sol1[0] + sol0[0] - h*h/4. << std::endl;
+//                
+//            }
+//            if (coord(1,0) != coord(1,1)) {
+//                TPZFNMatrix<200,std::complex<double>> coef(3,1,0);
+//                TPZManVector<REAL> x(2,0);
+//                TPZManVector<REAL> sol(1,0);
+//                TPZFMatrix<STATE> deriv;
+//                
+//                x[0] = coord(0,0);
+//                x[1] = coord(1,0);
+//                
+//                ExactSol_Laplacian_Ex4(x, sol, deriv);
+//                
+//                TPZConnect * con = &(celskeleton->Connect(0));
+//                int seq = con->SequenceNumber();
+//                cmesh->Block()(seq,0,0,0) = sol[0];
+//                
+//                con = &(celskeleton->Connect(2));
+//                seq = con->SequenceNumber();
+//                cmesh->Block()(seq,0,0,0) = sol[0];
+//                
+//                con = &(celskeleton->Connect(1));
+//                seq = con->SequenceNumber();
+//                cmesh->Block()(seq,0,0,0) = sol[0];
+//                std::cout << sol[0] << std::endl;
+//            }
+        }
+        celelem->Coeficients().Print("solel = ", std::cout, EMathematicaInput);
+//        celelem->LoadSolution();
+//        TPZVec<REAL> errors;
+//        
+//        TPZCondensedCompEl * condcel = new TPZCondensedCompEl(cel);
+//        condcel->LoadElementReference();
+//        TPZElementMatrix ek;
+//        TPZElementMatrix ef;
+//        condcel->CalcStiff(ek, ef);
+//        condcel->LoadSolution();
+//        
+//        celelem->EvaluateError(ExactSol_Laplacian_Ex4, errors, false);
+//        std::stringstream sout;
+//        sout << "Scalar_ElementError.csv";
+//        
+//        
+//        std::ofstream results(sout.str(),std::ios::app);
+//        for (int ier=0; ier<errors.size(); ier++) {
+//            results << errors[ier] << ", ";
+//        }
+//        results << cmesh->GetDefaultOrder() << ", " << h << endl;
+        
+    }
 }

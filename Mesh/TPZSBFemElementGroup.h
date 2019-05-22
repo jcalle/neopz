@@ -23,6 +23,8 @@ public:
     
     static int gDefaultPolynomialOrder;
     
+    static int gPolynomialShapeFunctions;
+    
 private:
     
     /// Matrix of eigenvectors which compose the stiffness matrix
@@ -96,7 +98,7 @@ public:
 
     /// Compute the SBFem matrices
     /// method to assemble E0, E1, E2
-    void ComputeMatrices(TPZElementMatrix &E0, TPZElementMatrix &E1, TPZElementMatrix &E2, TPZElementMatrix &M0, TPZElementMatrix &P0, TPZElementMatrix &RF);
+    void ComputeMatrices(TPZElementMatrix &E0, TPZElementMatrix &E1, TPZElementMatrix &E2, TPZElementMatrix &M0);
     
     /**
      * @brief Computes the element stifness matrix and right hand side
@@ -114,6 +116,8 @@ public:
      * @param ef element load vector
      */
     void CalcStiffBodyLoads(TPZElementMatrix &ek, TPZElementMatrix &ef);
+    
+    void OverwritePhis(TPZFNMatrix<200,std::complex<double>> &Phiu, TPZFNMatrix<200,std::complex<double>> &rot, TPZManVector<std::complex<double>,50> &eigval);
     
     /// set the density or specific heat of the material
     void SetDensity(REAL density)

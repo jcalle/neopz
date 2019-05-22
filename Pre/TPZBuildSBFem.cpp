@@ -740,12 +740,12 @@ void TPZBuildSBFem::CreateElementGroups(TPZCompMesh &cmesh)
             }
             femvol->SetElementGroupIndex(index);
         }
-        
-        sbfemgroup->InitializeInternalConnect();
+        if (TPZSBFemElementGroup::gDefaultPolynomialOrder) {
+            sbfemgroup->InitializeInternalConnect();
+        }
     }
     
     cmesh.InitializeBlock();
-    
     
 }
 

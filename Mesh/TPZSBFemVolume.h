@@ -77,12 +77,12 @@ public:
     
     //Karol
     
-    void LocalBodyForces(TPZFNMatrix<200,std::complex<double>> &f, TPZManVector<std::complex<double>> &eigval, int icon);
+    void LocalBodyForces(TPZFNMatrix<200,std::complex<double>> &f, TPZManVector<std::complex<double>,50> &eigval, int icon);
     
     void ComputeLocalForces(TPZElementMatrix &E0, TPZElementMatrix &E1, TPZElementMatrix &E2, TPZElementMatrix &P0, TPZElementMatrix &RF);
     
     /// Compute the E0, E1 and E2 matrices
-    void ComputeKMatrices(TPZElementMatrix &E0, TPZElementMatrix &E1, TPZElementMatrix &E2, TPZElementMatrix &M0, TPZElementMatrix &P0, TPZElementMatrix &RF);
+    void ComputeKMatrices(TPZElementMatrix &E0, TPZElementMatrix &E1, TPZElementMatrix &E2, TPZElementMatrix &M0);
     
     /// Data structure initialization
     void SetSkeleton(int64_t skeleton);
