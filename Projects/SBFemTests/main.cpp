@@ -96,25 +96,30 @@ int main(int argc, char *argv[])
     
     int counter = 1;
     
-//    usesbfem = true;
-//    scalarproblem = true;
-//    bodyforces = true;
-//    usepoly = false;
-//    maxporder = 4;
+    usesbfem = true;
+    scalarproblem = false;
+    bodyforces = true;
+//    usepoly = true;
+    maxporder = 2;
+    maxinternalporder = 2;
 //    maxnelxcount = 4;
+    example = 5;
     SetExample(example);
     
 #ifdef _AUTODIFF
-    LaplaceExact.fExact = TLaplaceExample1::ECosCos;
+//    LaplaceExact.fExact = TLaplaceExample1::ECosCos;
 //    LaplaceExact.fExact = TLaplaceExample1::ESinSin;
-//    LaplaceExact.fExact = TLaplaceExample1::E10SinSin; //NÃO FUNCIONOU P/ P=2
+//    LaplaceExact.fExact = TLaplaceExample1::E10SinSin;
 //    LaplaceExact.fExact = TLaplaceExample1::ESinCos;
 //    LaplaceExact.fExact = TLaplaceExample1::EExactTest;
 //    ElastExact.fProblemType = TElasticity2DAnalytic::EDispx;
 //    ElastExact.fProblemType = TElasticity2DAnalytic::EDispy;
 //    ElastExact.fProblemType = TElasticity2DAnalytic::ERot;
 //    ElastExact.fProblemType = TElasticity2DAnalytic::EShear;
-//    ElastExact.fProblemType = TElasticity2DAnalytic::EBend;
+    ElastExact.fProblemType = TElasticity2DAnalytic::ELoadedBeam;
+    ElastExact.fE = 20.;
+    ElastExact.fPoisson = 0.1;
+    ElastExact.fPlaneStress = 1;
 #endif
     
     std::stringstream sout;
@@ -146,10 +151,10 @@ int main(int argc, char *argv[])
     }
     descr << description[description.size()-1] << std::endl;
     
-    for ( int POrder = 1; POrder <= maxporder; POrder += 1)
+    for ( int POrder = 2; POrder <= maxporder; POrder += 1)
     {
-//        int pinternal = POrder;
-        for (int pinternal = 1; pinternal < maxinternalporder; pinternal++)
+        int pinternal = POrder;
+//        for (int pinternal = 1; pinternal <= maxinternalporder; pinternal++)
         {
             if (POrder == 3 && !scalarproblem) {
                 maxnelxcount = 3;
@@ -157,6 +162,7 @@ int main(int argc, char *argv[])
             for(int nelxcount = 1; nelxcount <= maxnelxcount; nelxcount++)
             {
                 int nelx = 1 << (nelxcount-1);
+                bool useexact = true;
                 
                 if (bodyforces) {
                     TPZSBFemElementGroup::gDefaultPolynomialOrder = pinternal;
@@ -196,17 +202,6 @@ int main(int argc, char *argv[])
                 Analysis->SetStep(counter++);
                 std::cout << "neq = " << SBFem->NEquations() << std::endl;
                 
-//                std::set<int64_t> identifyequationstozero;
-                
-                
-//                geo_analysis.IdentifyEquationsToZero();
-//                int64_t neq = localSnapshot.fGeomechanicCMesh->NEquations();
-//                TPZVec<int64_t> activeEquations;
-//                geo_analysis.GetActiveEquationsToZero(activeEquations);
-//                TPZEquationFilter filter(neq);
-//                filter.SetActiveEquations(activeEquations);
-//                geo_matrix->EquationFilter() = filter;
-                
                 SolveSist(Analysis, SBFem);
                 
                 std::cout << "Post processing\n";
@@ -221,30 +216,34 @@ int main(int argc, char *argv[])
 //                    Analysis->SetExact(Elasticity_exact);
 //                }
 //    #endif
-                
-                switch (example) {
-                    case 1:
-                        Analysis->SetExact(ExactSol_Laplacian_Ex1);
-                        break;
-                        
-                    case 2:
-                        Analysis->SetExact(ExactSol_Laplacian_Ex2);
-                        break;
-                        
-                    case 3:
-                        Analysis->SetExact(ExactSol_Laplacian_Ex3);
-                        break;
-                        
-                    case 4:
-                        Analysis->SetExact(ExactSol_Laplacian_Ex4);
-                        break;
-                        
-                    case 5:
-                        Analysis->SetExact(Laplace_exact);
-                        break;
-                        
-                    default:
-                        break;
+                if(scalarproblem){
+                    switch (example) {
+                        case 1:
+                            Analysis->SetExact(ExactSol_Laplacian_Ex1);
+                            break;
+                            
+                        case 2:
+                            Analysis->SetExact(ExactSol_Laplacian_Ex2);
+                            break;
+                            
+                        case 3:
+                            Analysis->SetExact(ExactSol_Laplacian_Ex3);
+                            break;
+                            
+                        case 4:
+                            Analysis->SetExact(ExactSol_Laplacian_Ex4);
+                            break;
+                            
+                        case 5:
+                            Analysis->SetExact(Laplace_exact);
+                            break;
+                            
+                        default:
+                            break;
+                    }
+                }
+                else{
+                    Analysis->SetExact(Elasticity_exact);
                 }
                 
                 if(scalarproblem)
@@ -308,9 +307,11 @@ int main(int argc, char *argv[])
                     Analysis->LoadSolution(sol0);
                 }
                 
+//                sol0.Print("fcoef = ", std::cout, EMathematicaInput);
+
                 std::cout << "Compute errors\n";
                 
-                Analysis->SetThreadsForError(8);
+//                Analysis->SetThreadsForError(8);
                 TPZVec<REAL> errors(3,0);
                 bool store_error = false;
                 Analysis->PostProcessError(errors,store_error);

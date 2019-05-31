@@ -28,23 +28,21 @@ public:
 private:
     
     /// Matrix of eigenvectors which compose the stiffness matrix
-    TPZFMatrix<std::complex<double> > fPhi;
+    TPZFMatrix<std::complex<double> > fPhi; //
     
     /// Matrix of all eigenvectors ordered
-    TPZFMatrix<std::complex<double> > fEigenvectors;
+    TPZFMatrix<std::complex<double> > fEigenvectors; //OLHAR ESSA VARIAVEL
     
     /// Inverse of the eigenvector matrix (transfers eigenvector coeficients to side shape coeficients)
     TPZFMatrix<std::complex<double> > fPhiInverse;
     
     /// Vector of eigenvalues of the SBFem analyis
-    TPZManVector<std::complex<double> > fEigenvalues;
+    TPZManVector<std::complex<double> > fEigenvalues; //
     
     /// Multiplying coefficients of each eigenvector
-    TPZFMatrix<std::complex<double> > fCoef;
+    TPZFMatrix<std::complex<double> > fCoef; //
     
-    TPZFNMatrix<200,std::complex<double> > fRot;
-    
-    TPZFMatrix<REAL> fek, fef;
+    TPZFNMatrix<200,std::complex<double> > fMatPhiInv; //
     
     TPZFMatrix<STATE> fMassMatrix;
     
@@ -56,24 +54,9 @@ private:
     /// timestep coeficient
     REAL fDelt = 1.;
     
-//    ///Coefficient to calculate the coefficient vector
-//    TPZFMatrix<REAL> fPhi11;
-//    
-//    ///Coefficient to calculate the coefficient vector
-//    TPZFMatrix<REAL> fPhi12A22P0;
-//    
-//    /// Coefficient matrix
-//    TPZFMatrix<REAL> fPhi12;
-//    
-//    /// Coefficient matrix
-//    TPZFMatrix<REAL> fA22;
-//    
-//    /// Coefficient matrix
-//    TPZFMatrix<REAL> fA12;
+    int fInternalPolynomialOrder; //
     
-    int fInternalPolynomialOrder;
-    
-    int64_t fInternalConnectIndex;
+    int64_t fInternalConnectIndex; //
     
     /// Compute the mass matrix based on the value of M0 and the eigenvectors
     void ComputeMassMatrix(TPZElementMatrix &M0);
@@ -105,6 +88,9 @@ public:
      * @param ek element stiffness matrix
      * @param ef element load vector
      */
+    
+    void ComputeEigenvalues();
+    
     virtual void CalcStiff(TPZElementMatrix &ek,TPZElementMatrix &ef);
     
     
@@ -117,7 +103,7 @@ public:
      */
     void CalcStiffBodyLoads(TPZElementMatrix &ek, TPZElementMatrix &ef);
     
-    void OverwritePhis(TPZFNMatrix<200,std::complex<double>> &Phiu, TPZFNMatrix<200,std::complex<double>> &rot, TPZManVector<std::complex<double>,50> &eigval);
+    void OverwritePhis(TPZFMatrix<std::complex<double>> &Phiu, TPZFNMatrix<200,std::complex<double>> &rot, TPZManVector<std::complex<double> > &eigval);
     
     /// set the density or specific heat of the material
     void SetDensity(REAL density)

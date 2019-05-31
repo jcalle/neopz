@@ -742,9 +742,27 @@ void TPZBuildSBFem::CreateElementGroups(TPZCompMesh &cmesh)
         }
         if (TPZSBFemElementGroup::gDefaultPolynomialOrder) {
             sbfemgroup->InitializeInternalConnect();
+//            sbfemgroup->ComputeEigenvalues(); //lalalalal
         }
     }
     
+    
+    
+    for (int64_t el=0; el<numgroups; el++) {
+        int64_t index;
+        
+        index = elementgroupindices[el];
+        TPZCompEl *cel = cmesh.Element(index);
+        TPZSBFemElementGroup *sbfemgroup = dynamic_cast<TPZSBFemElementGroup *>(cel);
+        if (!sbfemgroup) {
+            DebugStop();
+        }
+        if (TPZSBFemElementGroup::gDefaultPolynomialOrder) {
+            sbfemgroup->ComputeEigenvalues(); //lalalalal
+        }
+    }
+    
+    //COLOCAR NOVO LOOP
     cmesh.InitializeBlock();
     
 }

@@ -36,7 +36,7 @@ TPZSBFemVolume::TPZSBFemVolume(TPZCompMesh &mesh, TPZGeoEl *gel, int64_t &index)
 
 //Karol
 
-void TPZSBFemVolume::LocalBodyForces(TPZFNMatrix<200,std::complex<double>> &f, TPZManVector<std::complex<double>,50> &eigval, int icon){
+void TPZSBFemVolume::LocalBodyForces(TPZFNMatrix<200,std::complex<double>> &f, TPZManVector<std::complex<double>> &eigval, int icon){
     
     TPZCompMesh *cmesh = Mesh();
     TPZGeoEl *Ref2D = Reference();
@@ -58,7 +58,7 @@ void TPZSBFemVolume::LocalBodyForces(TPZFNMatrix<200,std::complex<double>> &f, T
     if (Ref2D->Dimension() < problemdimension) return;
     
     TPZAutoPointer<TPZIntPoints> intrule = Ref2D->CreateSideIntegrationRule(Ref2D->NSides() - 1, 7);
-    TPZManVector<int, 3> maxorder(2, int(eigval[0].real())*2+1);
+    TPZManVector<int, 3> maxorder(2, int(fabs(eigval[0].real()))*3);
     intrule->SetOrder(maxorder);
     
     int nstate = material->NStateVariables();
@@ -120,9 +120,9 @@ void TPZSBFemVolume::LocalBodyForces(TPZFNMatrix<200,std::complex<double>> &f, T
             if (IsZero(eigval[c])) {
                 xiexp = 1;
             } else {
-                xiexp = pow(sbfemparam, eigval[c]);
+                xiexp = pow(sbfemparam, -eigval[c]);
             }
-            for (int i = 0; i < nphixi; i++) {
+            for (int i = 0; i < data1d.phi.Rows(); i++) {
                 for (int istate = 0; istate < nstate; istate++) {
                     eflocal(i,c) += xiexp * data1d.phi(i,0) * bodyforce[istate] * weight;
                 }
@@ -538,7 +538,7 @@ void TPZSBFemVolume::SetPhiEigVal(TPZFMatrix<std::complex<double> > &phi, TPZMan
 //void TPZSBFemVolume::SetCoefNonHomogeneous(TPZFMatrix<REAL> &Phi12, TPZFMatrix<REAL> &A22, TPZFMatrix<REAL> &A12, TPZFMatrix<REAL> &Phi12A22P0, TPZFMatrix<REAL> &P0)
 void TPZSBFemVolume::SetCoefNonHomogeneous(TPZFNMatrix<200,std::complex<double> > &rot)
 {
-    fRot = rot;
+    fMatPhiInv = rot;
     //    fPhi12 = Phi12;
     //    fA22 = A22;
     //    fA12 = A12;
@@ -764,7 +764,7 @@ void TPZSBFemVolume::ComputeSolutionNH(TPZVec<REAL> &qsi,
     int nshape = data1d.phi.Rows();
     int nstate = mat2d->NStateVariables();
 #ifdef PZDEBUG
-    if (fRot.Cols() != fCoeficients.Rows()) {
+    if (fMatPhiInv.Cols() != fCoeficients.Rows()) {
         DebugStop();
     }
 #endif
@@ -782,7 +782,7 @@ void TPZSBFemVolume::ComputeSolutionNH(TPZVec<REAL> &qsi,
     
     for (int s = 0; s < sol.size(); s++) {
         TPZFNMatrix<200,std::complex<double>> umat0(fPhi.Rows(), fPhi.Cols(),0), Dumat0(fPhi.Rows(), fPhi.Cols(),0);
-        TPZFNMatrix<200,std::complex<double>> umat(fPhi.Rows(), fRot.Cols(),0), Dumat(fPhi.Rows(), fRot.Cols(),0);
+        TPZFNMatrix<200,std::complex<double>> umat(fPhi.Rows(), fMatPhiInv.Cols(),0), Dumat(fPhi.Rows(), fMatPhiInv.Cols(),0);
         TPZManVector<std::complex<double>, 10> uh_xi(fPhi.Rows(), 0.), Duh_xi(fPhi.Rows(), 0.);
         int nphixi = fPhi.Rows();
         int numeig = fEigenvalues.size();
@@ -804,12 +804,12 @@ void TPZSBFemVolume::ComputeSolutionNH(TPZVec<REAL> &qsi,
                 Dumat0(i,c) += (fEigenvalues[c] + 0.5 * (dim - 2)) * xiexpm1 * fPhi(i, c);
             }
         }
-        umat0.Multiply(fRot, umat);
-        Dumat0.Multiply(fRot, Dumat);
+        umat0.Multiply(fMatPhiInv, umat);
+        Dumat0.Multiply(fMatPhiInv, Dumat);
 //        umat.Print("umat = ", std::cout, EMathematicaInput);
 //        fCoeficients.Print("fcoef = ", std::cout, EMathematicaInput);
         
-        for (int c = 0; c < fRot.Cols(); c++) {
+        for (int c = 0; c < fMatPhiInv.Cols(); c++) {
             for (int i = 0; i < nphixi; i++) {
                 uh_xi[i] += fCoeficients(c, s) * umat(i, c);
                 Duh_xi[i] += -fCoeficients(c, s) * Dumat(i, c);
@@ -860,7 +860,7 @@ void TPZSBFemVolume::ComputeSolutionNH(TPZVec<REAL> &qsi,
         sbfemmat(i,i) = pow(sbfemparam, -Eigenvalues()[i].real());
     }
     TPZFMatrix<std::complex<double> > res;
-    sbfemmat.Multiply(fRot, res);
+    sbfemmat.Multiply(fMatPhiInv, res);
     TPZFNMatrix<200, std::complex<REAL>> umatrix;
     fPhi.Multiply(res, umatrix);
     

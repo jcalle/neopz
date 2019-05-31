@@ -50,7 +50,7 @@ class TPZSBFemVolume : public TPZInterpolationSpace
     /// Density associated with the mass matrix
     REAL fDensity = 1.;
     
-    TPZFNMatrix<200,std::complex<double> > fRot;
+    TPZFNMatrix<200,std::complex<double> > fMatPhiInv;
     
 //    /// Coefficient matrix
 //    TPZFMatrix<REAL> fPhi12;
@@ -77,7 +77,7 @@ public:
     
     //Karol
     
-    void LocalBodyForces(TPZFNMatrix<200,std::complex<double>> &f, TPZManVector<std::complex<double>,50> &eigval, int icon);
+    void LocalBodyForces(TPZFNMatrix<200,std::complex<double>> &f, TPZManVector<std::complex<double>> &eigval, int icon);
     
     void ComputeLocalForces(TPZElementMatrix &E0, TPZElementMatrix &E1, TPZElementMatrix &E2, TPZElementMatrix &P0, TPZElementMatrix &RF);
     

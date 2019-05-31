@@ -16,7 +16,7 @@ struct TPZAnalyticSolution
 {
     
     /// integer to correct for the sign convention of the forcing term
-    int fSignConvention = 1;
+    int fSignConvention = -1;
     
     class TForce : public TPZFunction<STATE>
     {
