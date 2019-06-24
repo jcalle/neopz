@@ -168,7 +168,7 @@ struct TPZAnalyticSolution
 struct TElasticity2DAnalytic : public TPZAnalyticSolution
 {
      enum EDefState  {ENone, EDispx, EDispy, ERot, EStretchx, EUniAxialx, EStretchy, EShear, EBend, ELoadedBeam, Etest1, Etest2,
-         ESquareRootUpper, ESquareRootLower, ESquareRoot
+         ESquareRootUpper, ESquareRootLower, ESquareRoot, EPoly, ESin
      };
     
      EDefState fProblemType = EDispx;
@@ -362,11 +362,19 @@ struct TElasticity2DAnalytic : public TPZAnalyticSolution
             disp[1] = 1 / (2. * G) * sqrt(r / (2. * M_PI)) * sinth * (kappa + 1. - 2. * costh * costh);
             //        std::cout << "SQU x " << x << " theta " << theta << " disp " << disp << std::endl;
 #endif
-        } else {
+        } else if (fProblemType == EPoly) {
+            disp[0] = x[0]*x[0] * x[1]*x[1] * (1-x[0])*(1-x[0])*(1-x[0]) * (1-x[1])*(1-x[1])*(1-x[1]);
+            disp[1] = x[0]*x[0] * x[1]*x[1] * (1-x[0])*(1-x[0])*(1-x[0]) * (1-x[1])*(1-x[1])*(1-x[1]);
+        }
+        else if (fProblemType == EPoly) {
+            disp[0] = 3/4 * sin(6*M_PI*x[0]);
+            disp[1] = 3/4 * sin(6*M_PI*x[0]);
+        }
+        else {
             DebugStop();
         }
     }
-    
+
     template<typename TVar1, typename TVar2>
     void graduxy(const TPZVec<TVar1> &x, TPZFMatrix<TVar2> &grad) const {
         TPZManVector<Fad<TVar1>,3> xfad(x.size());

@@ -85,6 +85,12 @@ void ExactSol_Laplacian_Ex3(const TPZVec<REAL> &x, TPZVec<REAL> &sol, TPZFMatrix
 void Constant_Laplacian_Ex4(const TPZVec<REAL> &x, TPZVec<STATE> &val);
 
 void ExactSol_Laplacian_Ex4(const TPZVec<REAL> &x, TPZVec<REAL> &sol, TPZFMatrix<STATE> &deriv);
+
+
+void BodyLoads_ElasticityOoietal1(const TPZVec<REAL> &cord, TPZVec<REAL> &val);
+
+void ExactSol_ElasticityOoietal1(const TPZVec<REAL> &cord, TPZVec<REAL> &sol, TPZFMatrix<STATE> &deriv);
+
 #endif
 
 void forcefunction(const TPZVec<REAL> &co, TPZVec<STATE> &result);

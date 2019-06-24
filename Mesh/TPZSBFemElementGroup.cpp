@@ -673,7 +673,7 @@ void TPZSBFemElementGroup::CalcStiff(TPZElementMatrix &ek, TPZElementMatrix &ef)
     fMatPhiInv.Multiply(f, efcomplex);
     fMatPhiInv.Transpose();
     for (int i=0; i<ef.fMat.Rows(); i++) {
-        ef.fMat(i,0) = efcomplex(i,0).real();
+        ef.fMat(i,0) = -efcomplex(i,0).real();
     }
     
     
@@ -995,7 +995,7 @@ void TPZSBFemElementGroup::ComputeEigenvalues()
             for (int i=0; i<n; i++) {
                 fPhi(i,n+i ) = 1;
                 for (int j=0; j<nstate; j++) {
-                    fPhi(i,n*2 - 1+j) = fPhi(i,n - 2+j);
+                    fPhi(i,n*nstate - 1+j) = fPhi(i,n - nstate + j);
                 }
             }
             for (int j=2; j<=norder; j++) {
@@ -1136,6 +1136,7 @@ void TPZSBFemElementGroup::ComputeEigenvalues()
         }
     }
     
+//    fPhi.Print("Phiu = ", std::cout, EMathematicaInput);
     if (TPZSBFemElementGroup::gPolynomialShapeFunctions) {
         this->OverwritePhis(fPhi, fMatPhiInv, fEigenvalues);
     }
@@ -1295,7 +1296,7 @@ void TPZSBFemElementGroup::CalcStiffBodyLoads(TPZElementMatrix &ek, TPZElementMa
             
         }
     }
-    
+    Phiu.Print("Phiu = ", std::cout, EMathematicaInput);
     
     if (TPZSBFemElementGroup::gPolynomialShapeFunctions) {
         this->OverwritePhis(Phiu, rot, eigval);

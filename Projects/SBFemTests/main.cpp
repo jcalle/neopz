@@ -1,3 +1,4 @@
+
 #ifdef HAVE_CONFIG_H
 #include <pz_config.h>
 #endif
@@ -99,15 +100,15 @@ int main(int argc, char *argv[])
     usesbfem = true;
     scalarproblem = false;
     bodyforces = true;
-//    usepoly = true;
-    maxporder = 2;
+    usepoly = false;
+    maxporder = 7;
     maxinternalporder = 2;
-//    maxnelxcount = 4;
+    maxnelxcount = 4;
     example = 5;
     SetExample(example);
     
 #ifdef _AUTODIFF
-//    LaplaceExact.fExact = TLaplaceExample1::ECosCos;
+    LaplaceExact.fExact = TLaplaceExample1::ECosCos;
 //    LaplaceExact.fExact = TLaplaceExample1::ESinSin;
 //    LaplaceExact.fExact = TLaplaceExample1::E10SinSin;
 //    LaplaceExact.fExact = TLaplaceExample1::ESinCos;
@@ -116,10 +117,12 @@ int main(int argc, char *argv[])
 //    ElastExact.fProblemType = TElasticity2DAnalytic::EDispy;
 //    ElastExact.fProblemType = TElasticity2DAnalytic::ERot;
 //    ElastExact.fProblemType = TElasticity2DAnalytic::EShear;
-    ElastExact.fProblemType = TElasticity2DAnalytic::ELoadedBeam;
-    ElastExact.fE = 20.;
-    ElastExact.fPoisson = 0.1;
-    ElastExact.fPlaneStress = 1;
+//    ElastExact.fProblemType = TElasticity2DAnalytic::ELoadedBeam;
+//    ElastExact.fProblemType = TElasticity2DAnalytic::EPoly;
+    ElastExact.fProblemType = TElasticity2DAnalytic::ESin;
+    ElastExact.fE = 2.6;
+    ElastExact.fPoisson = 0.3;
+//    ElastExact.fPlaneStress = 1;
 #endif
     
     std::stringstream sout;
@@ -151,7 +154,7 @@ int main(int argc, char *argv[])
     }
     descr << description[description.size()-1] << std::endl;
     
-    for ( int POrder = 2; POrder <= maxporder; POrder += 1)
+    for ( int POrder = 1; POrder <= maxporder; POrder += 1)
     {
         int pinternal = POrder;
 //        for (int pinternal = 1; pinternal <= maxinternalporder; pinternal++)
@@ -180,6 +183,7 @@ int main(int argc, char *argv[])
                 {
                     SBFem = SetupSquareH1Mesh(nelx, POrder, scalarproblem, useexact);
                 }
+//                SBFem->Print();
                 
                 SBFem->ComputeNodElCon();
                 SBFem->InitializeBlock();
@@ -244,6 +248,7 @@ int main(int argc, char *argv[])
                 }
                 else{
                     Analysis->SetExact(Elasticity_exact);
+//                    Analysis->SetExact(ExactSol_ElasticityOoietal1);
                 }
                 
                 if(scalarproblem)
@@ -311,7 +316,7 @@ int main(int argc, char *argv[])
 
                 std::cout << "Compute errors\n";
                 
-//                Analysis->SetThreadsForError(8);
+                Analysis->SetThreadsForError(8);
                 TPZVec<REAL> errors(3,0);
                 bool store_error = false;
                 Analysis->PostProcessError(errors,store_error);

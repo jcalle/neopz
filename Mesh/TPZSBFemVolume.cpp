@@ -124,7 +124,7 @@ void TPZSBFemVolume::LocalBodyForces(TPZFNMatrix<200,std::complex<double>> &f, T
             }
             for (int i = 0; i < data1d.phi.Rows(); i++) {
                 for (int istate = 0; istate < nstate; istate++) {
-                    eflocal(i,c) += xiexp * data1d.phi(i,0) * bodyforce[istate] * weight;
+                    eflocal(i*nstate + istate,c) += xiexp * data1d.phi(i,0) * bodyforce[istate] * weight;
                 }
             }
         }

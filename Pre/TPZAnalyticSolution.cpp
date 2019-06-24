@@ -320,6 +320,17 @@ void TElasticity2DAnalytic::uxy(const TPZVec<FADFADREAL > &x, TPZVec<FADFADREAL 
         disp[0] = 1/(2.*G)*FADsqrt(r/(2.*M_PI))*costh*(kappa-1.+2.*sinth*sinth);
         disp[1] = 1/(2.*G)*FADsqrt(r/(2.*M_PI))*sinth*(kappa+1.-2.*costh*costh);
     }
+    
+    else if(fProblemType == EPoly)
+    {
+        disp[0] = x[0]*x[0] * x[1]*x[1] * (1-x[0])*(1-x[0])*(1-x[0]) * (1-x[1])*(1-x[1])*(1-x[1]);
+        disp[1] = x[0]*x[0] * x[1]*x[1] * (1-x[0])*(1-x[0])*(1-x[0]) * (1-x[1])*(1-x[1])*(1-x[1]);
+    }
+    else if(fProblemType == ESin)
+    {
+        disp[0] = 3/4 * FADsin(6*M_PI*x[0]);
+        disp[1] = 3/4 * FADsin(6*M_PI*x[1]);
+    }
     else
     {
         DebugStop();
