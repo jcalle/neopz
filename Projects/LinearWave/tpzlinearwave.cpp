@@ -1,15 +1,15 @@
 /*
     <this class implements a dynamic linear wave equation.>
     
-    $ \frac{\delta^{2} u}{\delta t^{2}} - c^{2} \Delta u = f \text{ in } \Omega $
+    \f$ \frac{\delta^{2} u}{\delta t^{2}} - c^{2} \Delta u = f \f$  in  \f$ \Omega \f$
 
     With boundary conditions.
     
-    $ u = 0 \text{ on } \delta \Omega \text{ or} $
+    \f$ u = 0 \f$  on  \f$ \delta \Omega \f$  or
     
     and initial conditions.
     
-    $ u(0,x) = u_{0}(x) \text{ in } \Omega $
+    \f$ u(0,x) = u_{0}(x) \f$  in  \f$ \Omega \f$
     
     
     Copyright (C) 2014  <copyright Omar> <omaryesiduran@gmail.com>

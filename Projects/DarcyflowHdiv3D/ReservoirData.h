@@ -65,7 +65,7 @@ public:
     ~ReservoirData();
     
     /**
-     * @brief \f$ Rock porosity. \f$ Phi = Phi( P ) \f$
+     * @brief Rock porosity. \f$ Phi = Phi( P ) \f$
      * @param P fluid pressure
      */
     void Porosity(REAL P, REAL &poros, REAL &dPorosDp);

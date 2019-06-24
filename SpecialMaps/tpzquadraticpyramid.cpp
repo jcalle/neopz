@@ -417,13 +417,15 @@ int TPZQuadraticPyramid::ClassId() const{
 template class TPZRestoreClass< TPZGeoElRefPattern<TPZQuadraticPyramid>>;
 template class pzgeom::TPZNodeRep<13,TPZQuadraticPyramid>;
 
-namespace pzgeom {
-    template void TPZQuadraticPyramid::X(const TPZFMatrix<REAL>&, TPZVec<REAL>&, TPZVec<REAL>&);
-    template void TPZQuadraticPyramid::GradX(const TPZFMatrix<REAL> &nodes,TPZVec<REAL> &loc, TPZFMatrix<REAL> &gradx);
+/// \relates pzgeom::TPZQuadraticPyramid
+    template void pzgeom::TPZQuadraticPyramid::X(const TPZFMatrix<REAL>&, TPZVec<REAL>&, TPZVec<REAL>&);
+/// \relates pzgeom::TPZQuadraticPyramid
+    template void pzgeom::TPZQuadraticPyramid::GradX(const TPZFMatrix<REAL> &nodes,TPZVec<REAL> &loc, TPZFMatrix<REAL> &gradx);
 
 #ifdef _AUTODIFF
-    template void TPZQuadraticPyramid::X(const TPZFMatrix<REAL>&, TPZVec<Fad<REAL> >&, TPZVec<Fad<REAL> >&);
-    template void TPZQuadraticPyramid::GradX(const TPZFMatrix<REAL> &nodes,TPZVec<Fad<REAL> > &loc, TPZFMatrix<Fad<REAL> > &gradx);
+/// \relates pzgeom::TPZQuadraticPyramid
+    template void pzgeom::TPZQuadraticPyramid::X(const TPZFMatrix<REAL>&, TPZVec<Fad<REAL> >&, TPZVec<Fad<REAL> >&);
+/// \relates pzgeom::TPZQuadraticPyramid
+    template void pzgeom::TPZQuadraticPyramid::GradX(const TPZFMatrix<REAL> &nodes,TPZVec<Fad<REAL> > &loc, TPZFMatrix<Fad<REAL> > &gradx);
 #endif
 
-}

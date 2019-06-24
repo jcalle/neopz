@@ -46,7 +46,7 @@ protected:
 	int fDim;
 	
 	/** @brief term that multiplies the Laplacian operator, outflow to the poros medio and right side
-     * @note \f$fXf f$ => vetor de carga
+     * @note \f$fXf \f$ => vetor de carga
      */
     REAL fXf;
 	

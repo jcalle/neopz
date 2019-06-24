@@ -147,7 +147,7 @@ public:
     
     
     /**
-     * @brief \f$ Rock porosity. \f$ Phi = Phi( P ) \f$
+     * @brief Rock porosity. \f$ Phi = Phi( P ) \f$
      * @param P fluid pressure
      * @param poros porosity
      * @param dPorosDp porosity derivative

@@ -75,7 +75,7 @@
  
  \section svn Getting NeoPZ code
  
- It is recommended to use <a href="http://www.syntevo.com/smartsvn/download.html?all=true">SmartSVN</a> to get the NeoPZ code. Actually we are using SmartSVN 6.6.9 .
+ The code is available on <a href="http://www.github.com/labmec/neopz">GitHub</a>.
  
  \section cmake Creating project depending on the system user
  

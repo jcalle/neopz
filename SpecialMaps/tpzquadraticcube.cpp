@@ -435,13 +435,15 @@ template class TPZRestoreClass< TPZGeoElRefPattern<pzgeom::TPZQuadraticCube>>;
 
 template class pzgeom::TPZNodeRep<20,pzgeom::TPZQuadraticCube>;
 
-namespace pzgeom {
-    template void TPZQuadraticCube::X(const TPZFMatrix<REAL>&, TPZVec<REAL>&, TPZVec<REAL>&);
-    template void TPZQuadraticCube::GradX(const TPZFMatrix<REAL> &nodes,TPZVec<REAL> &loc, TPZFMatrix<REAL> &gradx);
+/// \relates pzgeom::TPZQuadraticCube
+    template void pzgeom::TPZQuadraticCube::X(const TPZFMatrix<REAL>&, TPZVec<REAL>&, TPZVec<REAL>&);
+/// \relates pzgeom::TPZQuadraticCube
+    template void pzgeom::TPZQuadraticCube::GradX(const TPZFMatrix<REAL> &nodes,TPZVec<REAL> &loc, TPZFMatrix<REAL> &gradx);
 
 #ifdef _AUTODIFF
-    template void TPZQuadraticCube::X(const TPZFMatrix<REAL>&, TPZVec<Fad<REAL> >&, TPZVec<Fad<REAL> >&);
-    template void TPZQuadraticCube::GradX(const TPZFMatrix<REAL> &nodes,TPZVec<Fad<REAL> > &loc, TPZFMatrix<Fad<REAL> > &gradx);
+/// \relates pzgeom::TPZQuadraticCube
+    template void pzgeom::TPZQuadraticCube::X(const TPZFMatrix<REAL>&, TPZVec<Fad<REAL> >&, TPZVec<Fad<REAL> >&);
+/// \relates pzgeom::TPZQuadraticCube
+    template void pzgeom::TPZQuadraticCube::GradX(const TPZFMatrix<REAL> &nodes,TPZVec<Fad<REAL> > &loc, TPZFMatrix<Fad<REAL> > &gradx);
 #endif
 
-}

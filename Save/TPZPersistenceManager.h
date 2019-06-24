@@ -22,7 +22,18 @@ namespace TPZPersistenceManagerNS {
 
 using namespace TPZPersistenceManagerNS;
 
-//TODO: Implement CloseRead()
+/**
+ * \addtogroup save
+ * @{
+ */
+
+
+/**
+ * @brief This class defines the interface to save and restore objects from TPZStream objects. \ref save "Persistency"
+ */
+/**
+ * This class has static methods and attributes that manage the process of writing (reading) to (from) a file.
+ */
 class TPZPersistenceManager {
     
     TPZPersistenceManager();

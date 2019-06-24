@@ -95,7 +95,7 @@ public:
 //
 //	
 //	/** 
-//	 * @brief \f$ Rock porosity. \f$ Phi = Phi( p ) \f$
+//	 * @brief Rock porosity. \f$ Phi = Phi( p ) \f$
 //	 * @param po Refrence pressure
 //	 */	
 //	void Porosity(REAL po, REAL &poros, REAL &dPorosDp);
@@ -127,7 +127,7 @@ public:
 //	
 //	
 //	/** 
-//	 * @brief \f$ Rock porosity. \f$ Phi = Phi( p ) \f$
+//	 * @brief Rock porosity. \f$ Phi = Phi( p ) \f$
 //	 * @param po Refrence pressure
 //	 */	
 //	void Porosity(VarFad po, VarFad &poros);	

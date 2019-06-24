@@ -57,12 +57,10 @@ public:
 };
 
 /**
- * @brief This class defines the interface to save and restore objects from TPZStream objects. \ref save "Persistency"
+ * @brief This class defines the interface to the Read/Write methods. \ref save "Persistency"
  */
 /**
- * This class defines the interface a class needs to implement (override) in order to become persistent
- * Several static utility methods have been defined to make saving and restoring of vectors of
- * objects easier
+ * This class defines the interface a class needs to implement (override) in order to become persistent.
  */
 class TPZSavable : public virtual TPZRegisterClassId {
 	

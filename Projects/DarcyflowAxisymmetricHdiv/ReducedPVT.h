@@ -29,13 +29,13 @@ private:
     /** @brief Pressure for references values - Pa */
     REAL fPRef;
     
-    /** @brief Density - kg/m3  $\rho_{g}$ */
+    /** @brief Density - kg/m3  \f$ \rho_{g} \f$ */
     REAL fRho;
     
-    /** @brief viscosity - Pa s  $\mu_{g}$ */
+    /** @brief viscosity - Pa s  \f$ \mu_{g} \f$ */
     REAL fMu;
     
-    /** @brief Compressibility - 1/pa $c_{g}$ */
+    /** @brief Compressibility - 1/pa \f$ c_{g} \f$ */
     REAL fc;
     
     
@@ -74,49 +74,49 @@ public:
         return *this;
     }
 
-    /** @brief Density - kg/m3  $\rho$ */
+    /** @brief Density - kg/m3  \f$ \rho \f$ */
     virtual void Density(TPZManVector<REAL> &rho, TPZManVector<REAL> state_vars) = 0;
     
-    /** @brief viscosity - Pa s  $\mu$ */
+    /** @brief viscosity - Pa s  \f$ \mu \f$ */
     virtual void Viscosity(TPZManVector<REAL> &mu, TPZManVector<REAL> state_vars) = 0;
     
-    /** @brief Compressibility - 1/pa $c$ */
+    /** @brief Compressibility - 1/pa \f$ c \f$ */
     virtual void Compressibility(TPZManVector<REAL> &c, TPZManVector<REAL> state_vars) = 0;
     
-    /** @brief Set Reservoir T - K  $T_{res}$ */
+    /** @brief Set Reservoir T - K  \f$ T_{res} \f$ */
     void SetTRes(REAL TRes){this->fTRes = TRes;}
     
-    /** @brief Get Reservoir T - K  $T_{res}$ */
+    /** @brief Get Reservoir T - K  \f$ T_{res} \f$ */
     REAL GetTRes(){return this->fTRes ;}
     
-    /** @brief Set Reference Temperature - K  $T$ */
+    /** @brief Set Reference Temperature - K  \f$ T \f$ */
     void SetTRef(REAL TRef){this->fTRef = TRef;}
     
-    /** @brief Get Reference Temperature - K  $T$ */
+    /** @brief Get Reference Temperature - K  \f$ T \f$ */
     REAL GetTRef(){return this->fTRef ;}
     
-    /** @brief Set Reference Pressure - Pa  $P_{ref}$ */
+    /** @brief Set Reference Pressure - Pa  \f$ P_{ref} \f$ */
     void SetPRef(REAL PRef){this->fPRef = PRef;}
     
-    /** @brief Get Reference Pressure - Pa  $P_{ref}$ */
+    /** @brief Get Reference Pressure - Pa  \f$ P_{ref} \f$ */
     REAL GetPRef(){return this->fPRef ;}
     
-    /** @brief Set Density - kg/m3  $\rho$ */
+    /** @brief Set Density - kg/m3  \f$ \rho \f$ */
     void SetRho(REAL Rho){this->fRho = Rho;}
     
-    /** @brief Get Density - kg/m3  $\rho$ */
+    /** @brief Get Density - kg/m3  \f$ \rho \f$ */
     REAL GetRho(){return this->fRho ;}
     
-    /** @brief Set viscosity - pa s  $\mu$ */
+    /** @brief Set viscosity - pa s  \f$ \mu \f$ */
     void SetMu(REAL Mu){this->fMu = Mu;}
     
-    /** @brief Get viscosity - pa s  $\mu$ */
+    /** @brief Get viscosity - pa s  \f$ \mu \f$ */
     REAL GetMu(){return this->fMu ;}
     
-    /** @brief Set Compressibility - 1/pa   $C$ */
+    /** @brief Set Compressibility - 1/pa   \f$ C \f$ */
     void Setc(REAL c){this->fc = c;}
     
-    /** @brief Get Compressibility - 1/pa   $C_$ */
+    /** @brief Get Compressibility - 1/pa   \f$ C \f$ */
     REAL Getc(){return this->fc ;}
     
 };
