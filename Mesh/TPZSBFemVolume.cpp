@@ -58,7 +58,7 @@ void TPZSBFemVolume::LocalBodyForces(TPZFNMatrix<200,std::complex<double>> &f, T
     if (Ref2D->Dimension() < problemdimension) return;
     
     TPZAutoPointer<TPZIntPoints> intrule = Ref2D->CreateSideIntegrationRule(Ref2D->NSides() - 1, 7);
-    TPZManVector<int, 3> maxorder(2, int(fabs(eigval[0].real()))*3);
+    TPZManVector<int, 3> maxorder(2, int(fabs(eigval[0].real()))*5);
     intrule->SetOrder(maxorder);
     
     int nstate = material->NStateVariables();

@@ -328,8 +328,8 @@ void TElasticity2DAnalytic::uxy(const TPZVec<FADFADREAL > &x, TPZVec<FADFADREAL 
     }
     else if(fProblemType == ESin)
     {
-        disp[0] = 3/4 * FADsin(6*M_PI*x[0]);
-        disp[1] = 3/4 * FADsin(6*M_PI*x[1]);
+        disp[0] = 3/4. * FADsin(6.*M_PI*x[0]);
+        disp[1] = 3/4. * FADsin(6.*M_PI*x[0]);
     }
     else
     {

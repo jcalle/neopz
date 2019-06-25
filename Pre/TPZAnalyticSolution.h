@@ -366,9 +366,9 @@ struct TElasticity2DAnalytic : public TPZAnalyticSolution
             disp[0] = x[0]*x[0] * x[1]*x[1] * (1-x[0])*(1-x[0])*(1-x[0]) * (1-x[1])*(1-x[1])*(1-x[1]);
             disp[1] = x[0]*x[0] * x[1]*x[1] * (1-x[0])*(1-x[0])*(1-x[0]) * (1-x[1])*(1-x[1])*(1-x[1]);
         }
-        else if (fProblemType == EPoly) {
-            disp[0] = 3/4 * sin(6*M_PI*x[0]);
-            disp[1] = 3/4 * sin(6*M_PI*x[0]);
+        else if (fProblemType == ESin) {
+            disp[0] = 3/4. * sin(6.*M_PI*x[0]);
+            disp[1] = 3/4. * sin(6.*M_PI*x[0]);
         }
         else {
             DebugStop();

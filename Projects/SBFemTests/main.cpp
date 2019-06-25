@@ -56,41 +56,41 @@ int main(int argc, char *argv[])
     bool usesbfem = true, scalarproblem = true, bodyforces = false, plotshapefunctions = false, usepoly = false;
     int maxnelxcount, maxporder, example, maxinternalporder;
     
-    while ((c = getopt_long(argc, argv, "s:b:m:p:u:y:f", sbfem_options, &option_index)) != -1){
-        switch (c) {
-            case 's':
-                scalarproblem = atoi(optarg);
-                break;
-            case 'b':
-                bodyforces = atoi(optarg);
-                break;
-            case 'm':
-                maxnelxcount = atoi(optarg);
-                break;
-            case 'p':
-                maxporder = atoi(optarg);
-                break;
-            case 'u':
-                usesbfem = atoi(optarg);
-                break;
-            case 'i':
-                maxinternalporder = atoi(optarg);
-                break;
-            case 'y':
-                usepoly = atoi(optarg);
-                break;
-            case 'e':
-                example = atoi(optarg);
-                break;
-            case 'f':
-                plotshapefunctions = false;
-                break;
-            case 0:
-                break;
-            default:
-                break;
-        }
-    }
+//    while ((c = getopt_long(argc, argv, "s:b:m:p:u:y:f", sbfem_options, &option_index)) != -1){
+//        switch (c) {
+//            case 's':
+//                scalarproblem = atoi(optarg);
+//                break;
+//            case 'b':
+//                bodyforces = atoi(optarg);
+//                break;
+//            case 'm':
+//                maxnelxcount = atoi(optarg);
+//                break;
+//            case 'p':
+//                maxporder = atoi(optarg);
+//                break;
+//            case 'u':
+//                usesbfem = atoi(optarg);
+//                break;
+//            case 'i':
+//                maxinternalporder = atoi(optarg);
+//                break;
+//            case 'y':
+//                usepoly = atoi(optarg);
+//                break;
+//            case 'e':
+//                example = atoi(optarg);
+//                break;
+//            case 'f':
+//                plotshapefunctions = false;
+//                break;
+//            case 0:
+//                break;
+//            default:
+//                break;
+//        }
+//    }
     if (usesbfem == false) {
         numrefskeleton = 1;
     }
@@ -101,10 +101,10 @@ int main(int argc, char *argv[])
     scalarproblem = false;
     bodyforces = true;
     usepoly = false;
-    maxporder = 7;
+    maxporder = 5;
     maxinternalporder = 2;
     maxnelxcount = 4;
-    example = 5;
+    example = 4;
     SetExample(example);
     
 #ifdef _AUTODIFF
@@ -154,7 +154,7 @@ int main(int argc, char *argv[])
     }
     descr << description[description.size()-1] << std::endl;
     
-    for ( int POrder = 1; POrder <= maxporder; POrder += 1)
+    for ( int POrder = 3; POrder <= maxporder; POrder += 1)
     {
         int pinternal = POrder;
 //        for (int pinternal = 1; pinternal <= maxinternalporder; pinternal++)
@@ -251,40 +251,40 @@ int main(int argc, char *argv[])
 //                    Analysis->SetExact(ExactSol_ElasticityOoietal1);
                 }
                 
-                if(scalarproblem)
-                {
-                    TPZStack<std::string> vecnames,scalnames;
-                    // scalar
-                    scalnames.Push("State");
-                    Analysis->DefineGraphMesh(2, scalnames, vecnames, "../RegularSolution.vtk");
-                    Analysis->PostProcess(3);
-                }
-                else
-                {
-                    TPZStack<std::string> vecnames,scalnames;
-                    // scalar
-                    vecnames.Push("Displacement");
-                    scalnames.Push("SigmaX");
-                    scalnames.Push("SigmaY");
-                    scalnames.Push("TauXY");
-                    scalnames.Push("EpsX");
-                    scalnames.Push("EpsY");
-                    scalnames.Push("EpsXY");
-                    std::stringstream sout;
-                    sout << "../RegularElasticity2DSolution";
-                    if(usesbfem)
-                    {
-                        sout << "_SBFem.vtk";
-                    }
-                    else
-                    {
-                        sout << "_H1.vtk";
-                    }
-                    Analysis->DefineGraphMesh(2, scalnames, vecnames,sout.str());
-                    Analysis->PostProcess(3);
-                }
+//                if(scalarproblem)
+//                {
+//                    TPZStack<std::string> vecnames,scalnames;
+//                    // scalar
+//                    scalnames.Push("State");
+//                    Analysis->DefineGraphMesh(2, scalnames, vecnames, "../RegularSolution.vtk");
+//                    Analysis->PostProcess(3);
+//                }
+//                else
+//                {
+//                    TPZStack<std::string> vecnames,scalnames;
+//                    // scalar
+//                    vecnames.Push("Displacement");
+//                    scalnames.Push("SigmaX");
+//                    scalnames.Push("SigmaY");
+//                    scalnames.Push("TauXY");
+//                    scalnames.Push("EpsX");
+//                    scalnames.Push("EpsY");
+//                    scalnames.Push("EpsXY");
+//                    std::stringstream sout;
+//                    sout << "../RegularElasticity2DSolution";
+//                    if(usesbfem)
+//                    {
+//                        sout << "_SBFem.vtk";
+//                    }
+//                    else
+//                    {
+//                        sout << "_H1.vtk";
+//                    }
+//                    Analysis->DefineGraphMesh(2, scalnames, vecnames,sout.str());
+//                    Analysis->PostProcess(3);
+//                }
                 
-                if(1)
+                if(0)
                 {
                     std::ofstream out("../CompMeshWithSol.txt");
                     SBFem->Print(out);
