@@ -96,6 +96,9 @@ TPZGeoMesh & TPZGeoMesh::operator= (const TPZGeoMesh &cp )
 
 TPZGeoMesh::~TPZGeoMesh()
 {
+#ifdef PZDEBUG
+    std::cout << "Deleting TPZGeoMesh " << (void *) this << std::endl;
+#endif
 	CleanUp();
 }
 

@@ -332,6 +332,8 @@ void TPZMHMeshControl::DivideSkeletonElements(int ndivide)
         fInterfaces = mapdivided;
     }
     BuildWrapMesh(fGMesh->Dimension());
+    // totototototo
+    return;
     BuildWrapMesh(fGMesh->Dimension()-1);
     fGeoToMHMDomain.Resize(fGMesh->NElements(), -1);
 }
