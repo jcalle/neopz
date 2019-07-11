@@ -129,6 +129,19 @@ int TPZSlepcEPSHandler<TVar>::SolveGeneralisedEigenProblem(TPZFYsmpMatrix<TVar> 
 
   std::cout<<"Created!"<<std::endl;
   EPSSetOperators(fEps, fAmat, fBmat);
+
+  {//TODO: implement this
+    RG rg;
+    EPSGetRG(fEps,&rg);
+
+    // RGSetType(rg,RGELLIPSE);
+    // RGEllipseSetParameters(rg,0,1,1);
+    // RGSetComplement(rg,PETSC_TRUE);
+
+    RGSetType(rg,RGINTERVAL);
+    RGIntervalSetEndpoints(rg,0.5,PETSC_INFINITY,-1,1);
+  }
+
   EPSSetUp(fEps);
 
   if(fVerbose){
