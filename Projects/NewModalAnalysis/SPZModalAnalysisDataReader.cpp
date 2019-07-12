@@ -814,9 +814,6 @@ void SPZModalAnalysisDataReader::ReadParameters(SPZModalAnalysisData &data) {
       }
 
       data.solverOpts.target = prm.get_double("Target eigenvalue");//double
-      if(! data.pzOpts.isTargetScaled){
-        data.solverOpts.target = data.solverOpts.target /( data.pzOpts.scaleFactor * data.pzOpts.scaleFactor);
-      }
       data.solverOpts.eps_tol = prm.get_double("Eigensolver tolerance");//double
       if (!data.solverOpts.eps_tol) data.solverOpts.eps_tol = -2;//PETSC_DEFAULT
       data.solverOpts.eps_max_its = (int) prm.get_integer("Eigensolver maximum iterations");//integer

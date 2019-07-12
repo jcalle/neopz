@@ -747,7 +747,7 @@ inline bool IsZero( double a ) {
 #ifdef WIN32
 	return ( fabs( a ) < 1.e-10 );
 #else
-	return ( fabs( a ) < 1.e-12 );
+	return ( fabs( a ) < 1.e-15 );
 #endif
 }
 //template<>
@@ -771,7 +771,7 @@ inline bool IsZero( std::complex<double> a ) {
 #ifdef WIN32
 	return ( fabs( a ) < 1.e-9 );
 #else
-	return ( fabs( a ) < 1.e-12 );
+	return ( fabs( a ) < 1.e-15 );
 #endif
 }
 //template<>

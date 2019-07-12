@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) {
     SPZModalAnalysisDataReader reader(prm,argc,argv);
     SPZModalAnalysisData simData;
     reader.ReadParameters(simData);
-
+    auto originalTarget = simData.solverOpts.target;
     const std::string meshOriginal = simData.pzOpts.meshFile;
     const int pOrderOrig = simData.pzOpts.pOrder;
 
@@ -149,6 +149,9 @@ int main(int argc, char *argv[]) {
         simData.physicalOpts.lambda = simData.physicalOpts.freqVec[iFreq];
         simData.physicalOpts.lambda = simData.physicalOpts.isLambda ? simData.physicalOpts.lambda : 299792458 / simData.physicalOpts.lambda;
         simData.pzOpts.scaleFactor = simData.pzOpts.scaleByk0 ? 2 * M_PI / simData.physicalOpts.lambda : simData.pzOpts.scaleFactor;
+        if(! simData.pzOpts.isTargetScaled){
+            simData.solverOpts.target = originalTarget /( simData.pzOpts.scaleFactor * simData.pzOpts.scaleFactor);
+        }
         if(simData.physicalOpts.freqVec.size() > 1){
             std::cout<<"Beginning step "<<iFreq+1<<" out of "<<simData.physicalOpts.freqVec.size()<<" freq steps."<<std::endl;
             std::cout<<"lambda = "<<simData.physicalOpts.lambda<<std::endl;
