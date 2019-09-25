@@ -158,6 +158,7 @@ void TPZInterpolationSpace::InitMaterialData(TPZMaterialData &data){
 void TPZInterpolationSpace::ComputeRequiredData(TPZMaterialData &data,
                                                 TPZVec<REAL> &qsi){
     data.intGlobPtIndex = -1;
+    InitMaterialData(data);
     this->ComputeShape(qsi, data);
     
     if (data.fNeedsSol){

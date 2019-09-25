@@ -1309,6 +1309,7 @@ void TPZCompElHDiv<TSHAPE>::ComputeRequiredData(TPZMaterialData &data,
     
 //    TPZManVector<int,TSHAPE::NSides*TSHAPE::Dimension> normalsidesDG(TSHAPE::Dimension*TSHAPE::NSides);
 
+    TPZIntelGen<TSHAPE>::InitMaterialData(data);
     TPZIntelGen<TSHAPE>::ComputeRequiredData(data,qsi);
 
     int restrainedface = this->RestrainedFace();

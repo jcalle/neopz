@@ -757,6 +757,7 @@ void TPZMultiphysicsInterfaceElement::InitMaterialData(TPZMaterialData &data)
 /** @brief Compute the data needed to compute the stiffness matrix at the integration point */
 void TPZMultiphysicsInterfaceElement::ComputeRequiredData(TPZMaterialData &data, TPZVec<REAL> &point)
 {
+    InitMaterialData(data);
     data.intGlobPtIndex = -1;
     TPZGeoEl *gel = Reference();
     TPZGeoElSide gelside(gel,gel->NSides()-1);
