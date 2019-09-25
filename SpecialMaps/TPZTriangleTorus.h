@@ -176,7 +176,11 @@ int ClassId() const override;
 		}
 
         static void InsertExampleElement(TPZGeoMesh &gmesh, int matid, TPZVec<REAL> &lowercorner, TPZVec<REAL> &size);
-        
+
+        static bool IsLinearMapping(int side)
+        {
+            return false;
+        }
 
 	};
 
