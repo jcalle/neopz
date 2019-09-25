@@ -336,7 +336,7 @@ protected:
 	 * @param dsol solution derivatives
 	 * @param axes axes associated with the derivative of the solution
 	 */
-	virtual void ComputeSolution(TPZVec<REAL> &qsi, TPZSolVec &sol, TPZGradSolVec &dsol,TPZFMatrix<REAL> & axes) override;
+    virtual void ComputeSolution(TPZVec<REAL> &qsi, TPZMaterialData &data) override;
     
 public:
     
@@ -345,20 +345,8 @@ public:
 	 * @param[in] qsi point in master element coordinates 
 	 * @param[in] data stores all input data
 	 */
-    virtual void ComputeSolution(TPZVec<REAL> &qsi, TPZMaterialData &data) override;
-	
-	/**
-	 * @brief Computes solution and its derivatives in local coordinate qsi
-	 * @param qsi master element coordinate
-	 * @param phi matrix containing shape functions compute in qsi point
-	 * @param dphix matrix containing the derivatives of shape functions with respect of global coordinates: D[phi,x], D[phi,y], D[phi,z]
-	 * @param axes axes associated with the derivative of the solution
-	 * @param sol finite element solution
-	 * @param dsol solution derivatives
-	 */
-	virtual void ComputeSolution(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi, TPZFMatrix<REAL> &dphix,
-								 const TPZFMatrix<REAL> &axes, TPZSolVec &sol, TPZGradSolVec &dsol) override;
-	
+    virtual void AddSolution(TPZVec<REAL> &qsi, TPZMaterialData &data) override;
+
 	/**
 	 * @brief Computes solution and its derivatives in the local coordinate qsi. \n
 	 * This method will function for both volumetric and interface elements
@@ -371,10 +359,10 @@ public:
 	 * @param drightsol solution derivatives
 	 * @param rightaxes axes associated with the right solution
 	 */
-	virtual void ComputeSolution(TPZVec<REAL> &qsi,
-								 TPZVec<REAL> &normal,
-								 TPZSolVec &leftsol, TPZGradSolVec &dleftsol,TPZFMatrix<REAL> &leftaxes,
-								 TPZSolVec &rightsol, TPZGradSolVec &drightsol,TPZFMatrix<REAL> &rightaxes) override;
+    virtual void ComputeSolution(TPZVec<REAL> &qsi,
+                                 TPZVec<REAL> &normal,
+                                 TPZMaterialData &dataleft,
+                                 TPZMaterialData &dataright) override;
 	
 	virtual void AccumulateIntegrationRule(int degree, TPZStack<REAL> &point, TPZStack<REAL> &weight);
 	

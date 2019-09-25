@@ -1946,77 +1946,23 @@ void TPZInterpolatedElement::Read(TPZStream &buf, void *context) {
     TPZInterpolationSpace::Read(buf, context);
 }
 
-void TPZInterpolatedElement::ComputeSolution(TPZVec<REAL> &qsi, TPZMaterialData &data) {
-
-    //    this->InitMaterialData(data);
-    //    this->ComputeShape(qsi, data);
-    this->ComputeSolution(qsi, data.phi, data.dphix, data.axes, data.sol, data.dsol);
-}
-
-void TPZInterpolatedElement::ComputeSolution(TPZVec<REAL> &qsi, TPZSolVec &sol, TPZGradSolVec &dsol, TPZFMatrix<REAL> &axes) {
-    const int nshape = this->NShapeF();
-    TPZGeoEl * ref = this->Reference();
-    const int dim = ref->Dimension();
-
-    TPZFNMatrix<220> phi(nshape, 1);
-    TPZFNMatrix<660> dphi(dim, nshape), dphix(dim, nshape);
-    TPZFNMatrix<9> jacobian(dim, dim);
-    TPZFNMatrix<9> jacinv(dim, dim);
-    REAL detjac;
-
-    ref->Jacobian(qsi, jacobian, axes, detjac, jacinv);
-
-    this->Shape(qsi, phi, dphi);
-
-    int ieq;
-    switch (dim) {
-        case 0:
-            break;
-        case 1:
-            dphix = dphi;
-            dphix *= (1. / detjac);
-            break;
-        case 2:
-            for (ieq = 0; ieq < nshape; ieq++) {
-                dphix(0, ieq) = jacinv(0, 0) * dphi(0, ieq) + jacinv(1, 0) * dphi(1, ieq);
-                dphix(1, ieq) = jacinv(0, 1) * dphi(0, ieq) + jacinv(1, 1) * dphi(1, ieq);
-            }
-            break;
-        case 3:
-            for (ieq = 0; ieq < nshape; ieq++) {
-                dphix(0, ieq) = jacinv(0, 0) * dphi(0, ieq) + jacinv(1, 0) * dphi(1, ieq) + jacinv(2, 0) * dphi(2, ieq);
-                dphix(1, ieq) = jacinv(0, 1) * dphi(0, ieq) + jacinv(1, 1) * dphi(1, ieq) + jacinv(2, 1) * dphi(2, ieq);
-                dphix(2, ieq) = jacinv(0, 2) * dphi(0, ieq) + jacinv(1, 2) * dphi(1, ieq) + jacinv(2, 2) * dphi(2, ieq);
-            }
-            break;
-        default:
-            stringstream sout;
-            sout << "pzintel.c please implement the " << dim << "d Jacobian and inverse\n";
-            LOGPZ_ERROR(logger, sout.str());
-    }
-
-    this->ComputeSolution(qsi, phi, dphix, axes, sol, dsol);
-
-}//method
-
-void TPZInterpolatedElement::ComputeSolution(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi, TPZFMatrix<REAL> &dphix,
-    const TPZFMatrix<REAL> &axes, TPZSolVec &sol, TPZGradSolVec &dsol) {
-    const int dim = this->Reference()->Dimension();
+void TPZInterpolatedElement::AddSolution(TPZVec<REAL> &qsi, TPZMaterialData &data) {
     const int numdof = this->Material()->NStateVariables();
+    const int dim = this->Reference()->Dimension();
     const int ncon = this->NConnects();
     TPZFMatrix<STATE> &MeshSol = Mesh()->Solution();
     int64_t numbersol = MeshSol.Cols();
-    sol.Resize(numbersol);
-    dsol.Resize(numbersol);
-
+    data.sol.Resize(numbersol);
+    data.dsol.Resize(numbersol);
+    
     for (int64_t is = 0; is < numbersol; is++) {
-        sol[is].Resize(numdof);
-        sol[is].Fill(0.);
-        dsol[is].Redim(dim, numdof);
-        dsol[is].Zero();
-
+        data.sol[is].Resize(numdof);
+        data.sol[is].Fill(0.);
+        data.dsol[is].Redim(dim, numdof);
+        data.dsol[is].Zero();
+        
     }
-
+    
     TPZBlock<STATE> &block = Mesh()->Block();
     int64_t iv = 0, d;
     for (int in = 0; in < ncon; in++) {
@@ -2026,27 +1972,30 @@ void TPZInterpolatedElement::ComputeSolution(TPZVec<REAL> &qsi, TPZFMatrix<REAL>
         int64_t pos = block.Position(dfseq);
         for (int jn = 0; jn < dfvar; jn++) {
             for (int is = 0; is < numbersol; is++) {
-                sol[is][iv % numdof] += (STATE) phi(iv / numdof, 0) * MeshSol(pos + jn, is);
+                data.sol[is][iv % numdof] += (STATE) data.phi(iv / numdof, 0) * MeshSol(pos + jn, is);
                 for (d = 0; d < dim; d++) {
-                    dsol[is](d, iv % numdof) += (STATE) dphix(d, iv / numdof) * MeshSol(pos + jn, is);
+                    data.dsol[is](d, iv % numdof) += (STATE) data.dphix(d, iv / numdof) * MeshSol(pos + jn, is);
                 }
             }
             iv++;
         }
     }
+    
+}
+
+void TPZInterpolatedElement::ComputeSolution(TPZVec<REAL> &qsi, TPZMaterialData &data) {
+    this->InitMaterialData(data);
+    this->ComputeRequiredData(data, qsi);
+    AddSolution(qsi, data);
+    
 }//method
 
 void TPZInterpolatedElement::ComputeSolution(TPZVec<REAL> &qsi,
-        TPZVec<REAL> &normal,
-        TPZSolVec &leftsol, TPZGradSolVec &dleftsol, TPZFMatrix<REAL> &leftaxes,
-        TPZSolVec &rightsol, TPZGradSolVec &drightsol, TPZFMatrix<REAL> &rightaxes) {
-    leftsol.Resize(0);
-    dleftsol.Resize(0);
-    leftaxes.Zero();
-    rightsol.Resize(0);
-    drightsol.Resize(0);
-    rightaxes.Zero();
-    normal.Resize(0);
+                                             TPZVec<REAL> &normal,
+                                             TPZMaterialData &dataleft,
+                                            TPZMaterialData &dataright) {
+    this->InitMaterialData(dataleft);
+    this->InitMaterialData(dataright);
 }//method
 
 /** @brief adds the connect indexes associated with base shape functions to the set */

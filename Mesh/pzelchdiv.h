@@ -239,7 +239,7 @@ public:
 	virtual void Solution( TPZVec<REAL> &qsi,int var,TPZVec<STATE> &sol) override;
 	
 public:
-    virtual	void ComputeSolution(TPZVec<REAL> &qsi, TPZSolVec &sol, TPZGradSolVec &dsol,TPZFMatrix<REAL> &axes) override;
+    virtual void ComputeSolution(TPZVec<REAL> &qsi, TPZMaterialData &data) override;
     
 public:
     
@@ -248,11 +248,7 @@ public:
 	 * @param[in] qsi point in master element coordinates 
 	 * @param[in] data stores all input data
 	 */
-    virtual void ComputeSolution(TPZVec<REAL> &qsi, TPZMaterialData &data) override;
-	
-    void ComputeSolutionHDiv(TPZVec<REAL> &qsi, TPZMaterialData &data);
-    virtual void ComputeSolution(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi, TPZFMatrix<REAL> &dphix,
-                                 const TPZFMatrix<REAL> &axes, TPZSolVec &sol, TPZGradSolVec &dsol) override;
+    virtual void AddSolution(TPZVec<REAL> &qsi, TPZMaterialData &data) override;
     
     /**
      * @brief Computes solution and its derivatives in the local coordinate qsi.
@@ -270,8 +266,8 @@ public:
      */
     virtual void ComputeSolution(TPZVec<REAL> &qsi,
                                  TPZVec<REAL> &normal,
-                                 TPZSolVec &leftsol, TPZGradSolVec &dleftsol,TPZFMatrix<REAL> &leftaxes,
-                                 TPZSolVec &rightsol, TPZGradSolVec &drightsol,TPZFMatrix<REAL> &rightaxes) override
+                                 TPZMaterialData &dataleft,
+                                 TPZMaterialData &dataright) override
     {
         DebugStop();
     }

@@ -997,54 +997,29 @@ void TPZCompElHDiv<TSHAPE>:: Solution(TPZVec<REAL> &qsi,int var,TPZVec<STATE> &s
     }
     TPZMaterialData data;
 	InitMaterialData(data);
-	//this->ComputeSolutionHDiv(data);
     this->ComputeRequiredData(data,qsi);
-    this->ComputeSolutionHDiv(qsi,data);
+    this->AddSolution(qsi,data);
 	this->Material()->Solution(data,var,sol);
 }
 
 template<class TSHAPE>
-void TPZCompElHDiv<TSHAPE>::ComputeSolutionHDiv(TPZVec<REAL> &qsi, TPZMaterialData &data)
-{
-//	this->ComputeShape(qsi, data.x,data.jacobian,data.axes, data.detjac,data.jacinv,data.phi, data.dphix);
-    this->ComputeShape(qsi,data);
+void TPZCompElHDiv<TSHAPE>::AddSolution(TPZVec<REAL> &qsi, TPZMaterialData &data){
+    
     this->ComputeSolutionHDiv(data);
-}
-
-template<class TSHAPE>
-void TPZCompElHDiv<TSHAPE>::ComputeSolution(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi, TPZFMatrix<REAL> &dphix,
-                                            const TPZFMatrix<REAL> &axes, TPZSolVec &sol, TPZGradSolVec &dsol){
-    TPZMaterialData data;
-    InitMaterialData(data);
-    data.phi = phi;
-    data.dphix = dphix;
-    data.axes = axes;
-    this->ComputeSolutionHDiv(data);
-    sol = data.sol;
-    dsol = data.dsol;
+    
 }
 
 template<class TSHAPE>
 void TPZCompElHDiv<TSHAPE>::ComputeSolution(TPZVec<REAL> &qsi, TPZMaterialData &data){
-    
-    this->ComputeSolutionHDiv(data);
-    
-}
 
-template<class TSHAPE>
-void TPZCompElHDiv<TSHAPE>::ComputeSolution(TPZVec<REAL> &qsi, TPZSolVec &sol, TPZGradSolVec &dsol,TPZFMatrix<REAL> &axes) {
-	
 	TPZGeoEl * ref = this->Reference();
 	const int nshape = this->NShapeF();
 	const int dim = ref->Dimension();
     
-    TPZMaterialData data;
     InitMaterialData(data);
     data.fNeedsSol = true;
     ComputeRequiredData(data,qsi);
-    sol = data.sol;
-    dsol = data.dsol;
-    axes = data.axes;
+    AddSolution(qsi,data);
 }
 
 template<class TSHAPE>
@@ -1400,7 +1375,7 @@ void TPZCompElHDiv<TSHAPE>::ComputeRequiredData(TPZMaterialData &data,
     }
     
     if (data.fNeedsSol) {
-        ComputeSolution(qsi, data);
+        AddSolution(qsi, data);
     }
 
     data.ComputeFunctionDivergence();

@@ -1875,20 +1875,14 @@ void TPZSubCompMesh::Read(TPZStream &buf, void *context)
     buf.Read(&fSingularConnect,1);
 }
 
-void TPZSubCompMesh::ComputeSolution(TPZVec<REAL> &qsi,
-                                     TPZSolVec &sol, TPZGradSolVec &dsol,TPZFMatrix<REAL> &axes){
-	PZError << __PRETTY_FUNCTION__ << " - ERROR! This method is not implemented\n";
-}
-
-void TPZSubCompMesh::ComputeSolution(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi, TPZFMatrix<REAL> &dphix,
-									 const TPZFMatrix<REAL> &axes,  TPZSolVec &sol, TPZGradSolVec &dsol){
+void TPZSubCompMesh::ComputeSolution(TPZVec<REAL> &qsi, TPZMaterialData &data){
 	PZError << __PRETTY_FUNCTION__ << " - ERROR! This method is not implemented\n";
 }
 
 void TPZSubCompMesh::ComputeSolution(TPZVec<REAL> &qsi,
-									 TPZVec<REAL> &normal,
-									 TPZSolVec &leftsol, TPZGradSolVec &dleftsol,TPZFMatrix<REAL> &leftaxes,
-									 TPZSolVec &rightsol, TPZGradSolVec &drightsol,TPZFMatrix<REAL> &rightaxes){
+                                         TPZVec<REAL> &normal,
+                                         TPZMaterialData &dataleft,
+                                         TPZMaterialData &dataright){
 	PZError << __PRETTY_FUNCTION__ << " - ERROR! This method is not implemented\n";
 }
 

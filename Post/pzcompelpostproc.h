@@ -119,8 +119,7 @@ public:
      * @param sol finite element solution
      * @param dsol solution derivatives
      */
-    virtual void ComputeSolution(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi, TPZFMatrix<REAL> &dphix,
-                                 const TPZFMatrix<REAL> &axes, TPZSolVec &sol, TPZGradSolVec &dsol) override;
+    virtual void ComputeSolution(TPZVec<REAL> &qsi, TPZMaterialData &data) override;
     
     /**
      * @brief Avoids the calling of the TPZCompElReferred::ComputeSolution wich would attempt to
@@ -138,8 +137,8 @@ public:
      */
     virtual void ComputeSolution(TPZVec<REAL> &qsi,
                                  TPZVec<REAL> &normal,
-                                 TPZSolVec &leftsol, TPZGradSolVec &dleftsol,TPZFMatrix<REAL> &leftaxes,
-                                 TPZSolVec &rightsol, TPZGradSolVec &drightsol,TPZFMatrix<REAL> &rightaxes) override;
+                                 TPZMaterialData &dataleft,
+                                 TPZMaterialData &dataright) override;
     
     
     /**
@@ -470,21 +469,18 @@ inline bool TPZCompElPostProc<TCOMPEL>::dataequal(TPZMaterialData &d1,TPZMateria
 }
 
 template <class TCOMPEL>
-inline void TPZCompElPostProc<TCOMPEL>::ComputeSolution(TPZVec<REAL> &qsi,
-                                                        TPZFMatrix<REAL> &phi,
-                                                        TPZFMatrix<REAL> &dphix,
-                                                        const TPZFMatrix<REAL> &axes,
-                                                        TPZSolVec &sol,
-                                                        TPZGradSolVec &dsol){
-    TCOMPEL::ComputeSolution(qsi, phi, dphix, axes, sol, dsol);
+inline void TPZCompElPostProc<TCOMPEL>::ComputeSolution(TPZVec<REAL> &qsi, TPZMaterialData &data){
+    this->InitMaterialData(data);
+    this->ComputeRequiredData(data,qsi);
+    TCOMPEL::ComputeSolution(qsi, data);
 }//method
 
 template <class TCOMPEL>
 inline void TPZCompElPostProc<TCOMPEL>::ComputeSolution(TPZVec<REAL> &qsi,
                                                         TPZVec<REAL> &normal,
-                                                        TPZSolVec &leftsol, TPZGradSolVec &dleftsol, TPZFMatrix<REAL> &leftaxes,
-                                                        TPZSolVec &rightsol, TPZGradSolVec &drightsol,TPZFMatrix<REAL> &rightaxes){
-    TCOMPEL::ComputeSolution(qsi, normal, leftsol, dleftsol, leftaxes, rightsol, drightsol, rightaxes);
+                                                        TPZMaterialData &dataleft,
+                                                        TPZMaterialData &dataright){
+    TCOMPEL::ComputeSolution(qsi, normal, dataleft, dataright);
 }
 
 template <class TCOMPEL>

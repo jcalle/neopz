@@ -303,8 +303,7 @@ void TPZCompElHDivPressure<TSHAPE>::Solution(TPZVec<REAL> &qsi,int var,TPZVec<ST
         data.p=this->MaxOrder();
         
         this->ComputeShape(qsi,data);
-		//this->ComputeSolutionPressureHDiv(data);
-        this->ComputeSolution(qsi,data);
+        this->AddSolution(qsi,data);
         
         data.x.Resize(3,0.);
         this->Reference()->X(qsi,data.x);
@@ -312,42 +311,21 @@ void TPZCompElHDivPressure<TSHAPE>::Solution(TPZVec<REAL> &qsi,int var,TPZVec<ST
 }
 
 template<class TSHAPE>
-void TPZCompElHDivPressure<TSHAPE>::ComputeSolutionPressureHDiv(TPZVec<REAL> &qsi, TPZMaterialData &data){
+void TPZCompElHDivPressure<TSHAPE>::AddSolution(TPZVec<REAL> &qsi, TPZMaterialData &data){
     
-    this->ComputeShape(qsi,data);
-    this->ComputeSolutionPressureHDiv(data);
-}
-
-template<class TSHAPE>
-void TPZCompElHDivPressure<TSHAPE>::ComputeSolution(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi, TPZFMatrix<REAL> &dphix,
-																										const TPZFMatrix<REAL> &axes, TPZSolVec &sol, TPZGradSolVec &dsol){
-    TPZMaterialData data;
-    InitMaterialData(data);
     this->ComputeSolutionPressureHDiv(data);
 }
 
 template<class TSHAPE>
 void TPZCompElHDivPressure<TSHAPE>::ComputeSolution(TPZVec<REAL> &qsi, TPZMaterialData &data){
-    
-    this->ComputeSolutionPressureHDiv(data);
-}
 
-template<class TSHAPE>
-void TPZCompElHDivPressure<TSHAPE>::ComputeSolution(TPZVec<REAL> &qsi, TPZSolVec &sol, TPZGradSolVec &dsol,TPZFMatrix<REAL> &axes){
-		
     TPZGeoEl * ref = this->Reference();
     const int nshape = this->NShapeF();
     const int dim = ref->Dimension();
     
-    TPZMaterialData data;
-    data.phi.Resize(nshape,1);
-    data.dphix.Resize(dim,nshape);
-    data.jacobian.Resize(dim,dim);
-    data.jacinv.Resize(dim,dim);
-    data.x.Resize(3,0.);
-    
+    this->InitMaterialData(data);
     this->ComputeShape(qsi,data);
-    this->ComputeSolution(qsi, data.phi, data.dphix, data.axes, data.sol, data.dsol);
+    this->ComputeSolutionPressureHDiv(data);
 }
 
 template<class TSHAPE>

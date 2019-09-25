@@ -127,7 +127,7 @@ public:
 	virtual void Solution( TPZVec<REAL> &qsi,int var,TPZVec<STATE> &sol) override;
     
 private:
-	virtual	void ComputeSolution(TPZVec<REAL> &qsi, TPZSolVec &sol, TPZGradSolVec &dsol,TPZFMatrix<REAL> &axes) override;
+    virtual	void ComputeSolution(TPZVec<REAL> &qsi, TPZMaterialData &data) override;
     
 public:
     
@@ -136,11 +136,7 @@ public:
 	 * @param[in] qsi point in master element coordinates 
 	 * @param[in] data stores all input data
 	 */
-	virtual void ComputeSolution(TPZVec<REAL> &qsi, TPZMaterialData &data) override;
-	
-	void ComputeSolutionPressureHDiv(TPZVec<REAL> &qsi, TPZMaterialData &data);
-	virtual void ComputeSolution(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi, TPZFMatrix<REAL> &dphix,
-                                 const TPZFMatrix<REAL> &axes, TPZSolVec &sol, TPZGradSolVec &dsol) override;
+	virtual void AddSolution(TPZVec<REAL> &qsi, TPZMaterialData &data) override;
 	
     /** @brief Compute the solution using Hdiv structure */
 	void ComputeSolutionPressureHDiv(TPZMaterialData &data);

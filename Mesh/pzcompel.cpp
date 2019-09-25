@@ -982,8 +982,7 @@ bool TPZCompEl::HasMaterial(const std::set<int> &materialids) const
  * @param dsol solution derivatives
  * @param axes axes associated with the derivative of the solution
  */
-void TPZCompEl::ComputeSolution(TPZVec<REAL> &qsi,
-                                TPZSolVec &sol, TPZGradSolVec &dsol,TPZFMatrix<REAL> &axes)
+void TPZCompEl::ComputeSolution(TPZVec<REAL> &qsi, TPZMaterialData &data)
 {
     std::cout << __PRETTY_FUNCTION__ << " is not implemented - bailing out\n";
     DebugStop();
@@ -1003,27 +1002,11 @@ void TPZCompEl::ComputeSolution(TPZVec<REAL> &qsi,
  */
 void TPZCompEl::ComputeSolution(TPZVec<REAL> &qsi,
                                 TPZVec<REAL> &normal,
-                                TPZSolVec &leftsol, TPZGradSolVec &dleftsol,TPZFMatrix<REAL> &leftaxes,
-                                TPZSolVec &rightsol, TPZGradSolVec &drightsol,TPZFMatrix<REAL> &rightaxes)
+                                TPZMaterialData &dataleft,
+                                TPZMaterialData &dataright)
 {
     std::cout << __PRETTY_FUNCTION__ << " is not implemented - bailing out\n";
     DebugStop(); 
-}
-
-/**
- * @brief Computes solution and its derivatives in local coordinate qsi
- * @param qsi master element coordinate
- * @param phi matrix containing shape functions compute in qsi point
- * @param dphix matrix containing the derivatives of shape functions in the direction of the axes
- * @param axes [in] axes indicating the direction of the derivatives
- * @param sol finite element solution
- * @param dsol solution derivatives
- */
-void TPZCompEl::ComputeSolution(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi, TPZFMatrix<REAL> &dphix,
-                                const TPZFMatrix<REAL> &axes, TPZSolVec &sol, TPZGradSolVec &dsol)
-{
-    std::cout << __PRETTY_FUNCTION__ << " is not implemented - bailing out\n";
-    DebugStop();
 }
 
 /**

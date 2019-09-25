@@ -162,10 +162,10 @@ void TPZInterpolationSpace::ComputeRequiredData(TPZMaterialData &data,
     
     if (data.fNeedsSol){
         if (data.phi.Rows()){//if shape functions are available
-            this->ComputeSolution(qsi, data);
+            this->AddSolution(qsi, data);
         }
         else{//if shape functions are not available
-            this->ComputeSolution(qsi, data.sol, data.dsol, data.axes);
+            this->ComputeSolution(qsi, data);
         }
     }//fNeedsSol
 	
@@ -526,7 +526,7 @@ void TPZInterpolationSpace::Solution(TPZVec<REAL> &qsi,int var,TPZVec<STATE> &so
     this->InitMaterialData(data);
     data.p = this->MaxOrder();
     this->ComputeShape(qsi, data);
-	this->ComputeSolution(qsi,data);
+	this->AddSolution(qsi,data);
     
 	data.x.Resize(3);
 	this->Reference()->X(qsi, data.x);
@@ -615,7 +615,11 @@ void TPZInterpolationSpace::InterpolateSolution(TPZInterpolationSpace &coarsel){
 		this->ComputeShape(int_point, x, jacobian, axes, jac_det, jacinv, locphi, locdphi, locdphidx);
 		weight *= jac_det;
 		t.Apply(int_point,coarse_int_point);
-		coarsel.ComputeSolution(coarse_int_point, u, du, coarseaxes);
+        TPZMaterialData data;
+        coarsel.ComputeSolution(coarse_int_point, data);
+        u = data.sol;
+        du = data.dsol;
+        coarseaxes = data.axes;
 		
 		for(lin=0; lin<locmatsize; lin++) {
 			for(ljn=0; ljn<locmatsize; ljn++) {
@@ -1129,8 +1133,6 @@ void TPZInterpolationSpace::EvaluateError(std::function<void(const TPZVec<REAL> 
             this->ComputeShape(intpoint, data.x, data.jacobian, data.axes, data.detjac, data.jacinv, data.phi, data.dphi, data.dphix);
         }
 		weight *= fabs(data.detjac);
-		// this->ComputeSolution(intpoint, data.phi, data.dphix, data.axes, data.sol, data.dsol);
-		//this->ComputeSolution(intpoint, data);
 		//contribuicoes dos erros
         TPZGeoEl * ref = this->Reference();
         ref->X(intpoint, data.x);
@@ -1139,13 +1141,13 @@ void TPZInterpolationSpace::EvaluateError(std::function<void(const TPZVec<REAL> 
             
 			if(data.fVecShapeIndex.NElements())
 			{
-				this->ComputeSolution(intpoint, data);
+				this->AddSolution(intpoint, data);
                 				
 				material->ErrorsHdiv(data,u_exact,du_exact,values);
                 
 			}
 			else{
-				this->ComputeSolution(intpoint, data.phi, data.dphix, data.axes, data.sol, data.dsol);
+                this->ComputeSolution(intpoint, data);
 				material->Errors(data.x,data.sol[0],data.dsol[0],data.axes,flux_el,u_exact,du_exact,values);
 			}
         
@@ -1204,8 +1206,8 @@ void TPZInterpolationSpace::ComputeError(int errorid,
 	for(ip=0;ip<npoints;ip++){
 		intrule->Point(ip,intpoint,weight);
 		this->ComputeShape(intpoint, data.x, data.jacobian, data.axes, data.detjac, data.jacinv, data.phi, data.phi, data.dphix);
-		weight *= fabs(data.detjac);
-		this->ComputeSolution(intpoint, data.phi, data.dphix, data.axes, data.sol, data.dsol);
+        weight *= fabs(data.detjac);
+		this->AddSolution(intpoint, data);
 		material->ContributeErrors(data,weight,error,errorid);
 	}
 	intrule->SetOrder(prevorder);
@@ -1376,7 +1378,7 @@ void TPZInterpolationSpace::ProjectFlux(TPZElementMatrix &ek, TPZElementMatrix &
 		intrule.Point(int_ind,intpoint,weight);
 		this->ComputeShape(intpoint, data.x, data.jacobian, data.axes, data.detjac, data.jacinv, data.phi, data.dphi, data.dphix);
 		weight *= fabs(data.detjac);
-		this->ComputeSolution(intpoint, data.phi, data.dphix, data.axes, data.sol, data.dsol);
+        this->AddSolution(intpoint, data);
 		
 		material->Flux(data.x,data.sol[0],data.dsol[0],data.axes,flux);
 		for(int in=0; in<nshape; in++){
@@ -1418,13 +1420,14 @@ void TPZInterpolationSpace::MinMaxSolutionValues(TPZVec<STATE> &min, TPZVec<STAT
 	
 	int intrulepoints = intrule->NPoints();
 	intrule->Point(0,intpoint,weight);
-	this->ComputeSolution(intpoint, sol, dsol, axes);
+    TPZMaterialData data;
+    this->ComputeSolution(intpoint, data);
 	min = sol[0];
 	max = sol[0];
 	const int nvars = sol.NElements();
 	for(int int_ind = 1; int_ind < intrulepoints; int_ind++){
 		intrule->Point(int_ind,intpoint,weight);
-		this->ComputeSolution(intpoint, sol, dsol, axes);
+        this->AddSolution(intpoint,data);
 		for(int iv = 0; iv < nvars; iv++){
 			if (sol[0][iv] < min[iv]) min[iv] = sol[0][iv];
 			if (sol[0][iv] > max[iv]) max[iv] = sol[0][iv];

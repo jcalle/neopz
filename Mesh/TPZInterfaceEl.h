@@ -86,7 +86,7 @@ public:
 	 * @param [out] dsol
 	 * @param [out] NeighborAxes
 	 */
-	void NeighbourSolution(TPZCompElSide & Neighbor, TPZVec<REAL> & qsi, TPZSolVec &sol, TPZGradSolVec &dsol, TPZFMatrix<REAL> &NeighborAxes);
+	void NeighbourSolution(TPZCompElSide & Neighbor, TPZVec<REAL> & qsi, TPZSolVec &sol, TPZGradSolVec &dsol, TPZFNMatrix<9,REAL> &NeighborAxes);
 	
 protected:
 	
@@ -276,22 +276,10 @@ public:
 	 * @param leftaxes [out] axes associated with the derivative of the left element
 	 * @param rightaxes [out] axes associated with the derivative of the right element
 	 */
-	virtual void ComputeSolution(TPZVec<REAL> &qsi,
-								 TPZVec<REAL> &normal,
-								 TPZSolVec &leftsol, TPZGradSolVec &dleftsol,TPZFMatrix<REAL> &leftaxes,
-								 TPZSolVec &rightsol, TPZGradSolVec &drightsol,TPZFMatrix<REAL> &rightaxes) override;
-	
-	/**
-	 * @brief Computes solution and its derivatives in local coordinate qsi
-	 * @param qsi master element coordinate
-	 * @param phi matrix containing shape functions compute in qsi point
-	 * @param dphix matrix containing the derivatives of shape functions in the direction of the axes
-	 * @param axes axes indicating the direction of the derivatives
-	 * @param sol finite element solution
-	 * @param dsol solution derivatives
-	 */
-	virtual void ComputeSolution(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi, TPZFMatrix<REAL> &dphix,
-								 const TPZFMatrix<REAL> &axes, TPZSolVec &sol, TPZGradSolVec &dsol) override;
+    virtual void ComputeSolution(TPZVec<REAL> &qsi,
+                                 TPZVec<REAL> &normal,
+                                 TPZMaterialData &leftdata,
+                                 TPZMaterialData &rightdata) override;
 	
 	/**
 	 * @brief Computes solution and its derivatives in the local coordinate qsi.
@@ -300,15 +288,14 @@ public:
 	 * @param dsol solution derivatives
 	 * @param axes axes associated with the derivative of the solution
 	 */
-	virtual void ComputeSolution(TPZVec<REAL> &qsi,
-								 TPZSolVec &sol, TPZGradSolVec &dsol,TPZFMatrix<REAL> &axes) override;
+    virtual void ComputeSolution(TPZVec<REAL> &qsi, TPZMaterialData &data) override;
 	
     /**
      * @brief Computes solution and its derivatives in the local coordinate qsi.
      * @param qsi master element coordinate
      * @param data contains all elements to compute the solution
      */
-    virtual void ComputeSolution(TPZVec<REAL> &qsi,
+    virtual void AddSolution(TPZVec<REAL> &qsi,
                                  TPZMaterialData &data) override;
     
 	void VetorialProd(TPZVec<REAL> &ivet,TPZVec<REAL> &jvet,TPZVec<REAL> &kvet);

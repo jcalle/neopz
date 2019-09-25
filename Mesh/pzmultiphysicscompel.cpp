@@ -460,7 +460,7 @@ void TPZMultiphysicsCompEl<TGeometry>::Solution(TPZVec<REAL> &qsi, int var,TPZVe
         {
             msp->ComputeShape(myqsi,datavec[iref]);
         }
-        msp->ComputeSolution(myqsi, datavec[iref]);
+        msp->AddSolution(myqsi, datavec[iref]);
 
 		datavec[iref].x.Resize(3);
 		msp->Reference()->X(myqsi, datavec[iref].x);
@@ -470,24 +470,16 @@ void TPZMultiphysicsCompEl<TGeometry>::Solution(TPZVec<REAL> &qsi, int var,TPZVe
 }
 
 template <class TGeometry>
-void TPZMultiphysicsCompEl<TGeometry>::ComputeSolution(TPZVec<REAL> &qsi,
-													   TPZSolVec &sol, TPZGradSolVec &dsol,TPZFMatrix<REAL> &axes){
+void TPZMultiphysicsCompEl<TGeometry>::ComputeSolution(TPZVec<REAL> &qsi, TPZMaterialData &data){
 	PZError << "Error at " << __PRETTY_FUNCTION__ << " method is not implementedl!\n";
 	DebugStop();
 }//method
 
 template <class TGeometry>
 void TPZMultiphysicsCompEl<TGeometry>::ComputeSolution(TPZVec<REAL> &qsi,
-													   TPZVec<REAL> &normal,
-													   TPZSolVec &leftsol, TPZGradSolVec &dleftsol,TPZFMatrix<REAL> &leftaxes,
-													   TPZSolVec &rightsol, TPZGradSolVec &drightsol,TPZFMatrix<REAL> &rightaxes){
-	PZError << "Error at " << __PRETTY_FUNCTION__ << " method is not implementedl!\n";
-	DebugStop();
-}
-
-template <class TGeometry>
-void TPZMultiphysicsCompEl<TGeometry>::ComputeSolution(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi, TPZFMatrix<REAL> &dphix,
-													   const TPZFMatrix<REAL> &axes, TPZSolVec &sol, TPZGradSolVec &dsol){
+                                                       TPZVec<REAL> &normal,
+                                                       TPZMaterialData &dataleft,
+                                                       TPZMaterialData &dataright){
 	PZError << "Error at " << __PRETTY_FUNCTION__ << " method is not implementedl!\n";
 	DebugStop();
 }
@@ -1108,7 +1100,6 @@ void TPZMultiphysicsCompEl<TGeometry>::EvaluateError(std::function<void(const TP
 		this->ComputeRequiredData(intpoint,trvec,datavec);
     
 		weight *= fabs(datavec[0].detjac);
-		// this->ComputeSolution(intpoint, data.phi, data.dphix, data.axes, data.sol, data.dsol);
 		//this->ComputeSolution(intpoint, data);
 		//contribuicoes dos erros
 		if(fp) {
@@ -1224,7 +1215,6 @@ void TPZMultiphysicsCompEl<TGeometry>::EvaluateError(TPZFunction<STATE> &func,
         this->ComputeRequiredData(intpoint,trvec,datavec);
         
         weight *= fabs(datavec[0].detjac);
-        // this->ComputeSolution(intpoint, data.phi, data.dphix, data.axes, data.sol, data.dsol);
         //this->ComputeSolution(intpoint, data);
         //contribuicoes dos erros
         func.Execute(datavec[0].x,u_exact,du_exact);
