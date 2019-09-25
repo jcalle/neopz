@@ -117,7 +117,7 @@ int ClassId() const override;
             return false;
         }
         
-		static std::string TypeName() { return "Linear";}
+		static std::string TypeName() { return "Ellipse3D";}
 		// static TPZGeoEl * CreateBCGeoEl(TPZGeoEl *orig, int side,int bc);
 		
 		/** @brief Creates a geometric element according to the type of the father element */

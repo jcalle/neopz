@@ -63,7 +63,7 @@ int ClassId() const override;
 		/**
 		 * @brief Returns the type name of the element
 		 */
-		static std::string TypeName() { return "Quad";}
+		static std::string TypeName() { return "QuadraticQuadrilateral";}
         
         static bool IsLinearMapping(int side)
         {

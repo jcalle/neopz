@@ -72,7 +72,7 @@ namespace pzgeom {
         }
 
 		/** @brief Returns the type name of the element */
-		static std::string TypeName() { return "Wavy";}
+		static std::string TypeName() { return "WavyLine";}
 		
 		/* @brief Computes the coordinate of a point given in parameter space */
 //        template<class T>

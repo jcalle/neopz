@@ -1,7 +1,7 @@
 #include "pzgmesh.h"
 #include "TPZVTKGeoMesh.h"
 //special maps
-//#include "TPZCylinder.h"//@TODO: check if this class is still useful
+#include "TPZCylinder.h"//@TODO: check if this class is still useful
 #include "TPZQuadTorus.h"
 #include "TPZTriangleTorus.h"
 #include "tpzellipse3d.h"
@@ -17,20 +17,28 @@
 #include "tpzquadraticquad.h"
 #include "tpzquadratictrig.h"
 //#include "tpzblendnaca.h"//@TODO: create InsertExampleElement for this mapping
+#include "tpzgeoblend.h"
 
 template <class TGeo>
 void CreateSampleElement(const int &nref);
 
 int main(int argc, char *argv[]) {
-    const int nRef = 6;
+    const int nRef = 4;
+    // CreateSampleElement<pzgeom::TPZCylinderMap<pzgeom::TPZGeoQuad>>(nRef);
     CreateSampleElement<pzgeom::TPZQuadTorus>(nRef);
-    CreateSampleElement<pzgeom::TPZArc3D>(nRef);
     CreateSampleElement<pzgeom::TPZTriangleTorus>(nRef);
     CreateSampleElement<pzgeom::TPZEllipse3D>(nRef);
-    CreateSampleElement<pzgeom::TPZQuadSphere<pzgeom::TPZGeoQuad>>(nRef);
-    CreateSampleElement<pzgeom::TPZTriangleSphere<pzgeom::TPZGeoTriangle>>(nRef);
-    CreateSampleElement<pzgeom::TPZQuadraticTrig>(nRef);
+    CreateSampleElement<pzgeom::TPZQuadraticLine>(nRef);
+    CreateSampleElement<pzgeom::TPZQuadraticPyramid>(nRef);
+    CreateSampleElement<pzgeom::TPZQuadraticTetra>(nRef);
+    CreateSampleElement<pzgeom::TPZQuadSphere<pzgeom::TPZGeoQuad>>(nRef+3);
+    CreateSampleElement<pzgeom::TPZTriangleSphere<pzgeom::TPZGeoTriangle>>(nRef+3);
     CreateSampleElement<pzgeom::TPZWavyLine>(nRef);
+    CreateSampleElement<pzgeom::TPZArc3D>(nRef);
+    CreateSampleElement<pzgeom::TPZQuadraticCube>(nRef);
+    CreateSampleElement<pzgeom::TPZQuadraticPrism>(nRef);
+    CreateSampleElement<pzgeom::TPZQuadraticQuad>(nRef);
+    CreateSampleElement<pzgeom::TPZQuadraticTrig>(nRef);
 }
 
 
