@@ -22,10 +22,19 @@ template <class TGeo>
 void CreateSampleElement(const int &nref);
 
 int main(int argc, char *argv[]) {
-    const int nRef = 4;
+    const int nRef = 6;
     CreateSampleElement<pzgeom::TPZQuadTorus>(nRef);
-//    CreateSampleElement<pzgeom::TPZArc3D>(nRef);
+    CreateSampleElement<pzgeom::TPZArc3D>(nRef);
+    CreateSampleElement<pzgeom::TPZTriangleTorus>(nRef);
+    CreateSampleElement<pzgeom::TPZEllipse3D>(nRef);
+    CreateSampleElement<pzgeom::TPZQuadSphere<pzgeom::TPZGeoQuad>>(nRef);
+    CreateSampleElement<pzgeom::TPZTriangleSphere<pzgeom::TPZGeoTriangle>>(nRef);
+    CreateSampleElement<pzgeom::TPZQuadraticTrig>(nRef);
+    CreateSampleElement<pzgeom::TPZWavyLine>(nRef);
 }
+
+
+
 
 template <class TGeo>
 void CreateSampleElement(const int &nref){
