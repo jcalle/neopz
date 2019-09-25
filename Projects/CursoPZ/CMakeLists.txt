@@ -29,6 +29,9 @@ if(BUILD_TUTORIAL)
 	#Example : Geometric Mapping
 	add_subdirectory(ExemploMapeamentoGeometrico)
 
+	#Example : Geometric Mapping
+	add_subdirectory(SpecialMapsExamples)
+
 
 	#Example made to LNCC course (Simworx - Pira and Labmec - Phil)
 	add_subdirectory(Problema2D)
