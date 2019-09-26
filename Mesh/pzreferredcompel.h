@@ -47,18 +47,6 @@ public:
 	/** @brief Returns referred element of this */
 	TPZCompEl * ReferredElement();
 	
-	/**
-	 * @brief Computes solution and its derivatives in local coordinate qsi
-	 * @param qsi master element coordinate
-	 * @param phi matrix containing shape functions compute in qsi point
-	 * @param dphix matrix containing the derivatives of shape functions in the direction of the axes
-	 * @param axes direction of the derivatives
-	 * @param sol finite element solution
-	 * @param dsol solution derivatives
-	 */
-//    virtual void ComputeSolution(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi, TPZFMatrix<REAL> &dphix,
-//                                 const TPZFMatrix<REAL> &axes, TPZSolVec &sol, TPZGradSolVec &dsol);
-	
     /**
      * @brief Computes solution and its derivatives in local coordinate qsi
      * @param qsi master element coordinate
@@ -68,7 +56,7 @@ public:
      * @param sol finite element solution
      * @param dsol solution derivatives
      */
-    virtual void ComputeSolution(TPZVec<REAL> &qsi, TPZMaterialData &data) override;
+    virtual void AddSolution(TPZVec<REAL> &qsi, TPZMaterialData &data) override;
     
 	/**
 	 * @brief Computes solution and its derivatives in the local coordinate qsi.
@@ -84,10 +72,10 @@ public:
 	/**
 	 * This method will function for both volumetric and interface elements
 	 */
-	virtual void ComputeSolution(TPZVec<REAL> &qsi,
-								 TPZVec<REAL> &normal,
-								 TPZSolVec &leftsol, TPZGradSolVec &dleftsol,TPZFMatrix<REAL> &leftaxes,
-								 TPZSolVec &rightsol, TPZGradSolVec &drightsol,TPZFMatrix<REAL> &rightaxes) override;
+    virtual void ComputeSolution(TPZVec<REAL> &qsi,
+                                TPZVec<REAL> &normal,
+                                TPZMaterialData &dataleft,
+                                TPZMaterialData &dataright) override;
 	
 	/**
 	 * @brief Prints element data
@@ -102,19 +90,19 @@ protected:
 	
 	/** @brief Append solution of the referred element. */
 	void AppendOtherSolution(TPZVec<REAL> &qsi, TPZSolVec &sol,
-							 TPZGradSolVec &dsol,  TPZFMatrix<REAL> &axes);
+							 TPZGradSolVec &dsol,  TPZFNMatrix<9,REAL> &axes);
 	
     /** @brief Append solution of the referred element. */
     void AppendOtherSolution(TPZVec<REAL> &qsi, TPZSolVec &sol);
     
 	/** @brief Append solution of the referred element. */
 	void AppendOtherSolution(TPZVec<REAL> &qsi, TPZSolVec &sol,
-							 TPZGradSolVec &dsol,  const TPZFMatrix<REAL> &axes);
+							 TPZGradSolVec &dsol,  const TPZFNMatrix<9,REAL> &axes);
 	
 	/** @brief Append solution of the referred element. */
 	void AppendOtherSolution(TPZVec<REAL> &qsi, TPZVec<REAL> &normal,
-							 TPZSolVec &leftsol, TPZGradSolVec &dleftsol, TPZFMatrix<REAL> &leftaxes,
-							 TPZSolVec &rightsol, TPZGradSolVec &drightsol,TPZFMatrix<REAL> &rightaxes);
+							 TPZSolVec &leftsol, TPZGradSolVec &dleftsol, TPZFNMatrix<9,REAL> &leftaxes,
+							 TPZSolVec &rightsol, TPZGradSolVec &drightsol,TPZFNMatrix<9,REAL> &rightaxes);
 };
 
 /** @brief Adjust the derivatives from one system of axes to the other */

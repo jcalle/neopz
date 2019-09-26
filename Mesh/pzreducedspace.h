@@ -108,7 +108,7 @@ public:
     virtual void ShapeX(TPZVec<REAL> &qsi,TPZMaterialData &data);
     
     virtual void ComputeShape(TPZVec<REAL> &qsi,TPZMaterialData &data) override;
-    virtual void ComputeSolution(TPZVec<REAL> &qsi,TPZMaterialData &data) override;
+    virtual void AddSolution(TPZVec<REAL> &qsi,TPZMaterialData &data) override;
 
 	/** 
 	 * @brief Initialize a material data and its attributes based on element dimension, number
@@ -129,8 +129,7 @@ public:
      * @param sol finite element solution
      * @param dsol solution derivatives
      */
-    void ComputeSolution(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi, TPZFMatrix<REAL> &dphix,
-                         const TPZFMatrix<REAL> &axes, TPZSolVec &sol, TPZGradSolVec &dsol) override;
+    void ComputeSolution(TPZVec<REAL> &qsi, TPZMaterialData &data) override;
     
 	/** @brief Initialize element matrix in which is computed CalcStiff */
 	void InitializeElementMatrix(TPZElementMatrix &ek, TPZElementMatrix &ef) override;

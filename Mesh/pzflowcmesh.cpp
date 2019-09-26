@@ -66,7 +66,8 @@ REAL TPZFlowCompMesh::MaxVelocityOfMesh(){
 			pElComp->Solution(param,6,velocity);
 			// getting the whole vector of solutions
 			sol.Resize(nstate);
-            pElComp->ComputeSolution(param, sol, dsol, axes);
+            TPZMaterialData data;
+            pElComp->ComputeSolution(param, data);
 			
 			press = law->Pressure(sol[0]);
 			

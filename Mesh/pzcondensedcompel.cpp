@@ -138,15 +138,14 @@ TPZCompEl *TPZCondensedCompEl::ClonePatchEl(TPZCompMesh &mesh,
  * @param dsol solution derivatives
  * @param axes axes associated with the derivative of the solution
  */
-void TPZCondensedCompEl::ComputeSolution(TPZVec<REAL> &qsi,
-                             TPZSolVec &sol, TPZGradSolVec &dsol,TPZFMatrix<REAL> &axes)
-{
-    fReferenceCompEl->ComputeSolution(qsi,sol,dsol,axes);
-}
-
 void TPZCondensedCompEl::ComputeSolution(TPZVec<REAL> &qsi, TPZMaterialData &data)
 {
     fReferenceCompEl->ComputeSolution(qsi,data);
+}
+
+void TPZCondensedCompEl::AddSolution(TPZVec<REAL> &qsi, TPZMaterialData &data)
+{
+    fReferenceCompEl->AddSolution(qsi,data);
 }
 
 /**
@@ -162,26 +161,11 @@ void TPZCondensedCompEl::ComputeSolution(TPZVec<REAL> &qsi, TPZMaterialData &dat
  * @param rightaxes axes associated with the right solution
  */
 void TPZCondensedCompEl::ComputeSolution(TPZVec<REAL> &qsi,
-                             TPZVec<REAL> &normal,
-                             TPZSolVec &leftsol, TPZGradSolVec &dleftsol,TPZFMatrix<REAL> &leftaxes,
-                             TPZSolVec &rightsol, TPZGradSolVec &drightsol,TPZFMatrix<REAL> &rightaxes)
+                                         TPZVec<REAL> &normal,
+                                         TPZMaterialData &dataleft,
+                                         TPZMaterialData &dataright)
 {
-    fReferenceCompEl->ComputeSolution(qsi,normal,leftsol,dleftsol,leftaxes,rightsol,drightsol,rightaxes);
-}
-
-/**
- * @brief Computes solution and its derivatives in local coordinate qsi
- * @param qsi master element coordinate
- * @param phi matrix containing shape functions compute in qsi point
- * @param dphix matrix containing the derivatives of shape functions in the direction of the axes
- * @param axes [in] axes indicating the direction of the derivatives
- * @param sol finite element solution
- * @param dsol solution derivatives
- */
-void TPZCondensedCompEl::ComputeSolution(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi, TPZFMatrix<REAL> &dphix,
-                             const TPZFMatrix<REAL> &axes, TPZSolVec &sol, TPZGradSolVec &dsol)
-{
-    fReferenceCompEl->ComputeSolution(qsi,phi,dphix,axes,sol,dsol);
+    fReferenceCompEl->ComputeSolution(qsi,normal,dataleft,dataright);
 }
 
 void TPZCondensedCompEl::Resequence()

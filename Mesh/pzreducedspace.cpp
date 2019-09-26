@@ -122,19 +122,18 @@ void TPZReducedSpace::ShapeX(TPZVec<REAL> &qsi,TPZFMatrix<REAL> &phi,TPZFMatrix<
     DebugStop();
 #else
     TPZInterpolationSpace *intel = ReferredIntel();
-    TPZSolVec sol;
-    TPZGradSolVec dsol;
-    intel->ComputeSolution(qsi, sol, dsol, axes);
-    int nsol = sol.size();
-    int nstate = sol[0].size();
+    TPZMaterialData data;
+    intel->ComputeSolution(qsi, data);
+    int nsol = data.sol.size();
+    int nstate = data.sol[0].size();
     int dim = axes.Rows();
     phi.Resize(nsol,nstate);
     dphix.Resize(nsol,nstate*dim);
     for (int isol =0; isol<nsol; isol++) {
         for (int istate=0; istate<nstate; istate++) {
-            phi(isol,istate) = sol[isol][istate];
+            phi(isol,istate) = data.sol[isol][istate];
             for (int id=0; id<dim; id++) {
-                dphix(isol,id+istate*dim) = dsol[isol](id,istate);
+                dphix(isol,id+istate*dim) = data.dsol[isol](id,istate);
             }
         }
     }
@@ -149,7 +148,7 @@ void TPZReducedSpace::ShapeX(TPZVec<REAL> &qsi,TPZMaterialData &data)
 #else
     TPZInterpolationSpace *intel = ReferredIntel();
     
-    intel->ComputeSolution(qsi, data.sol, data.dsol, data.axes);
+    intel->ComputeSolution(qsi, data);
     int64_t nsol = data.sol.size();
     int nstate = data.sol[0].size();
     int dim = data.axes.Rows();
@@ -171,8 +170,72 @@ void TPZReducedSpace::ComputeShape(TPZVec<REAL> &qsi,TPZMaterialData &data){
     ShapeX(qsi,data);
 }
 
-void TPZReducedSpace::ComputeSolution(TPZVec<REAL> &qsi,TPZMaterialData &data){
-    ComputeSolution(qsi, data.phi, data.dphix, data.axes,data.sol,data.dsol);
+void TPZReducedSpace::AddSolution(TPZVec<REAL> &qsi,TPZMaterialData &data){
+    
+    const int dim = data.axes.Rows();//this->Reference()->Dimension();
+    const int nstate = this->Material()->NStateVariables() + 1;
+    
+#ifdef PZDEBUG
+    const int ncon = this->NConnects();
+    if (ncon != 1) {
+        DebugStop();
+    }
+#endif
+    
+    //    TPZInterpolationSpace *intel = ReferredIntel();
+    //    TPZSolVec sol_t;
+    //    TPZGradSolVec dsol_t;
+    //    TPZFMatrix<REAL> axes_t = axes;
+    //    intel->ComputeSolution(qsi, sol_t, dsol_t, axes_t);
+    
+    int nsol = data.phi.Rows();//sol_t.size();
+    //    int numdof = sol_t[0].size();
+    //    int dim = axes_t.Rows();
+    
+    TPZFMatrix<STATE> &MeshSol = Mesh()->Solution();
+    int64_t numbersol = MeshSol.Cols();
+    int64_t numberdof = MeshSol.Rows();
+    data.sol.Resize(numbersol);
+    data.dsol.Resize(numbersol);
+    
+    for (int64_t is=0 ; is<numbersol; is++) {
+        data.sol[is].Resize(nstate);
+        data.sol[is].Fill(0.);
+        data.dsol[is].Redim(nstate, nstate*dim);
+        data.dsol[is].Zero();
+    }
+    
+    TPZBlock<STATE> &block = Mesh()->Block();
+    TPZConnect *df = &this->Connect(0);
+    int64_t dfseq = df->SequenceNumber();
+    int dfvar = block.Size(dfseq);
+    int64_t pos = block.Position(dfseq);
+    
+#ifdef PZDEBUG
+    {
+        if(nsol * nstate != dfvar)
+        {
+            DebugStop();
+        }
+        
+    }
+    
+    
+#endif
+    
+    for(int ib=0; ib < nsol; ib++) {
+        
+        for (int64_t is=0; is<numbersol; is++) {
+            
+            for(int64_t iv = 0; iv < nstate; iv++){
+                data.sol[is][iv%nstate] += (STATE)data.phi(ib,iv)*MeshSol(pos+ib*nstate+iv,is);
+                
+                for(int64_t id = 0; id < dim; id++){
+                    data.dsol[is](iv%nstate,id) += (STATE)data.dphix(ib,id+iv*dim)*MeshSol(pos+ib*nstate+iv,is);
+                }
+            }
+        }
+    }
 }
 
 /**
@@ -194,7 +257,7 @@ void TPZReducedSpace::ComputeRequiredData(TPZMaterialData &data,
     ShapeX(qsi, data.phi, data.dphix, data.axes);
     
     if (data.fNeedsSol) {
-        ComputeSolution(qsi, data.phi, data.dphix, data.axes, data.sol, data.dsol);
+        AddSolution(qsi, data);
     }
     if (data.fNeedsHSize){
 		data.HSize = 2.*this->InnerRadius();
@@ -338,74 +401,11 @@ TPZInterpolationSpace *TPZReducedSpace::ReferredIntel() const
  * @param sol finite element solution
  * @param dsol solution derivatives
  */
-void TPZReducedSpace::ComputeSolution(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi, TPZFMatrix<REAL> &dphix,
-                                const TPZFMatrix<REAL> &axes, TPZSolVec &sol, TPZGradSolVec &dsol)
+void TPZReducedSpace::ComputeSolution(TPZVec<REAL> &qsi, TPZMaterialData &data)
 {
-    const int dim = axes.Rows();//this->Reference()->Dimension();
-    const int nstate = this->Material()->NStateVariables() + 1;
-    
-#ifdef PZDEBUG
-    const int ncon = this->NConnects();
-    if (ncon != 1) {
-        DebugStop();
-    }
-#endif
-    
-//    TPZInterpolationSpace *intel = ReferredIntel();
-//    TPZSolVec sol_t;
-//    TPZGradSolVec dsol_t;
-//    TPZFMatrix<REAL> axes_t = axes;
-//    intel->ComputeSolution(qsi, sol_t, dsol_t, axes_t);
-    
-    int nsol = phi.Rows();//sol_t.size();
-//    int numdof = sol_t[0].size();
-//    int dim = axes_t.Rows();
-    
-    TPZFMatrix<STATE> &MeshSol = Mesh()->Solution();
-    int64_t numbersol = MeshSol.Cols();
-    int64_t numberdof = MeshSol.Rows();
-    sol.Resize(numbersol);
-    dsol.Resize(numbersol);
-	
-    for (int64_t is=0 ; is<numbersol; is++) {
-        sol[is].Resize(nstate);
-        sol[is].Fill(0.);
-        dsol[is].Redim(nstate, nstate*dim);
-        dsol[is].Zero();
-    }
-    
-    TPZBlock<STATE> &block = Mesh()->Block();
-    TPZConnect *df = &this->Connect(0);
-    int64_t dfseq = df->SequenceNumber();
-    int dfvar = block.Size(dfseq);
-    int64_t pos = block.Position(dfseq);
-    
-#ifdef PZDEBUG
-    {
-        if(nsol * nstate != dfvar)
-        {
-            DebugStop();
-        }
-        
-    }
-    
-    
-#endif
-    
-    for(int ib=0; ib < nsol; ib++) {
-
-        for (int64_t is=0; is<numbersol; is++) {
-            
-            for(int64_t iv = 0; iv < nstate; iv++){
-                sol[is][iv%nstate] += (STATE)phi(ib,iv)*MeshSol(pos+ib*nstate+iv,is);
-                
-                for(int64_t id = 0; id < dim; id++){
-                    dsol[is](iv%nstate,id) += (STATE)dphix(ib,id+iv*dim)*MeshSol(pos+ib*nstate+iv,is);
-                }
-            }
-        }
-    }
-    
+    InitMaterialData(data);
+    ComputeRequiredData(data, qsi);
+    AddSolution(qsi, data);
 }
 
 static TPZCompEl * CreateReducedElement(TPZGeoEl *gel,TPZCompMesh &mesh,int64_t &index)
