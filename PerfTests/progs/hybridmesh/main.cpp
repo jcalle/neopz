@@ -354,7 +354,7 @@ TPZCompMesh* MalhaComp(TPZGeoMesh * gmesh, int pOrder)
     TPZMaterial * BCondN2 = material->CreateBC(mat1, bc3,dirichlet, val1, val2);
     cmesh->InsertMaterialObject(BCondN2);
 
-    cmesh->SetAllCreateFunctionsHDivPressure();
+    cmesh->SetAllCreateFunctionsHDiv();
 
 	set<int> SETmat1;
 	SETmat1.insert(bc1);

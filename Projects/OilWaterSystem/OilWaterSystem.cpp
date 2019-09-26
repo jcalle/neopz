@@ -445,7 +445,7 @@ TPZCompMesh *ComputationalMeshGravitationalflux(TPZGeoMesh *gmesh, int pOrder)
     TPZMaterial * BCond7 = material1->CreateBC(mat1,7,0, val1, val2);
     //  TPZMaterial * BCond8 = material2->CreateBC(mat2,8,0, val1, val2);       
     
-    cmesh->SetAllCreateFunctionsHDivPressure();
+    cmesh->SetAllCreateFunctionsHDiv();//TODO: removed HDiv pressure. what to do here? @orlandini
 //    cmesh->SetAllCreateFunctionsHDivFull();
     cmesh->InsertMaterialObject(BCond2);
     cmesh->InsertMaterialObject(BCond3);        
@@ -625,7 +625,7 @@ TPZCompMesh *ComputationalMeshWaterSaturation(TPZGeoMesh * gmesh, int pOrder)
     cmesh->InsertMaterialObject(BCond7);
     
     // Void material
-    int matIdL2Proj = 2;
+    int matIdL2Proj = 8;
     TPZVec<STATE> sol(1,0.);
     TPZL2Projection *matl2proj = new TPZL2Projection(matIdL2Proj,dim,material1->NStateVariables(),sol);
     cmesh->InsertMaterialObject(matl2proj);     

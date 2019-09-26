@@ -316,15 +316,6 @@ public:
 	virtual void CalcResidual(TPZElementMatrix &ef);
 	
 	/**
-	 * @brief Implements of the orthogonal Chebyshev functions
-	 * @param x point where the Chebyshev function will be evaluated
-	 * @param num number of functions
-	 * @param phi values of the function
-	 * @param dphi values of derivative of the function
-	 */
-	static void Chebyshev(REAL x,int num,TPZFMatrix<REAL> &phi,TPZFMatrix<REAL> &dphi);
-	
-	/**
 	 * @brief Divide the computational element. If interpolate = 1, the solution is interpolated to the sub elements
 	 * @param index  index of the element which is being divided
 	 * @param subindex element vector where will be created the divided elements
@@ -537,12 +528,6 @@ public:
 	
 	/** @brief Returns 1 if the element has at least one dependent node. Returns 0 otherwise */
 	virtual int HasDependency();
-	
-    /** 
-	 * @brief Returns the index of the pressure connect
-     * @note Returns -1 if their is no pressure connect
-     */
-    virtual int PressureConnectIndex() const;
 
 	/**
 	 * @brief Domain Decomposition.\n

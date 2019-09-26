@@ -57,10 +57,6 @@ ENABLE_TESTING()
 			#Example of the tracer flow problem in multiphysics simulation.
   			add_subdirectory(TracadorPassivo)
 
-
-			#Example of the hybrid mesh
-			add_subdirectory(HybridMesh)
-
 			#Example of the  convection problem
 			add_subdirectory(Problema_Transporte)
 
@@ -195,17 +191,11 @@ ENABLE_TESTING()
 
 			add_subdirectory(multplaca)
 
-			#Projeto Lua 2012
-			add_subdirectory(Lua01)
-
 			#teste nathan
 			add_subdirectory(PlasticityPV)
 
 			#Projeto Denise
-			#add_subdirectory(HdivPressureTeste)
-			add_subdirectory(HpAdaptivity)
 			add_subdirectory(AcoplamentoH1Hdiv)
-			add_subdirectory(Validacao)
 
 			#add_subdirectory(prodindex)
 			#Projeto Agnaldo

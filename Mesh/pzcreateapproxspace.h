@@ -98,11 +98,6 @@ public:
     /** @brief Create SBFem approximation space */
     void SetAllCreateFunctionsSBFem(int meshdim);
 #endif
-
-#ifndef STATE_COMPLEX
-    /** @brief Create an approximation space with HDivxL2 elements */
-	void SetAllCreateFunctionsHDivPressure(int meshdim);
-#endif
     /** @brief Create approximation spaces corresponding to the space defined by cel */
 	void SetAllCreateFunctions(TPZCompEl &cel, TPZCompMesh *mesh);
     /** @brief Create an approximation space based on multiphysics elements */

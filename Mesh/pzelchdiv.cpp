@@ -13,7 +13,6 @@
 #include "TPZShapeDisc.h"
 #include "TPZCompElDisc.h"
 #include "pzmaterialdata.h"
-#include "pzhdivpressure.h"
 #include "pzshapepiram.h"
 
 
@@ -1559,11 +1558,7 @@ void TPZCompElHDiv<TSHAPE>::PRefine(int order)
     int side;
     int icon;
     int ncon=NConnects();
-    TPZCompElHDivPressure<TSHAPE> *hdivpressure = dynamic_cast<TPZCompElHDivPressure<TSHAPE> *>(this);
 
-    if (hdivpressure) {
-        ncon--;
-    }
     int nnodes = this->Reference()->NNodes();
     for(icon=0; icon<ncon; icon++)
     {//somente para os conects de fluxo
@@ -1597,20 +1592,17 @@ void TPZCompElHDiv<TSHAPE>::PRefine(int order)
     
     if(ncon>nnodes+1)
     {
-		TPZCompElHDivPressure<TSHAPE> *hdivpressure = dynamic_cast<TPZCompElHDivPressure<TSHAPE> *>(this);
 		TPZConnect &con = this->Connect(ncon-1);
 		
 		if (TSHAPE::Type()==EQuadrilateral) {
-				hdivpressure->SetPressureOrder(order);
 				con.SetOrder(order,this->fConnectIndexes[ncon-1]);
 
 		}
 		else {
-				hdivpressure->SetPressureOrder(order-1);
 				con.SetOrder(order-1,this->fConnectIndexes[ncon-1]);
 
 		}
-		int nshape = hdivpressure-> NConnectShapeF(ncon-1,con.Order());
+		int nshape = this->NConnectShapeF(ncon-1,con.Order());//TODO: removed HDiv pressure. what to do here? @orlandini
 		con.SetNShape(nshape);
 		int64_t seqnum = con.SequenceNumber();
 		this->Mesh()->Block().Set(seqnum,nshape);

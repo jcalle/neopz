@@ -1027,29 +1027,6 @@ void TPZCompEl::ComputeSolution(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi, TPZFMa
 }
 
 /**
- * @brief Returns the index of the pressure connect
- * @note Returns -1 if their is no pressure connect
- */
-int TPZCompEl::PressureConnectIndex() const
-{
-    int ncon = NConnects();
-    int index = -1;
-    int count = 0;
-    for (int ic=0; ic<ncon ; ic++) {
-        int64_t locconnectindex = ConnectIndex(ic);
-        TPZConnect &c = fMesh->ConnectVec()[locconnectindex];
-        if (c.LagrangeMultiplier() && ! c.IsCondensed()) {
-            index = ic;
-            count++;
-        }
-    }
-    if (count > 1) {
-        DebugStop();
-    }
-    return index;
-}
-
-/**
  * @brief Compute the integral of a variable
  */
 TPZVec<STATE> TPZCompEl::IntegrateSolution(int var) const

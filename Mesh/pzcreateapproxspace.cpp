@@ -610,49 +610,6 @@ void TPZCreateApproximationSpace::SetAllCreateFunctionsSBFem(int dimension){
 
 
 
-#ifndef STATE_COMPLEX
-#include "pzhdivpressure.h"
-
-void TPZCreateApproximationSpace::SetAllCreateFunctionsHDivPressure(int dimension){
-    switch (dimension) {
-        case 1:
-            fp[EPoint] = CreateHDivBoundPointEl;
-            fp[EOned] = CreateHDivPressureLinearEl;
-            fp[ETriangle] = CreateNoElement;
-            fp[EQuadrilateral] = CreateNoElement;
-            fp[ETetraedro] = CreateNoElement;
-            fp[EPiramide] = CreateNoElement;
-            fp[EPrisma] = CreateNoElement;
-            fp[ECube] = CreateNoElement;
-            break;
-        case 2:
-            fp[EPoint] = CreateNoElement;
-            fp[EOned] = CreateHDivBoundLinearEl;
-            fp[ETriangle] = CreateHDivPressureTriangleEl;
-            fp[EQuadrilateral] = CreateHDivPressureQuadEl;
-            fp[ETetraedro] = CreateNoElement;
-            fp[EPiramide] = CreateNoElement;
-            fp[EPrisma] = CreateNoElement;
-            fp[ECube] = CreateNoElement;
-            break;
-        case 3:
-            fp[EPoint] = CreateNoElement;
-            fp[EOned] = CreateNoElement;
-            fp[ETriangle] = CreateHDivBoundTriangleEl;
-            fp[EQuadrilateral] = CreateHDivBoundQuadEl;
-            fp[ETetraedro] = CreateHDivPressureTetraEl;
-            fp[EPiramide] = CreateHDivPressurePyramEl;
-            fp[EPrisma] = CreateHDivPressurePrismEl;
-            fp[ECube] = CreateHDivPressureCubeEl;
-            break;
-        default:
-            DebugStop();
-            break;
-    }
-    
-}
-#endif
-
 
 #include "pzreferredcompel.h"
 #include "pzelctemp.h"

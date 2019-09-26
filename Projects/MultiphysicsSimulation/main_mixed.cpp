@@ -1102,7 +1102,7 @@ TPZCompMesh *CMeshHDivPressure(TPZGeoMesh *gmesh, int pOrder)
         //BCond3->SetForcingFunction(fCC23);
     }
     
-    cmesh->SetAllCreateFunctionsHDivPressure();
+    cmesh->SetAllCreateFunctionsHDiv();//TODO: removed HDiv pressure. what to do here? @orlandini
     cmesh->InsertMaterialObject(BCond0);
     cmesh->InsertMaterialObject(BCond1);
     cmesh->InsertMaterialObject(BCond2);

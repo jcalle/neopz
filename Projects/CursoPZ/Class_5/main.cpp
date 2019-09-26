@@ -80,7 +80,7 @@ int main() {
 	//TPZMaterial* mat(mat2d);
 //    cmesh->SetAllCreateFunctionsDiscontinuous();
 //    cmesh->SetAllCreateFunctionsContinuous();
-    cmesh->SetAllCreateFunctionsHDivPressure();
+    cmesh->SetAllCreateFunctionsHDiv();
 	cmesh->AutoBuild();
 //    cmesh->ApproxSpace().CreateInterfaces(*cmesh);
 	TPZVec<int64_t> subelindex(4,0);
