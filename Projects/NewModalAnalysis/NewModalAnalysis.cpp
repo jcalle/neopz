@@ -2150,7 +2150,14 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
     cmeshH1->SetAllCreateFunctionsContinuous();
     cmeshH1->AutoBuild(set);
     cmeshH1->CleanUpUnconnectedNodes();
-
+    if(usingNedelecTypeTwo){
+        for(int iel = 0; iel < cmeshH1->NElements(); iel++){
+            TPZInterpolatedElement *cel = dynamic_cast<TPZInterpolatedElement *>(cmeshH1->Element(iel));
+            if(!cel || cel->Dimension() != 2) continue;
+            cel->SetSideOrder(cel->Reference()->NSides()-1,pOrder+2);
+        }
+        cmeshH1->ExpandSolution();
+    }
     TPZCompMesh *cmeshHCurl = new TPZCompMesh(gmesh);
     cmeshHCurl->SetDefaultOrder(pOrder); // seta ordem polimonial de aproximacao
     cmeshHCurl->SetDimModel(dim);        // seta dimensao do modelo
@@ -2177,18 +2184,18 @@ void CreateCMesh(TPZVec<TPZCompMesh *> &meshVecOut, TPZGeoMesh *gmesh, int pOrde
         cmeshHCurl->AutoBuild(set);
         cmeshHCurl->CleanUpUnconnectedNodes();
         int64_t nel = cmeshHCurl->NElements();
-        for (int64_t el = 0; el<nel; el++) {
-            TPZCompEl *cel = cmeshHCurl->Element(el);
-            if(!cel) continue;
-            TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
-            int nc = intel->NConnects();
-            if (nc <=1) {
-                continue;
-            }
-            TPZGeoEl *gel = intel->Reference();
-            int ns = gel->NSides();
-            intel->ForceSideOrder(ns-1, pOrder -1);
-        }
+//        for (int64_t el = 0; el<nel; el++) {
+//            TPZCompEl *cel = cmeshHCurl->Element(el);
+//            if(!cel) continue;
+//            TPZInterpolatedElement *intel = dynamic_cast<TPZInterpolatedElement *>(cel);
+//            int nc = intel->NConnects();
+//            if (nc <=1) {
+//                continue;
+//            }
+//            TPZGeoEl *gel = intel->Reference();
+//            int ns = gel->NSides();
+//            intel->ForceSideOrder(ns-1, pOrder -1);
+//        }
         cmeshHCurl->ExpandSolution();
     }
     else {
