@@ -1178,7 +1178,41 @@ int TPZMatrix<TVar>::Substitution( TPZFMatrix<TVar> *B ) const{
 }
 template <class TVar>
 int TPZMatrix<TVar>::Decompose_LDLt(std::list<int64_t> &singular) {
-	return Decompose_LDLt();
+
+	if (fDecomposed && fDecomposed != ELDLt) {
+		Error("Decompose_LDLt <Matrix already Decomposed with other scheme> ");
+	}
+	else if (fDecomposed) {
+		return ELDLt;
+	}
+	if (Rows() != Cols()) Error("Decompose_LDLt <Matrix must be square>");
+
+	int64_t j, k, l, dim = Rows();
+
+	for (j = 0; j < dim; j++) {
+		for (k = 0; k<j; k++) {
+			PutVal(j, j, GetVal(j, j) - GetVal(k, k)*GetVal(k, j)*GetVal(k, j));
+		}
+		for (k = 0; k<j; k++) {
+			for (l = j + 1; l<dim;l++) {
+				PutVal(l, j, GetVal(l, j) - GetVal(k, k)*GetVal(j, k)*GetVal(l, k));
+				PutVal(j, l, GetVal(l, j));
+			}
+		}
+		//TVar tmp = GetVal(j, j);
+		if (IsZero(GetVal(j, j))) {
+			//Error("Decompose_LDLt <Zero on diagonal>");
+			singular.push_back(j);
+			PutVal(j, j, 1.);
+		}
+		for (l = j + 1; l<dim;l++) {
+			PutVal(l, j, GetVal(l, j) / GetVal(j, j));
+			PutVal(j, l, GetVal(l, j));
+		}
+	}
+	fDecomposed = ELDLt;
+	fDefPositive = 0;
+	return(1);
 }
 template <class TVar>
 int TPZMatrix<TVar>::Decompose_LDLt() {

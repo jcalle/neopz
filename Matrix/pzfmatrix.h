@@ -309,6 +309,10 @@ public:
      */
     virtual int Decompose_LDLt();
     
+	virtual int Decompose_LDLt(std::list<int64_t> &singular) {
+		return TPZMatrix<TVar>::Decompose_LDLt(singular);
+	}
+    
     static int Substitution(const TVar *ptr, int64_t rows, TPZFMatrix<TVar> *B);
     
     virtual int Substitution( TPZFMatrix<TVar> *B ) const;
