@@ -158,8 +158,8 @@ void TPZMatElasticity2D::Contribute(TPZMaterialData &data, REAL weight, TPZFMatr
         dvdx = grad_phi_u(0,iu);
         dvdy = grad_phi_u(1,iu);
         
-        ef(2*iu + first_u)     +=    weight * (grad_p[0] * phi_u(iu, 0) - (dvdx*m_s0_xx + dvdy*m_s0_xy) );    // x direction
-        ef(2*iu+1 + first_u)   +=    weight * (grad_p[1] * phi_u(iu, 0) - (dvdx*m_s0_xy + dvdy*m_s0_yy) );    // y direction
+        //ef(2*iu + first_u)     +=    weight * (grad_p[0] * phi_u(iu, 0) - (dvdx*m_s0_xx + dvdy*m_s0_xy) );    // x direction
+        //ef(2*iu+1 + first_u)   +=    weight * (grad_p[1] * phi_u(iu, 0) - (dvdx*m_s0_xy + dvdy*m_s0_yy) );    // y direction
         
         if (m_plane_stress == 1)
         {
@@ -412,8 +412,8 @@ void TPZMatElasticity2D::Contribute(TPZMaterialData &data, REAL weight, TPZFMatr
         dvdx = grad_phi_u(0,iu);
         dvdy = grad_phi_u(1,iu);
         
-         ef(2*iu + first_u)     +=    weight * (grad_p[0] * phi_u(iu, 0) - (dvdx*m_s0_xx + dvdy*m_s0_xy) );    // x direction
-         ef(2*iu+1 + first_u)   +=    weight * (grad_p[1] * phi_u(iu, 0) - (dvdx*m_s0_xy + dvdy*m_s0_yy) );    // y direction
+         //ef(2*iu + first_u)     +=    weight * (grad_p[0] * phi_u(iu, 0) - (dvdx*m_s0_xx + dvdy*m_s0_xy) );    // x direction
+         //ef(2*iu+1 + first_u)   +=    weight * (grad_p[1] * phi_u(iu, 0) - (dvdx*m_s0_xy + dvdy*m_s0_yy) );    // y direction
         
         if (m_plane_stress == 1)
         {

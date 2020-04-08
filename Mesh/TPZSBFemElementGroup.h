@@ -125,6 +125,7 @@ public:
     {
         fDelt = delt;
         fComputationMode = EMass;
+	fComputationMode = EStiff;
     }
     
     void SetComputeStiff()

@@ -557,6 +557,7 @@ public:
     virtual void Force(const TPZVec<REAL> &x, TPZVec<STATE> &force) const
     {
         REAL locforce = 0;
+        DivSigma(x, locforce);
         force[0] = locforce;
     }
 

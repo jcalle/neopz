@@ -701,6 +701,7 @@ void TPZSBFemElementGroup::CalcStiff(TPZElementMatrix &ek, TPZElementMatrix &ef)
 
 void TPZSBFemElementGroup::ComputeEigenvalues()
 {
+    if (fElGroup.size() == 0) return;
     TPZElementMatrix E0,E1,E2, M0;
     ComputeMatrices(E0, E1, E2, M0);
     
@@ -1624,6 +1625,7 @@ void TPZSBFemElementGroup::AddElement(TPZCompEl *cel)
 
 void TPZSBFemElementGroup::InitializeInternalConnect()
 {
+    if(fElGroup.size() == 0) return;
     int64_t ncon = NConnects();
     int64_t nshape = 0;
     
