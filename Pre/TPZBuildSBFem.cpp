@@ -12,6 +12,7 @@
 #include "pzcompel.h"
 #include "tpzgeoblend.h"
 #include "TPZGeoLinear.h"
+#include "TPZVTKGeoMesh.h"
 
 #include "tpzgeoelrefpattern.h"
 
@@ -470,6 +471,11 @@ void TPZBuildSBFem::CreateVolumetricElementsFromSkeleton(TPZCompMesh &cmesh)
         
     }
     gmesh->BuildConnectivity();
+
+    std::ofstream out("gmeshtest.txt");
+    TPZVTKGeoMesh vtk;
+    vtk.PrintGMeshVTK(gmesh, out,true);
+
     cmesh.ApproxSpace().SetAllCreateFunctionsSBFem(dim);
     cmesh.AutoBuild(matidstarget);
 }
@@ -761,6 +767,9 @@ void TPZBuildSBFem::CreateElementGroups(TPZCompMesh &cmesh)
             DebugStop();
         }
         if (TPZSBFemElementGroup::gDefaultPolynomialOrder) {
+            if(el == 1485){
+                std::cout << "Parar aqui" << std::endl;
+            }
             sbfemgroup->ComputeEigenvalues(); //lalalalal
         }
     }
