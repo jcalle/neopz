@@ -190,25 +190,24 @@ void TPZSBFemElementGroup::CalcStiffBlaze(TPZElementMatrix &ek,TPZElementMatrix 
 #ifdef COMPUTE_CRC
     {
         boost::crc_32_type crc;
-        crc.process_bytes(&E0blaze(0,0), E0blaze.spacing()*E0blaze.spacing()*sizeof(STATE));
-        crc.process_bytes(&E1blaze(0,0), E1blaze.spacing()*E1blaze.spacing()*sizeof(STATE));
-        crc.process_bytes(&E2blaze(0,0), E2blaze.spacing()*E2blaze.spacing()*sizeof(STATE));
+        if(E0blaze.spacing() != n) DebugStop();
+        crc.process_bytes(&E0blaze(0,0), E0blaze.spacing()*n*sizeof(STATE));
+        crc.process_bytes(&E1blaze(0,0), E1blaze.spacing()*n*sizeof(STATE));
+        crc.process_bytes(&E2blaze(0,0), E2blaze.spacing()*n*sizeof(STATE));
         matEcrc[Index()] = crc.checksum();
     }
 #endif
     
-    static pthread_mutex_t mutex_serial = PTHREAD_MUTEX_INITIALIZER;
-    pthread_mutex_lock(&mutex_serial);
     E0Invblaze = serial(inv( E0blaze ));  // Compute the inverse of E0
 
 #ifdef COMPUTE_CRC
     {
         boost::crc_32_type crc;
-        crc.process_bytes(&E0Invblaze(0,0), E0Invblaze.spacing()*E0Invblaze.spacing()*sizeof(STATE));
+        if(E0Invblaze.spacing() != n) DebugStop();
+        crc.process_bytes(&E0Invblaze(0,0), E0Invblaze.spacing()*n*sizeof(STATE));
         matEInvcrc[Index()] = crc.checksum();
     }
 #endif
-    pthread_mutex_unlock(&mutex_serial);
 
     blaze::DynamicMatrix<STATE,blaze::columnMajor> globmatblaze(2*n,2*n);
     blaze::DynamicMatrix<STATE,blaze::columnMajor> E0InvE1Tblaze = E0Invblaze*trans(E1blaze);
@@ -239,9 +238,14 @@ void TPZSBFemElementGroup::CalcStiffBlaze(TPZElementMatrix &ek,TPZElementMatrix 
     }
     
     blaze::DynamicVector<blaze::complex<double>,blaze::columnVector> eigvalblaze( 2*n );       // The vector for the real eigenvalues
-	blaze::DynamicMatrix<blaze::complex<double>,blaze::columnMajor> eigvecblaze( 2*n, 2*n );  // The matrix for the left eigenvectors
-
+	blaze::DynamicMatrix<blaze::complex<double>,blaze::columnMajor> eigvecblaze( 2*n, 2*n );
+    
+    // The matrix for the left eigenvectors
+    static pthread_mutex_t mutex_serial = PTHREAD_MUTEX_INITIALIZER;
+    pthread_mutex_lock(&mutex_serial);
 	eigen(globmatblaze, eigvalblaze, eigvecblaze);
+    pthread_mutex_unlock(&mutex_serial);
+
 #ifdef COMPUTE_CRC2
 //    static pthread_mutex_t mutex =PTHREAD_MUTEX_INITIALIZER;
     pthread_mutex_lock(&mutex);
@@ -369,6 +373,7 @@ void TPZSBFemElementGroup::CalcStiffBlaze(TPZElementMatrix &ek,TPZElementMatrix 
     blaze::DynamicMatrix<std::complex<double>,blaze::columnMajor> phiblaze(n,n), PhiInverseblaze(n,n);
     memcpy(&phiblaze.data()[0], fPhi.Adress(),n*n*sizeof(std::complex<double>));
     PhiInverseblaze = inv( phiblaze );  // Compute the inverse of A
+    // E O SPACING???
     memcpy(fPhiInverse.Adress(), &PhiInverseblaze.data()[0], n*n*sizeof(std::complex<double>));
 
 
