@@ -13,6 +13,7 @@
 
 #include "pzelementgroup.h"
 #include "TPZSBFemVolume.h"
+#include "pzcmesh.h"
 
 
 class TPZSBFemElementGroup : public TPZElementGroup
@@ -25,12 +26,27 @@ private:
     
     /// Matrix of eigenvectors which compose the stiffness matrix
     TPZFMatrix<std::complex<double> > fPhi;
+
+    /// Matrix of eigenvectors which compose the stiffness matrix
+    TPZFMatrix<std::complex<double> > fPhiBubble;
     
     /// Inverse of the eigenvector matrix (transfers eigenvector coeficients to side shape coeficients)
     TPZFMatrix<std::complex<double> > fPhiInverse;
+
+    /// Inverse of the eigenvector matrix (transfers eigenvector coeficients to side shape coeficients)
+    TPZFMatrix<std::complex<double> > fPhiInverseBubble;
+
+    /// Matrix of eigenvectors which compose the stiffness matrix
+    TPZFNMatrix<200,std::complex<double> > fQVectors;
     
     /// Vector of eigenvalues of the SBFem analyis
     TPZManVector<std::complex<double> > fEigenvalues;
+    
+    /// Vector of eigenvalues of the SBFem analyis
+    TPZManVector<std::complex<double> > fEigenvaluesBubble;
+
+
+    TPZFNMatrix<200,std::complex<double> > fMatPhiInv; //
     
     /// Multiplying coefficients of each eigenvector
     TPZFMatrix<std::complex<double> > fCoef;
@@ -44,11 +60,19 @@ private:
     
     /// timestep coeficient
     REAL fDelt = 1.;
+
+    int fInternalPolynomialOrder = 0;
+    
+    int64_t fInternalConnectIndex = 0;
     
     /// Compute the mass matrix based on the value of M0 and the eigenvectors
     void ComputeMassMatrix(TPZElementMatrix &M0);
     
 public:
+
+    static int gDefaultPolynomialOrder;
+    
+    static int gPolynomialShapeFunctions;
     
     TPZSBFemElementGroup() : TPZElementGroup()
     {
@@ -56,10 +80,7 @@ public:
     }
     
     /// constructor
-    TPZSBFemElementGroup(TPZCompMesh &mesh, int64_t &index) : TPZElementGroup(mesh,index)
-    {
-        
-    }
+    TPZSBFemElementGroup(TPZCompMesh &mesh, int64_t &index);
     
     /** @brief add an element to the element group
      */
@@ -77,7 +98,11 @@ public:
      */
     virtual void CalcStiff(TPZElementMatrix &ek,TPZElementMatrix &ef);
 
-    void CalcStiffBlaze(TPZElementMatrix &ek,TPZElementMatrix &ef);
+    void ComputeEigenvalues();
+
+    void ComputeEigenvaluesBlaze();
+
+    void ComputeEigenvaluesMKL();
 
     /// set the density or specific heat of the material
     void SetDensity(REAL density)
@@ -267,6 +292,16 @@ public:
         }
         return coefreal;
     }
+
+    // Initialize the connects related to the bubble functions
+    void InitializeInternalConnect();
+
+    // Update the fEigenvalues, fPhi and fPhiInverse with the values needed to construct the bubble functions
+    void ComputeBubbleParameters();
+
+    // Overwrite eigenvalues and eigenvectors to use a polynomial approx (i.e, uses a collapsed FE approx instead of the SBFEM approximation)
+    void OverwritePhis(TPZFMatrix<std::complex<double>> &Phiu, TPZFNMatrix<200,std::complex<double>> &matphiinv, TPZManVector<std::complex<double> > &eigval);
+
 
 };
 

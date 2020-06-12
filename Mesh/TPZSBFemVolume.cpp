@@ -21,6 +21,7 @@
 
 #ifdef LOG4CXX
 static LoggerPtr logger(Logger::getLogger("pz.mesh.sbfemvolume"));
+static LoggerPtr loggerLBF(Logger::getLogger("pz.mesh.sbfemvolume.bodyloads"));
 #endif
 
 TPZSBFemVolume::TPZSBFemVolume(TPZCompMesh &mesh, TPZGeoEl *gel, int64_t &index) : TPZInterpolationSpace(mesh, gel, index), fElementGroupIndex(-1), fSkeleton(-1), fDensity(1.) {
@@ -808,4 +809,122 @@ void TPZSBFemVolume::SetSkeleton(int64_t skeleton) {
     TPZInterpolationSpace *intel = dynamic_cast<TPZInterpolationSpace *> (cel);
     int order = intel->GetPreferredOrder();
     SetIntegrationRule(2 * order);
+}
+
+void TPZSBFemVolume::SetCoefNonHomogeneous(TPZManVector<std::complex<double> > eigval, TPZFNMatrix<100,std::complex<double>>phi, TPZFNMatrix<200,std::complex<double> > &rot)
+{
+    fEigenvaluesBubble = eigval;
+    fPhiBubble = phi;
+    fPhiInv = rot;
+}
+
+void TPZSBFemVolume::LocalBodyForces(TPZFNMatrix<200,std::complex<double>> &f, TPZManVector<std::complex<double>> &eigval, int icon){
+    
+    TPZCompMesh *cmesh = Mesh();
+    TPZGeoEl *Ref2D = Reference();
+    int matid = Ref2D->MaterialId();
+    TPZMaterial *mat2d = cmesh->FindMaterial(matid);
+    int dim2 = Ref2D->Dimension();
+    
+    TPZMaterial * material = Material();
+    if (!material) {
+        PZError << "TPZInterpolatedElement::EvaluateError : no material for this element\n";
+        Print(PZError);
+        return;
+    }
+    if (dynamic_cast<TPZBndCond *> (material)) {
+        std::cout << "Exiting EvaluateError - null error - boundary condition material.";
+        DebugStop();
+    }
+    int problemdimension = Mesh()->Dimension();
+    if (Ref2D->Dimension() < problemdimension) return;
+    
+    TPZAutoPointer<TPZIntPoints> intrule = Ref2D->CreateSideIntegrationRule(Ref2D->NSides() - 1, 7);
+    TPZManVector<int, 3> maxorder(2, int(fabs(eigval[0].real()))*5);
+    intrule->SetOrder(maxorder);
+    
+    int nstate = material->NStateVariables();
+    TPZManVector<REAL, 10> intpoint(problemdimension);
+    REAL weight;
+    
+    TPZMaterialData data;
+    TPZMaterialData data1d;
+    this->InitMaterialData(data);
+    int npts = intrule->NPoints();
+    
+    TPZManVector<REAL> bodyforce(nstate, 0.);
+    TPZFMatrix<REAL> dbodyforce(nstate, dim2, 0.);
+    
+    TPZInterpolatedElement *CSkeleton = dynamic_cast<TPZInterpolatedElement *> (cmesh->Element(fSkeleton));
+    CSkeleton->InitMaterialData(data1d);
+    
+    TPZGeoEl *Ref1D = CSkeleton->Reference();
+    
+    int nphixi = fPhi.Rows();
+    int numeig = fPhi.Cols();
+    
+    TPZFNMatrix<200,std::complex<double>> eflocal(fPhi.Rows(), fPhi.Cols(),0);
+    
+    for (int ipts=0; ipts<npts; ipts++) {
+        intrule->Point(ipts, intpoint, weight);
+        
+        REAL sbfemparam = (1. - intpoint[dim2 - 1]) / 2.;
+        if (sbfemparam < 0.) {
+            std::cout << "sbfemparam " << sbfemparam << std::endl;
+            sbfemparam = 0.;
+        }
+        if (IsZero(sbfemparam)) {
+            for (int i = 0; i < dim2 - 1; i++) {
+                intpoint[i] = 0.;
+            }
+            if (dim2 == 2) {
+                sbfemparam = 1.e-6;
+                intpoint[dim2 - 1] = 1. - 2.e-6;
+            } else {
+                sbfemparam = 1.e-4;
+                intpoint[dim2 - 1] = 1. - 2.e-4;
+            }
+        }
+        
+        Ref2D->Jacobian(intpoint, data.jacobian, data.axes, data.detjac, data.jacinv);
+        weight *= fabs(data.detjac);
+        
+        CSkeleton->Shape(intpoint, data1d.phi, data1d.dphi);
+        
+        Ref2D->X(intpoint, data.x);
+        if (mat2d->ForcingFunction()) {
+            TPZAutoPointer<TPZFunction<STATE> > autodummy = mat2d->ForcingFunction();
+            autodummy->Execute(data.x, bodyforce, dbodyforce);
+        }
+        
+        for (int c = 0; c < numeig; c++) {
+            std::complex<double> xiexp;
+            if (IsZero(eigval[c])) {
+                xiexp = 1;
+            } else {
+                xiexp = pow(sbfemparam, -eigval[c]);
+            }
+            for (int i = 0; i < data1d.phi.Rows(); i++) {
+                for (int istate = 0; istate < nstate; istate++) {
+                    eflocal(i*nstate + istate,c) += xiexp * data1d.phi(i,0) * bodyforce[istate] * weight;
+                }
+            }
+        }
+        
+    }
+    
+    for (int c = 0; c < numeig; c++) {
+        for (int i = 0; i < nphixi; i++) {
+            f(c,0) += eflocal(i,c) * fPhi(i,c);
+        }
+    }
+    
+#ifdef LOG4CXX
+    if (loggerLBF->isDebugEnabled()) {
+        std::stringstream sout;
+        eflocal.Print("eflocal = ", sout, EMathematicaInput);
+        f.Print("f = ", sout, EMathematicaInput);
+        LOGPZ_DEBUG(loggerLBF, sout.str())
+    }
+#endif
 }

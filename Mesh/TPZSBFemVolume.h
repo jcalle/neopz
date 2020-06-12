@@ -35,8 +35,17 @@ class TPZSBFemVolume : public TPZInterpolationSpace
     /// Eigenvlues associated with the internal shape functions
     TPZManVector<std::complex<double> > fEigenvalues;
     
+    /// Section of the phi vector associated with this volume element
+    TPZFNMatrix<30,std::complex<double> > fPhiBubble;
+    
+    /// Eigenvlues associated with the internal shape functions
+    TPZManVector<std::complex<double> > fEigenvaluesBubble;
+    
     /// Multiplier coeficients associated with the solution
     TPZFNMatrix<30,std::complex<double> > fCoeficients;
+    
+    /// Inverse of fPhi and bubble coefficients
+    TPZFNMatrix<30,std::complex<double> > fPhiInv;
     
     /// vector of local indices of multipliers in the group
     TPZManVector<int64_t> fLocalIndices;
@@ -60,6 +69,10 @@ public:
     
     /// Compute the E0, E1 and E2 matrices
     void ComputeKMatrices(TPZElementMatrix &E0, TPZElementMatrix &E1, TPZElementMatrix &E2, TPZElementMatrix &M0);
+
+    void SetCoefNonHomogeneous(TPZManVector<std::complex<double> > eigval, TPZFNMatrix<100,std::complex<double>>phi, TPZFNMatrix<200,std::complex<double> > &rot);
+
+    void LocalBodyForces(TPZFNMatrix<200,std::complex<double>> &f, TPZManVector<std::complex<double>> &eigval, int icon);
     
     /// Data structure initialization
     void SetSkeleton(int64_t skeleton);
@@ -384,7 +397,5 @@ public:
 
 
 TPZCompEl * CreateSBFemCompEl(TPZGeoEl *gel,TPZCompMesh &mesh,int64_t &index);
-
-
 
 #endif /* TPZSBFemVolume_hpp */
