@@ -21,6 +21,10 @@ class TPZSBFemElementGroup : public TPZElementGroup
     
 public:
     enum EComputationMode {EStiff, EOnlyMass, EMass};
+
+    static int gDefaultPolynomialOrder;
+    
+    static int gPolynomialShapeFunctions;
     
 private:
     
@@ -28,13 +32,13 @@ private:
     TPZFMatrix<std::complex<double> > fPhi;
 
     /// Matrix of eigenvectors which compose the stiffness matrix
-    TPZFMatrix<std::complex<double> > fPhiBubble;
+    TPZFNMatrix<100,std::complex<double> > fPhiBubble;
     
     /// Inverse of the eigenvector matrix (transfers eigenvector coeficients to side shape coeficients)
     TPZFMatrix<std::complex<double> > fPhiInverse;
 
-    /// Inverse of the eigenvector matrix (transfers eigenvector coeficients to side shape coeficients)
-    TPZFMatrix<std::complex<double> > fPhiInverseBubble;
+    /// Matrix that composes the bubble functions
+    TPZFNMatrix<100,std::complex<double> > fMatBubble;
 
     /// Matrix of eigenvectors which compose the stiffness matrix
     TPZFNMatrix<200,std::complex<double> > fQVectors;
@@ -44,9 +48,6 @@ private:
     
     /// Vector of eigenvalues of the SBFem analyis
     TPZManVector<std::complex<double> > fEigenvaluesBubble;
-
-
-    TPZFNMatrix<200,std::complex<double> > fMatPhiInv; //
     
     /// Multiplying coefficients of each eigenvector
     TPZFMatrix<std::complex<double> > fCoef;
@@ -69,10 +70,6 @@ private:
     void ComputeMassMatrix(TPZElementMatrix &M0);
     
 public:
-
-    static int gDefaultPolynomialOrder;
-    
-    static int gPolynomialShapeFunctions;
     
     TPZSBFemElementGroup() : TPZElementGroup()
     {

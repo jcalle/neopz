@@ -744,10 +744,10 @@ void TPZBuildSBFem::CreateElementGroups(TPZCompMesh &cmesh)
         if (!sbfemgroup) {
             DebugStop();
         }
-        if (TPZSBFemElementGroup::gDefaultPolynomialOrder) {
-            TPZElementMatrix ek, ef;
+        // if (TPZSBFemElementGroup::gDefaultPolynomialOrder) {
+            // TPZElementMatrix ek, ef;
             sbfemgroup->ComputeEigenvalues(); //lalalal
-        }
+        // }
     }
     
     cmesh.InitializeBlock();

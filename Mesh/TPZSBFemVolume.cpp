@@ -811,15 +811,15 @@ void TPZSBFemVolume::SetSkeleton(int64_t skeleton) {
     SetIntegrationRule(2 * order);
 }
 
-void TPZSBFemVolume::SetCoefNonHomogeneous(TPZManVector<std::complex<double> > eigval, TPZFNMatrix<100,std::complex<double>>phi, TPZFNMatrix<200,std::complex<double> > &rot)
+void TPZSBFemVolume::SetCoefNonHomogeneous(TPZManVector<std::complex<double> > &eigval, TPZFNMatrix<100,std::complex<double>> &phi, TPZFNMatrix<100,std::complex<double> > &rot)
 {
     fEigenvaluesBubble = eigval;
     fPhiBubble = phi;
     fPhiInv = rot;
 }
 
-void TPZSBFemVolume::LocalBodyForces(TPZFNMatrix<200,std::complex<double>> &f, TPZManVector<std::complex<double>> &eigval, int icon){
-    
+void TPZSBFemVolume::LocalBodyForces(TPZFNMatrix<200,std::complex<double>> &f, TPZFNMatrix<200,std::complex<double>> &fbubble, TPZManVector<std::complex<double>> &eigval, TPZManVector<std::complex<double>> &eigvalbubbles, int icon)
+{
     TPZCompMesh *cmesh = Mesh();
     TPZGeoEl *Ref2D = Reference();
     int matid = Ref2D->MaterialId();
@@ -860,10 +860,11 @@ void TPZSBFemVolume::LocalBodyForces(TPZFNMatrix<200,std::complex<double>> &f, T
     
     TPZGeoEl *Ref1D = CSkeleton->Reference();
     
-    int nphixi = fPhi.Rows();
     int numeig = fPhi.Cols();
+    int numbubbles = fPhiBubble.Cols();
     
     TPZFNMatrix<200,std::complex<double>> eflocal(fPhi.Rows(), fPhi.Cols(),0);
+    TPZFNMatrix<200,std::complex<double>> eflocalbubble(fPhiBubble.Rows(), fPhiBubble.Cols(), 0);
     
     for (int ipts=0; ipts<npts; ipts++) {
         intrule->Point(ipts, intpoint, weight);
@@ -906,16 +907,29 @@ void TPZSBFemVolume::LocalBodyForces(TPZFNMatrix<200,std::complex<double>> &f, T
             }
             for (int i = 0; i < data1d.phi.Rows(); i++) {
                 for (int istate = 0; istate < nstate; istate++) {
-                    eflocal(i*nstate + istate,c) += xiexp * data1d.phi(i,0) * bodyforce[istate] * weight;
+                    eflocal(i*nstate + istate, c) += xiexp * data1d.phi(i,0) * bodyforce[istate] * weight;
                 }
             }
         }
-        
+        for (int c = 0; c < numbubbles; c++) {
+            std::complex<double> xiexp;
+            xiexp = pow(sbfemparam, -eigvalbubbles[c]);
+            for (int i = 0; i < data1d.phi.Rows(); i++) {
+                for (int istate = 0; istate < nstate; istate++) {
+                    eflocalbubble(i*nstate + istate, c) += xiexp * data1d.phi(i,0) * bodyforce[istate] * weight;
+                }
+            }
+        }
     }
     
     for (int c = 0; c < numeig; c++) {
-        for (int i = 0; i < nphixi; i++) {
+        for (int i = 0; i < numeig; i++) {
             f(c,0) += eflocal(i,c) * fPhi(i,c);
+        }
+    }
+    for (int c = 0; c < numbubbles; c++) {
+        for (int i = 0; i < numeig; i++) {
+            fbubble(numeig,0) += eflocalbubble(i,c) * fPhiBubble(i,c);
         }
     }
     
