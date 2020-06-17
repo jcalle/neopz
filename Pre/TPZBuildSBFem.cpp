@@ -730,6 +730,7 @@ void TPZBuildSBFem::CreateElementGroups(TPZCompMesh &cmesh)
             }
             femvol->SetElementGroupIndex(index);
         }
+        sbfemgroup->ComputeEigenvalues(); //lalalal
 	if (TPZSBFemElementGroup::gDefaultPolynomialOrder) {
             sbfemgroup->InitializeInternalConnect();
         }
@@ -746,7 +747,6 @@ void TPZBuildSBFem::CreateElementGroups(TPZCompMesh &cmesh)
         }
         // if (TPZSBFemElementGroup::gDefaultPolynomialOrder) {
             // TPZElementMatrix ek, ef;
-            sbfemgroup->ComputeEigenvalues(); //lalalal
         // }
     }
     

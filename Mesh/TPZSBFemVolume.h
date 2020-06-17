@@ -47,6 +47,9 @@ class TPZSBFemVolume : public TPZInterpolationSpace
     /// Inverse of fPhi and bubble coefficients
     TPZFNMatrix<100,std::complex<double> > fPhiInv;
     
+    /// Inverse of fPhi and bubble coefficients
+    TPZFNMatrix<100,std::complex<double> > fPhiInvBubbles;
+    
     /// vector of local indices of multipliers in the group
     TPZManVector<int64_t> fLocalIndices;
     
@@ -325,6 +328,9 @@ public:
      */
     virtual void ComputeSolution(TPZVec<REAL> &qsi,
                                  TPZSolVec &sol, TPZGradSolVec &dsol,TPZFMatrix<REAL> &axes);
+
+    void ComputeSolutionNH(TPZVec<REAL> &qsi,
+                                       TPZSolVec &sol, TPZGradSolVec &dsol, TPZFMatrix<REAL> &axes);
     
     void EvaluateError(std::function<void(const TPZVec<REAL> &loc,TPZVec<STATE> &val,TPZFMatrix<STATE> &deriv)> fp,
                        TPZVec<REAL> &errors,bool store_error);
