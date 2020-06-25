@@ -35,10 +35,13 @@ private:
     TPZFNMatrix<100,std::complex<double> > fPhiBubble;
     
     /// Inverse of the eigenvector matrix (transfers eigenvector coeficients to side shape coeficients)
-    TPZFMatrix<std::complex<double> > fPhiInverse;
+    TPZFNMatrix<100,std::complex<double> > fPhiInverse;
 
     /// Matrix that composes the bubble functions
     TPZFNMatrix<100,std::complex<double> > fMatBubble;
+
+    /// Matrix that composes the bubble functions
+    TPZFNMatrix<100,std::complex<double> > fMat;
 
     /// Matrix of eigenvectors which compose the stiffness matrix
     TPZFNMatrix<200,std::complex<double> > fQVectors;

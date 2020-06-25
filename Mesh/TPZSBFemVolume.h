@@ -73,7 +73,7 @@ public:
     /// Compute the E0, E1 and E2 matrices
     void ComputeKMatrices(TPZElementMatrix &E0, TPZElementMatrix &E1, TPZElementMatrix &E2, TPZElementMatrix &M0);
 
-    void SetCoefNonHomogeneous(TPZManVector<std::complex<double> > &eigval, TPZFNMatrix<100,std::complex<double>> &phi, TPZFNMatrix<100,std::complex<double> > &rot);
+    void SetCoefNonHomogeneous(TPZManVector<std::complex<double> > &eigval, TPZFNMatrix<100,std::complex<double>> &phi, TPZFNMatrix<100,std::complex<double> > &phiinv, TPZFNMatrix<100,std::complex<double> > &rot);
 
     void LocalBodyForces(TPZFNMatrix<200,std::complex<double>> &f, TPZFNMatrix<200,std::complex<double>> &fbubble, TPZManVector<std::complex<double>> &eigval, TPZManVector<std::complex<double>> &eigvalbubble, int icon);
     
@@ -329,7 +329,7 @@ public:
     virtual void ComputeSolution(TPZVec<REAL> &qsi,
                                  TPZSolVec &sol, TPZGradSolVec &dsol,TPZFMatrix<REAL> &axes);
 
-    void ComputeSolutionNH(TPZVec<REAL> &qsi,
+    void ComputeSolutionWithBubbles(TPZVec<REAL> &qsi,
                                        TPZSolVec &sol, TPZGradSolVec &dsol, TPZFMatrix<REAL> &axes);
     
     void EvaluateError(std::function<void(const TPZVec<REAL> &loc,TPZVec<STATE> &val,TPZFMatrix<STATE> &deriv)> fp,

@@ -948,17 +948,19 @@ void TPZSBFemElementGroup::CalcStiff(TPZElementMatrix &ek,TPZElementMatrix &ef)
 
         TPZFNMatrix<200,std::complex<double>> efcomplex;
         TPZFNMatrix<200,std::complex<double>> efcomplexbubbles;
+
+        fPhiInverse.Transpose();
+        fMatBubble.Transpose();
+        fPhiInverse.Multiply(f, efcomplex);
+        fMatBubble.Multiply(fbubble, efcomplexbubbles);
         fPhiInverse.Transpose();
         fMatBubble.Transpose();
         
-        fPhiInverse.Multiply(f, efcomplex);
-        fMatBubble.Multiply(fbubble, efcomplexbubbles);
-        fMatBubble.Transpose();
         for (int i=0; i<n; i++) {
             ef.fMat(i,0) = -efcomplex(i,0).real();
         }
         for (int i=0; i<ndofbubbles; i++) {
-            ef.fMat(i,0) = -efcomplexbubbles(i,0).real();
+            ef.fMat(i+n,0) = -efcomplexbubbles(i,0).real();
         }
         
 #ifdef LOG4CXX
@@ -999,8 +1001,23 @@ void TPZSBFemElementGroup::CalcStiff(TPZElementMatrix &ek,TPZElementMatrix &ef)
 
 void TPZSBFemElementGroup::LoadSolution()
 {
-    TPZFNMatrix<200,std::complex<double> > uh_local(fPhi.Rows(),fMesh->Solution().Cols(),0.);
     int nc = NConnects();
+    int ndof = fPhi.Rows();
+    if(TPZSBFemElementGroup::gDefaultPolynomialOrder != 0){
+        ndof=0;
+        for (int64_t ic=0; ic<nc; ic++) {
+            int nshape = Mesh()->ConnectVec()[fConnectIndexes[ic]].NShape();
+            int nstate = Mesh()->ConnectVec()[fConnectIndexes[ic]].NState();
+            ndof += nshape * nstate;
+        }
+    }
+
+    TPZFNMatrix<200,std::complex<double> > uh_local(fPhiInverse.Rows()+fMatBubble.Rows(),fMesh->Solution().Cols(),0.);
+    fCoef.Resize(ndof, fMesh->Solution().Cols());
+
+    TPZFNMatrix<200,std::complex<double> > sol(ndof, fMesh->Solution().Cols(),0.);
+    fCoef.Resize(ndof, fPhi.Cols());
+    
     int count = 0;
     for (int ic=0; ic<nc; ic++) {
         TPZConnect &c = Connect(ic);
@@ -1012,12 +1029,13 @@ void TPZSBFemElementGroup::LoadSolution()
         for (int seq=0; seq < blsize; seq++) {
             for (int c=0; c<uh_local.Cols(); c++)
             {
-                uh_local(count+seq,c) = fMesh->Solution()(pos+seq,c);
+                sol(count+seq,c) = fMesh->Solution()(pos+seq,c);
             }
         }
         count += blsize;
     }
-    fPhiInverse.Multiply(uh_local, fCoef);
+    fMat.Multiply(sol, fCoef);
+
     int64_t nel = fElGroup.size();
     for (int64_t el = 0; el<nel; el++) {
         TPZCompEl *cel = fElGroup[el];
@@ -1251,6 +1269,18 @@ void TPZSBFemElementGroup::ComputeBubbleParameters()
             fMatBubble(i+n*j + 2*cont+ nstate, i+n*(j-1) + cont+ nstate) = -1;
         }
     }
+    fMat.Resize(fPhiInverse.Rows()+fMatBubble.Rows(),fPhiInverse.Cols()+fMatBubble.Rows());
+    fMat.Zero();
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            fMat(i,j) = fPhiInverse(i,j);
+        }
+    }
+    for (int i = 0; i < fMatBubble.Rows(); i++) {
+        for (int j = 0; j < fMatBubble.Cols(); j++) {
+            fMat(i+n,j+n) = fMatBubble(i,j);
+        }
+    }
 
 #ifdef LOG4CXX
     if (logger->isDebugEnabled()) {
@@ -1274,7 +1304,7 @@ void TPZSBFemElementGroup::ComputeBubbleParameters()
         }
 #endif
         sbfem->SetPhiEigVal(fPhi, fEigenvalues);
-        sbfem->SetCoefNonHomogeneous(fEigenvaluesBubble, fPhiBubble, fMatBubble);
+        sbfem->SetCoefNonHomogeneous(fEigenvaluesBubble, fPhiBubble, fPhiInverse, fMatBubble);
     }
 }
 
