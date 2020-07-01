@@ -23,6 +23,22 @@ void TPZElementMatrix::SetMatrixSize(short NumBli, short NumBlj,
 		fMat.Redim(NumBli*BlSizei,NumBlj*BlSizej);
 	}
 }
+TPZElementMatrix &TPZElementMatrix::operator=(const TPZElementMatrix &cp)
+{
+    fType = cp.fType;
+    fMesh = cp.fMesh;
+    fConnect = cp.fConnect;
+    fMat = cp.fMat;
+    fBlock = cp.fBlock;
+    fConstrConnect = cp.fConstrConnect;
+    fConstrMat = cp.fConstrMat;
+    fConstrBlock = cp.fConstrBlock;
+    fDestinationIndex = cp.fDestinationIndex;
+    fSourceIndex = cp.fSourceIndex;
+    fBlock.SetMatrix(&fMat);
+    fConstrBlock.SetMatrix(&fConstrMat);
+    return *this;
+}
 
 void TPZElementMatrix::SetMatrixMinSize(short NumBli, short NumBlj, 
 										short BlSizei, short BlSizej) {
@@ -78,7 +94,7 @@ void TPZElementMatrix::Print(std::ostream &out){
         ncon = fConstrConnect.NElements();
         for(ic=0; ic<ncon; ic++) {
             //	out << "Connect index " << fConstrConnect[ic] << endl;
-            out << "ic = " << ic << ' ';
+            out << "ic = " << ic << " index " << fConstrConnect[ic]  << ' ';
             this->fMesh->ConnectVec()[fConstrConnect[ic]].Print(*fMesh,out);
         }
 		ComputeDestinationIndices();
@@ -262,7 +278,7 @@ void TPZElementMatrix::ApplyConstraints(){
 	
 	this->fConstrBlock.Resequence();
 	this->fConstrBlock.SetMatrix(&this->fConstrMat);
-	
+	    
 	int64_t nrhs = this->fMat.Cols();
 	if (this->fType == TPZElementMatrix::EK){
 		this->fConstrMat.Redim(toteq,toteq);

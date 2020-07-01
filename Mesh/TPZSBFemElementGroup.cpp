@@ -6,7 +6,7 @@
 //
 //
 
-// #define COMPUTE_CRC
+//#define COMPUTE_CRC
 
 //#ifndef USING_BLAZE
 //#define USING_BLAZE
@@ -25,15 +25,18 @@
 #ifdef COMPUTE_CRC
 #ifdef USING_BOOST
 #include "boost/crc.hpp"
-extern TPZVec<boost::crc_32_type::value_type> matglobcrc, eigveccrc, stiffcrc, matEcrc, matEInvcrc;
+extern TPZVec<boost::crc_32_type::value_type> matglobcrc, eigveccrc, stiffcrc, matEcrc, matEInvcrc, matPhicrc;
 #endif
 #endif
 
 #ifdef USING_BLAZE
-//#define BLAZE_DEFAULT_ALIGMENT_FLAG = blaze::aligned
+//#define BLAZE_DEFAULT_ALIGMENT_FLAG = blaze::unaligned
 //#define BLAZE_DEFAULT_PADDING_FLAG = blaze::unpadded
 #define BLAZE_USE_VECTORIZATION 0
 #define BLAZE_USE_SHARED_MEMORY_PARALLELIZATION 0
+#define BLAZE_BLAS_MODE 1
+#define BLAZE_BLAS_IS_PARALLEL 0
+#define BLAZE_BLAS_INCLUDE_FILE <mkl_lapacke.h>
 #include <blaze/math/DynamicMatrix.h>
 #include <blaze/math/HybridMatrix.h>
 #include <blaze/math/DiagonalMatrix.h>
@@ -115,17 +118,17 @@ void TPZSBFemElementGroup::ComputeMatrices(TPZElementMatrix &E0, TPZElementMatri
             LOGPZ_DEBUG(logger, sout.str())
         }
 #endif
-#ifdef COMPUTE_CRC
-        {
-            boost::crc_32_type crc;
-            int64_t n = E0Loc.fMat.Rows();
-            crc.process_bytes(&E0Loc.fMat(0,0), n*n*sizeof(STATE));
-            crc.process_bytes(&E1Loc.fMat(0,0), n*n*sizeof(STATE));
-            crc.process_bytes(&E2Loc.fMat(0,0), n*n*sizeof(STATE));
-            matEcrc[Index()] = crc.checksum();
+// #ifdef COMPUTE_CRC
+//         {
+//             boost::crc_32_type crc;
+//             int64_t n = E0Loc.fMat.Rows();
+//             crc.process_bytes(&E0Loc.fMat(0,0), n*n*sizeof(STATE));
+//             crc.process_bytes(&E1Loc.fMat(0,0), n*n*sizeof(STATE));
+//             crc.process_bytes(&E2Loc.fMat(0,0), n*n*sizeof(STATE));
+//             matEcrc[Index()] = crc.checksum();
 
-        }
-#endif
+//         }
+// #endif
         int nelcon = E0Loc.NConnects();
         for (int ic=0; ic<nelcon; ic++) {
             int iblsize = E0Loc.fBlock.Size(ic);
@@ -183,8 +186,29 @@ void TPZSBFemElementGroup::CalcStiffBlaze(TPZElementMatrix &ek,TPZElementMatrix 
     memcpy(&E0blaze.data()[0], E0.fMat.Adress(), n*n*sizeof(STATE));
     memcpy(&E1blaze.data()[0], E1.fMat.Adress(), n*n*sizeof(STATE));
     memcpy(&E2blaze.data()[0], E2.fMat.Adress(), n*n*sizeof(STATE));
+
+#ifdef COMPUTE_CRC
+    {
+        boost::crc_32_type crc;
+        crc.process_bytes(&E0blaze(0,0), E0blaze.spacing()*E0blaze.spacing()*sizeof(STATE));
+        crc.process_bytes(&E1blaze(0,0), E1blaze.spacing()*E1blaze.spacing()*sizeof(STATE));
+        crc.process_bytes(&E2blaze(0,0), E2blaze.spacing()*E2blaze.spacing()*sizeof(STATE));
+        matEcrc[Index()] = crc.checksum();
+    }
+#endif
     
-    E0Invblaze = inv( E0blaze );  // Compute the inverse of E0
+    static pthread_mutex_t mutex_serial = PTHREAD_MUTEX_INITIALIZER;
+    pthread_mutex_lock(&mutex_serial);
+    E0Invblaze = serial(inv( E0blaze ));  // Compute the inverse of E0
+
+#ifdef COMPUTE_CRC
+    {
+        boost::crc_32_type crc;
+        crc.process_bytes(&E0Invblaze(0,0), E0Invblaze.spacing()*E0Invblaze.spacing()*sizeof(STATE));
+        matEInvcrc[Index()] = crc.checksum();
+    }
+#endif
+    pthread_mutex_unlock(&mutex_serial);
 
     blaze::DynamicMatrix<STATE,blaze::columnMajor> globmatblaze(2*n,2*n);
     blaze::DynamicMatrix<STATE,blaze::columnMajor> E0InvE1Tblaze = E0Invblaze*trans(E1blaze);
@@ -218,23 +242,39 @@ void TPZSBFemElementGroup::CalcStiffBlaze(TPZElementMatrix &ek,TPZElementMatrix 
 	blaze::DynamicMatrix<blaze::complex<double>,blaze::columnMajor> eigvecblaze( 2*n, 2*n );  // The matrix for the left eigenvectors
 
 	eigen(globmatblaze, eigvalblaze, eigvecblaze);
-
-    TPZFMatrix< std::complex<double> > eigenVectors(2*n,2*n);
-    TPZManVector<std::complex<double> > eigenvalues(2*n);
-    
-    // KAROL : Porque tem que voltar ao PZ neste estagio?
-    
-    memcpy(eigenvalues.begin(), &eigvalblaze.data()[0], 2*n*sizeof(std::complex<double>));
-    memcpy(eigenVectors.Adress(), &eigvecblaze.data()[0], 2*n*2*n*sizeof(std::complex<double>));
+#ifdef COMPUTE_CRC2
+//    static pthread_mutex_t mutex =PTHREAD_MUTEX_INITIALIZER;
+    pthread_mutex_lock(&mutex);
+    extern int gnumthreads;
+    std::stringstream sout;
+    sout << "eigval" << gnumthreads << ".nb";
+    static int count_loc = 0;
+    std::ofstream file;
+    if (count_loc == 0) {
+        file.open(sout.str());
+    }
+    else
+    {
+        file.open(sout.str(),std::ios::app);
+    }
+    std::stringstream eigv;
+    eigv << "EigVec" << Index() << " = ";
+    if(count_loc < 1)
+    {
+        eigvalblaze.Print(eigv.str().c_str(),file,EMathematicaInput);
+    }
+    count_loc++;
+    pthread_mutex_unlock(&mutex);
+#endif
 
     if(0)
     {
         TPZManVector<STATE> eigvalreal(2*n,0.);
         TPZFMatrix<STATE> eigvecreal(2*n,2*n,0.);
         for (int i=0; i<2*n; i++) {
-            eigvalreal[i] = eigenvalues[i].real();
+            eigvalreal[i] = eigvalblaze[i].real();
             for (int j=0; j<2*n; j++) {
-                eigvecreal(i,j) = eigenVectors(i,j).real();
+                eigvecreal(i,j) = eigvecblaze(i,j).real();
             }
         }
     }
@@ -245,26 +285,25 @@ void TPZSBFemElementGroup::CalcStiffBlaze(TPZElementMatrix &ek,TPZElementMatrix 
     TPZFMatrix<std::complex<double> > eigvecsel(2*n,n,0.),eigvalmat(1,n,0.);
     int count = 0;
     for (int i=0; i<2*n; i++) {
-        if (eigenvalues[i].real() < -1.e-6) {
+        if (eigvalblaze[i].real() < -1.e-6) {
             double maxvaleigenvec = 0;
             for (int j=0; j<n; j++) {
-                QVectors(j,count) = eigenVectors(j+n,i);
-                eigvecsel(j,count) = eigenVectors(j,i);
-                eigvecsel(j+n,count) = eigenVectors(j+n,i);
-                fPhi(j,count) = eigenVectors(j,i);
+                QVectors(j,count) = eigvecblaze(j+n,i);
+                eigvecsel(j,count) = eigvecblaze(j,i);
+                eigvecsel(j+n,count) = eigvecblaze(j+n,i);
+                fPhi(j,count) = eigvecblaze(j,i);
                 double realvalabs = fabs(fPhi(j,count).real());
                 if (realvalabs > maxvaleigenvec) {
                     maxvaleigenvec = realvalabs;
                 }
             }
-            eigvalsel[count] = eigenvalues[i];
-            eigvalmat(0,count) = eigenvalues[i];
+            eigvalsel[count] = eigvalblaze[i];
+            eigvalmat(0,count) = eigvalblaze[i];
             for (int j=0; j<n; j++) {
                 QVectors(j,count) /= maxvaleigenvec;
                 eigvecsel(j,count) /= maxvaleigenvec;
                 eigvecsel(j+n,count) /= maxvaleigenvec;
                 fPhi(j,count) /= maxvaleigenvec;
-
             }
             count++;
         }
@@ -305,7 +344,7 @@ void TPZSBFemElementGroup::CalcStiffBlaze(TPZElementMatrix &ek,TPZElementMatrix 
     if(dim==3 && count != n)
     {
         std::cout << __PRETTY_FUNCTION__ << __LINE__ << " count = " << count << " n = " << n << std::endl;
-        for(int i=0; i< 2*n; i++) std::cout << eigenvalues[i] << std::endl;
+        for(int i=0; i< 2*n; i++) std::cout << eigvalblaze[i] << std::endl;
         DebugStop();
     }
     fEigenvalues = eigvalsel;
@@ -318,12 +357,20 @@ void TPZSBFemElementGroup::CalcStiffBlaze(TPZElementMatrix &ek,TPZElementMatrix 
         LOGPZ_DEBUG(logger, sout.str())
     }
 #endif
+#ifdef COMPUTE_CRC
+    {
+        boost::crc_32_type crc;
+        crc.process_bytes(&fPhi(0,0), fPhi.Rows()*fPhi.Cols()*sizeof(STATE));
+        matPhicrc[Index()] = crc.checksum();
+    }
+#endif
         
     fPhiInverse.Redim(n, n);
     blaze::DynamicMatrix<std::complex<double>,blaze::columnMajor> phiblaze(n,n), PhiInverseblaze(n,n);
     memcpy(&phiblaze.data()[0], fPhi.Adress(),n*n*sizeof(std::complex<double>));
     PhiInverseblaze = inv( phiblaze );  // Compute the inverse of A
     memcpy(fPhiInverse.Adress(), &PhiInverseblaze.data()[0], n*n*sizeof(std::complex<double>));
+
 
 #ifdef LOG4CXX
     if (logger->isDebugEnabled())
@@ -337,11 +384,11 @@ void TPZSBFemElementGroup::CalcStiffBlaze(TPZElementMatrix &ek,TPZElementMatrix 
     TPZFMatrix<std::complex<double> > ekloc;
     QVectors.Multiply(fPhiInverse, ekloc);
 
-    TPZFMatrix<STATE> globmatkeep(2*n,2*n,0);
-    memcpy(globmatkeep.Adress(), &globmatblaze.data()[0], 2*n*2*n*sizeof(STATE));
     if(0)
     {
         std::ofstream out("EigenProblem.nb");
+        TPZFMatrix<STATE> globmatkeep(2*n,2*n,0);
+        memcpy(globmatkeep.Adress(), &globmatblaze.data()[0], 2*n*2*n*sizeof(STATE));
         globmatkeep.Print("matrix = ",out,EMathematicaInput);
         eigvecsel.Print("eigvec =",out,EMathematicaInput);
         eigvalmat.Print("lambda =",out,EMathematicaInput);
@@ -370,21 +417,13 @@ void TPZSBFemElementGroup::CalcStiffBlaze(TPZElementMatrix &ek,TPZElementMatrix 
         sbfem->SetPhiEigVal(fPhi, fEigenvalues);
     }
     ComputeMassMatrix(M0);
+
 #ifdef COMPUTE_CRC
     static pthread_mutex_t mutex =PTHREAD_MUTEX_INITIALIZER;
     pthread_mutex_lock(&mutex);
     {
         boost::crc_32_type crc;
-        int64_t n = E0.fMat.Rows();
-        crc.process_bytes(&E0.fMat(0,0), n*n*sizeof(STATE));
-        crc.process_bytes(&E1.fMat(0,0), n*n*sizeof(STATE));
-        crc.process_bytes(&E2.fMat(0,0), n*n*sizeof(STATE));
-        matEcrc[Index()] = crc.checksum();
-        
-    }
-    {
-        boost::crc_32_type crc;
-        crc.process_bytes(&eigenVectors(0,0), n*n*sizeof(std::complex<double>));
+        crc.process_bytes(&eigvecblaze(0,0), n*n*sizeof(std::complex<double>));
         eigveccrc[Index()] = crc.checksum();
     }
     {
@@ -392,6 +431,11 @@ void TPZSBFemElementGroup::CalcStiffBlaze(TPZElementMatrix &ek,TPZElementMatrix 
         int n = ekloc.Rows();
         crc.process_bytes(&ekloc(0,0), n*n*sizeof(STATE));
         stiffcrc[Index()] = crc.checksum();
+    }
+    {
+        boost::crc_32_type crc;
+        crc.process_bytes(&globmatblaze(0,0), globmatblaze.spacing()*globmatblaze.spacing()*sizeof(STATE));
+        matglobcrc[Index()] = crc.checksum();
     }
     pthread_mutex_unlock(&mutex);
 #endif
