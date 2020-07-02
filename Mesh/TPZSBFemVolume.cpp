@@ -553,7 +553,7 @@ void TPZSBFemVolume::ComputeSolutionWithBubbles(TPZVec<REAL> &qsi,
             }
         }
         
-#ifdef LOG4CXX2
+#ifdef LOG4CXX
         if (s == 0 && logger->isDebugEnabled()) {
             std::stringstream sout;
             sout << "uh_xi " << uh_xi << std::endl;
@@ -1146,6 +1146,8 @@ void TPZSBFemVolume::LocalBodyForces(TPZFNMatrix<200,std::complex<double>> &f, T
         std::stringstream sout;
         eflocal.Print("eflocal = ", sout, EMathematicaInput);
         f.Print("f = ", sout, EMathematicaInput);
+        eflocalbubble.Print("eflocalbubble = ", sout, EMathematicaInput);
+        fbubble.Print("fbubble = ", sout, EMathematicaInput);
         LOGPZ_DEBUG(loggerLBF, sout.str())
     }
 #endif

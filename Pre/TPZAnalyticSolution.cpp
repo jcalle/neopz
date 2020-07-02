@@ -1270,7 +1270,7 @@ void TLaplaceExample1::uxy(const TPZVec<TVar> &x, TPZVec<TVar> &disp) const
         case ECosCos:
         {
             disp[0] += (TVar)(1.);
-            for(int i=0; i<fDimension; i++) disp[0] *= cos((TVar)M_PI*2.*xloc[i]);
+            for(int i=0; i<fDimension; i++) disp[0] *= cos((TVar)M_PI*xloc[i]/2);
         }
             break;
         case EArcTan://(1+0.3sin(10Pi x))*(1+0.5cos(10Pi r)*arctan(100*(r-0.5))
@@ -1528,7 +1528,7 @@ void TLaplaceExample1::uxy(const TPZVec<FADFADREAL > &x, TPZVec<FADFADREAL > &di
         case ECosCos:
         {
             disp[0] += (TVar)(1.);
-            for(int i=0; i<fDimension; i++) disp[0] *= FADcos((TVar)M_PI*2.*xloc[i]);
+            for(int i=0; i<fDimension; i++) disp[0] *= FADcos((TVar)M_PI*xloc[i]/2);
         }
             break;
         case EArcTan:

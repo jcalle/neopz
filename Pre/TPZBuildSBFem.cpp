@@ -41,7 +41,6 @@ void TPZBuildSBFem::StandardConfiguration(TPZVec<int64_t> &elementindices)
 void TPZBuildSBFem::Configure(TPZVec<int64_t> &scalingcenters)
 {
     std::map<int64_t,int64_t> nodetogroup;
-    //    int maxpartition = 4;
     int64_t count = 0;
     for (int64_t el=0; el<scalingcenters.size(); el++) {
         if (scalingcenters[el] == -1) {
@@ -49,9 +48,6 @@ void TPZBuildSBFem::Configure(TPZVec<int64_t> &scalingcenters)
         }
         if (nodetogroup.find(scalingcenters[el]) == nodetogroup.end()) {
             nodetogroup[scalingcenters[el]] = count++;
-            //            if (count >= maxpartition) {
-            //                break;
-            //            }
         }
     }
     if(fPartitionCenterNode.size())
@@ -80,15 +76,11 @@ void TPZBuildSBFem::Configure(TPZVec<int64_t> &scalingcenters)
             DebugStop();
         }
         int64_t partition = nodetogroup[scalingcenters[el]];
-        //        if(partition < maxpartition)
-        {
-            fElementPartition[el] = partition;
-        }
+        fElementPartition[el] = partition;
     }
     AddSkeletonElements();
     
 }
-
 
 /// add a partition manually
 void TPZBuildSBFem::AddPartition(TPZVec<int64_t> &elindices, int64_t centernodeindex)
@@ -170,8 +162,6 @@ void TPZBuildSBFem::BuildComputationMesh(TPZCompMesh &cmesh, const std::set<int>
     CreateElementGroups(cmesh);
     
 }
-
-
 
 /// create the geometric skeleton elements
 void TPZBuildSBFem::AddSkeletonElements()
@@ -521,9 +511,6 @@ void TPZBuildSBFem::CreateVolumetricElements(TPZCompMesh &cmesh, const std::set<
                     continue;
                 }
                 int nnodes = subgelside.NSideNodes();
-//                if (nnodes != 2) {
-//                    std::cout << "Please extend the code to higher dimensions\n";
-//                }
                 TPZManVector<int64_t,4> Nodes(nnodes*2,-1);
                 int matid = fMatIdTranslation[gel->MaterialId()];
                 int64_t index;
@@ -610,7 +597,6 @@ void TPZBuildSBFem::CreateVolumetricElements(TPZCompMesh &cmesh, const std::set<
     
 }
 
-
 /// put the sbfem volumetric elements in element groups
 void TPZBuildSBFem::CreateElementGroups(TPZCompMesh &cmesh)
 {
@@ -624,7 +610,6 @@ void TPZBuildSBFem::CreateElementGroups(TPZCompMesh &cmesh)
         new TPZSBFemElementGroup(cmesh,index);
         elementgroupindices[el] = index;
     }
-    
     
     int64_t nel = cmesh.NElements();
     int dim = cmesh.Dimension();
@@ -730,10 +715,7 @@ void TPZBuildSBFem::CreateElementGroups(TPZCompMesh &cmesh)
             }
             femvol->SetElementGroupIndex(index);
         }
-        sbfemgroup->ComputeEigenvalues(); //lalalal
-	if (TPZSBFemElementGroup::gDefaultPolynomialOrder) {
-            sbfemgroup->InitializeInternalConnect();
-        }
+        sbfemgroup->ComputeEigenvalues();
     }
 
     for (int64_t el=0; el<numgroups; el++) {
@@ -745,13 +727,12 @@ void TPZBuildSBFem::CreateElementGroups(TPZCompMesh &cmesh)
         if (!sbfemgroup) {
             DebugStop();
         }
-        // if (TPZSBFemElementGroup::gDefaultPolynomialOrder) {
-            // TPZElementMatrix ek, ef;
-        // }
+	    if (TPZSBFemElementGroup::gDefaultPolynomialOrder != 0) {
+            sbfemgroup->InitializeInternalConnect();
+        }
     }
     
     cmesh.InitializeBlock();
-    
 }
 
 /// Divide de skeleton elements
