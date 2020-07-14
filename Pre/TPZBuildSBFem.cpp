@@ -715,7 +715,9 @@ void TPZBuildSBFem::CreateElementGroups(TPZCompMesh &cmesh)
             }
             femvol->SetElementGroupIndex(index);
         }
-        sbfemgroup->ComputeEigenvalues();
+        if (TPZSBFemElementGroup::gDefaultPolynomialOrder != 0) {
+            sbfemgroup->InitializeInternalConnect();
+        }
     }
 
     for (int64_t el=0; el<numgroups; el++) {
@@ -727,9 +729,7 @@ void TPZBuildSBFem::CreateElementGroups(TPZCompMesh &cmesh)
         if (!sbfemgroup) {
             DebugStop();
         }
-	    if (TPZSBFemElementGroup::gDefaultPolynomialOrder != 0) {
-            sbfemgroup->InitializeInternalConnect();
-        }
+        sbfemgroup->ComputeEigenvalues();
     }
     
     cmesh.InitializeBlock();

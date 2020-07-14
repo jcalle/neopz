@@ -73,8 +73,6 @@ public:
     /// Compute the E0, E1 and E2 matrices
     void ComputeKMatrices(TPZElementMatrix &E0, TPZElementMatrix &E1, TPZElementMatrix &E2, TPZElementMatrix &M0);
 
-    void SetCoefNonHomogeneous(TPZManVector<std::complex<double> > &eigval, TPZFNMatrix<100,std::complex<double>> &phi, TPZFNMatrix<100,std::complex<double> > &phiinv, TPZFNMatrix<100,std::complex<double> > &rot);
-
     void LocalBodyForces(TPZFNMatrix<200,std::complex<double>> &f, TPZFNMatrix<200,std::complex<double>> &fbubble, TPZManVector<std::complex<double>> &eigval, TPZManVector<std::complex<double>> &eigvalbubble, int icon);
     
     /// Data structure initialization
@@ -253,7 +251,7 @@ public:
     /**  @brief Defines the desired order for entire element. */
     virtual void SetPreferredOrder ( int order );
     
-
+    void SetCoefNonHomogeneous(TPZFNMatrix<100,std::complex<double>> &phi, TPZManVector<std::complex<double> > &eigval, TPZFNMatrix<100,std::complex<double> > &phiinv, TPZFNMatrix<100,std::complex<double> > &rot);
 
     /// initialize the data structures of the eigenvectors and eigenvalues associated with this volume element
     void SetPhiEigVal(TPZFMatrix<std::complex<double> > &phi, TPZManVector<std::complex<double> > &eigval);
