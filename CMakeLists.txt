@@ -597,6 +597,19 @@ if (USING_BLAZE)
     add_definitions(-DUSING_BLAZE)
 endif()
 
+if(USING_PETSC)
+	find_library(PETSc_LIBRARY_DIR NAMES petsc HINTS ${PETSc_DIR} )
+	find_path(PETSc_INCLUDE_DIR petsc.h HINTS ${PETSc_INCLUDE_DIRS})
+	find_path(PETSc_INCLUDE_DIR2 petscconf.h HINTS ${PETSc_INCLUDE_DIRS})
+	list(APPEND PETSc_INCLUDE_DIR "${PETSc_INCLUDE_DIR2}")
+	find_package_handle_standard_args(PETSc PETSc_LIBRARY PETSc_INCLUDE_DIRS)
+
+	target_link_libraries(pz ${PETSc_LIBRARY_DIR}/libmpich.so ${PETSc_LIBRARY_DIR}/libmpi.so ${PETSc_LIBRARY_DIR}/libpetsc.so)
+	target_include_directories(pz PUBLIC ${PETSc_INCLUDE_DIR})
+    add_definitions(-DUSING_PETSC)
+endif()
+
+
 if (USING_BOOST)
    if(APPLE)
           target_link_libraries(pz ${Boost_LIBRARY_DIRS}/libboost_date_time.dylib ${Boost_LIBRARY_DIRS}/libboost_atomic-mt.dylib ${Boost_LIBRARY_DIRS}/libboost_unit_test_framework.dylib)
@@ -671,18 +684,6 @@ if(USING_HDIVPIOLA)
 	set(HDIVPIOLA HDIVPIOLA)
 	add_definitions(-D${HDIVPIOLA})
 endif(USING_HDIVPIOLA)
-
-if(USING_PETSC)
-	find_library(PETSc_LIBRARY NAMES petsc HINTS ${PETSc_DIR} )
-	find_path(PETSc_INCLUDE_DIR petsc.h HINTS ${PETSc_INCLUDE_DIRS})
-	find_path(PETSc_INCLUDE_DIR2 petscconf.h HINTS ${PETSc_INCLUDE_DIRS})
-	list(APPEND PETSc_INCLUDE_DIR "${PETSc_INCLUDE_DIR2}")
-	find_package_handle_standard_args(PETSc PETSc_LIBRARY PETSc_INCLUDE_DIRS)
-
-	target_link_libraries(pz ${PETSc_LIBRARY}/libpetsc.so)
-	target_include_directories(pz PUBLIC ${PETSc_INCLUDE_DIR})
-    add_definitions(-DUSING_PETSC)
-endif()
 
 add_subdirectory(PerfUtil)
 add_subdirectory(Util)
