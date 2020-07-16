@@ -238,6 +238,10 @@ ENABLE_TESTING()
 				add_subdirectory(PardisoSample)
 			endif(USING_MKL)
 
+			if(USING_PETSC)
+				add_subdirectory(PETScExample)
+			endif(USING_PETSC)
+
 		endif(BUILD_COMPLEX_PROJECTS)
 		
 	endif(BUILD_PROJECTS)
