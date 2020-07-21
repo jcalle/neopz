@@ -1129,10 +1129,10 @@ void TPZSBFemElementGroup::ComputeBubbleParameters()
     TPZManVector<int64_t> ind(0);
     for (int i=0; i<n; i++) {
         REAL resto = fEigenvalues[i].real() - nearbyint(fEigenvalues[i].real());
-        if( !IsZero(resto) && nearbyint(fEigenvalues[i].real()) > (fInternalPolynomialOrder+1)){
-            if ( IsZero(fEigenvalues[i].real() - fEigenvalues[i+1].real())) {
-                continue;
-            }
+        if( !IsZero(resto)){
+            // if ( IsZero(fEigenvalues[i].real() - fEigenvalues[i+1].real())) {
+            //     continue;
+            // }
             ind.resize(ind.size()+1);
             ind[cont] = i;
             cont++;
@@ -1142,7 +1142,7 @@ void TPZSBFemElementGroup::ComputeBubbleParameters()
     for (int i = 0; i < cont; ++i)
     {
         fEigenvaluesBubble[2*i] = fEigenvalues[ind[i]].real();
-        fEigenvaluesBubble[2*i+1] = -1;
+        fEigenvaluesBubble[2*i+1] = -fInternalPolynomialOrder;
     }
     int64_t neigval = fEigenvaluesBubble.size();
     

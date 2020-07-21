@@ -14,6 +14,7 @@
 #include "pzelementgroup.h"
 #include "TPZSBFemVolume.h"
 #include "pzcmesh.h"
+#include "pzcondensedcompel.h"
 
 
 class TPZSBFemElementGroup : public TPZElementGroup
@@ -302,7 +303,6 @@ public:
 
     // Overwrite eigenvalues and eigenvectors to use a polynomial approx (i.e, uses a collapsed FE approx instead of the SBFEM approximation)
     void OverwritePhis(TPZFMatrix<std::complex<double>> &Phiu, TPZFNMatrix<200,std::complex<double>> &matphiinv, TPZManVector<std::complex<double> > &eigval);
-
 
 };
 
