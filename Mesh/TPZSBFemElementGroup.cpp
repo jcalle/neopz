@@ -880,12 +880,12 @@ void TPZSBFemElementGroup::CalcStiff(TPZElementMatrix &ek,TPZElementMatrix &ef)
         }
         
 #ifdef LOG4CXX
-        if(logger->isDebugEnabled())
+        if(loggerbubble->isDebugEnabled())
         {
             std::stringstream sout;
-            K0.Print("K0 = ",sout,EMathematicaInput);
+            // K0.Print("K0 = ",sout,EMathematicaInput);
             K.Print("KBubble = ",sout,EMathematicaInput);
-            LOGPZ_DEBUG(logger, sout.str())
+            LOGPZ_DEBUG(loggerbubble, sout.str())
         }
 #endif
 
@@ -1142,7 +1142,7 @@ void TPZSBFemElementGroup::ComputeBubbleParameters()
     for (int i = 0; i < cont; ++i)
     {
         fEigenvaluesBubble[2*i] = fEigenvalues[ind[i]].real();
-        fEigenvaluesBubble[2*i+1] = -fInternalPolynomialOrder;
+        fEigenvaluesBubble[2*i+1] = -1;
     }
     int64_t neigval = fEigenvaluesBubble.size();
     
