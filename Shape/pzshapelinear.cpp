@@ -25,10 +25,10 @@ namespace pzshape {
 		int ord;
        // dphi.Print("DphisAntes = ",std::cout,EMathematicaInput);
     
-		for(ord = 2;ord<num;ord++) {
-			phi.Put(ord,0, 2.0*x*phi(ord-1,0) - phi(ord-2,0));
-			dphi.Put(0,ord, 2.0*x*dphi(0,ord-1) + 2.0*phi(ord-1,0) - dphi(0,ord-2));
-		}
+        for(ord = 2;ord<num;ord++) {
+            phi.Put(ord,0, x*phi(ord-1,0));
+            dphi.Put(0,ord, ord*phi(ord-1,0));
+        }
        // dphi.Print("DphisDepois = ",std::cout,EMathematicaInput);
 	}
 	

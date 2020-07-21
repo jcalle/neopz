@@ -848,7 +848,7 @@ void TPZSBFemVolume::EvaluateError(std::function<void(const TPZVec<REAL> &loc,TP
     // intrule->GetOrder(prevorder);
     // intrule->SetOrder(maxorder);
 
-    TPZManVector<int, 3> maxorder(2, int(fabs(fEigenvalues[0].real()))*2+1);
+    TPZManVector<int, 3> maxorder(dim, int(fabs(fEigenvalues[0].real()))*2+1);
     intrule->SetOrder(maxorder);
     
     int ndof = material->NStateVariables();
@@ -1057,7 +1057,7 @@ void TPZSBFemVolume::LocalBodyForces(TPZFNMatrix<200,std::complex<double>> &f, T
     if (Ref2D->Dimension() < problemdimension) return;
     
     TPZAutoPointer<TPZIntPoints> intrule = Ref2D->CreateSideIntegrationRule(Ref2D->NSides() - 1, 7);
-    TPZManVector<int, 3> maxorder(2, int(fabs(eigval[0].real()))*5);
+    TPZManVector<int, 3> maxorder(problemdimension, int(fabs(eigval[0].real()))*5);
     intrule->SetOrder(maxorder);
     
     int nstate = material->NStateVariables();

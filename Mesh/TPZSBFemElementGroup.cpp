@@ -53,6 +53,7 @@ static LoggerPtr logger(Logger::getLogger("pz.mesh.sbfemelementgroup"));
 static LoggerPtr loggercoefmatrices(Logger::getLogger("pz.mesh.sbfemcoefmatrices"));
 static LoggerPtr loggerMT(Logger::getLogger("pz.mesh.sbfemelementgroupMT"));
 static LoggerPtr loggerBF(Logger::getLogger("pz.mesh.sbfemelementgroupBF"));
+static LoggerPtr loggerbubble(Logger::getLogger("pz.mesh.sbfembubbleparam"));
 #endif
 
 TPZSBFemElementGroup::TPZSBFemElementGroup(TPZCompMesh &mesh, int64_t &index) : TPZElementGroup(mesh,index)
@@ -926,17 +927,17 @@ void TPZSBFemElementGroup::CalcStiff(TPZElementMatrix &ek,TPZElementMatrix &ef)
         if (loggerBF->isDebugEnabled()) {
             std::stringstream sout;
             
-            fPhiBubble.Print("Phiu = ", sout, EMathematicaInput);
-            fMatBubble.Print("rot = ", sout, EMathematicaInput);
-            std::cout << "eigval" << fEigenvalues << std::endl;
-            std::cout << "eigvalbubble" << fEigenvaluesBubble << std::endl;
+            // fPhiBubble.Print("Phiu = ", sout, EMathematicaInput);
+            // fMatBubble.Print("rot = ", sout, EMathematicaInput);
+            // std::cout << "eigval" << fEigenvalues << std::endl;
+            // std::cout << "eigvalbubble" << fEigenvaluesBubble << std::endl;
 
             K0.Print("K0 = ", sout, EMathematicaInput);
-            f.Print("f = ", sout, EMathematicaInput);
-            fbubble.Print("fbubble = ", sout, EMathematicaInput);
+            // f.Print("f = ", sout, EMathematicaInput);
+            // fbubble.Print("fbubble = ", sout, EMathematicaInput);
             
             ek.fMat.Print("ek = ", sout, EMathematicaInput);
-            ef.fMat.Print("ef = ", sout, EMathematicaInput);
+            // ef.fMat.Print("ef = ", sout, EMathematicaInput);
             LOGPZ_DEBUG(loggerBF, sout.str())
         }
 #endif
@@ -968,7 +969,11 @@ void TPZSBFemElementGroup::LoadSolution()
         }
         count += blsize;
     }
-    fMat.Multiply(uh_local, fCoef);
+    if(fInternalPolynomialOrder > 0){
+        fMat.Multiply(uh_local, fCoef);
+    } else{
+        fPhiInverse.Multiply(uh_local, fCoef);
+    }
 
     int64_t nel = fElGroup.size();
     for (int64_t el = 0; el<nel; el++) {
@@ -1124,8 +1129,8 @@ void TPZSBFemElementGroup::ComputeBubbleParameters()
     TPZManVector<int64_t> ind(0);
     for (int i=0; i<n; i++) {
         REAL resto = fEigenvalues[i].real() - nearbyint(fEigenvalues[i].real());
-        if( !IsZero(resto) ){
-            if ( IsZero(fabs(fEigenvalues[fEigenvalues.size()-1].real()) - fabs(fEigenvalues[i].real()) ) ) {
+        if( !IsZero(resto) && nearbyint(fEigenvalues[i].real()) > (fInternalPolynomialOrder+1)){
+            if ( IsZero(fEigenvalues[i].real() - fEigenvalues[i+1].real())) {
                 continue;
             }
             ind.resize(ind.size()+1);
@@ -1136,7 +1141,7 @@ void TPZSBFemElementGroup::ComputeBubbleParameters()
     fEigenvaluesBubble.resize(cont*2 + n*fInternalPolynomialOrder + nstate);
     for (int i = 0; i < cont; ++i)
     {
-        fEigenvaluesBubble[2*i] = fEigenvalues[ind[i]];
+        fEigenvaluesBubble[2*i] = fEigenvalues[ind[i]].real();
         fEigenvaluesBubble[2*i+1] = -1;
     }
     int64_t neigval = fEigenvaluesBubble.size();
@@ -1172,8 +1177,6 @@ void TPZSBFemElementGroup::ComputeBubbleParameters()
             fPhiBubble(i,j*2) = fPhi(i,ind[j]).real();
             fPhiBubble(i,j*2+1) = -fPhi(i,ind[j]).real();
         }
-        std::ofstream sout("fPhiBubble.txt");
-        fPhiBubble.Print("fPhiBubble = ", sout, EMathematicaInput);
     }
     for (int i=0; i<n; i++) {
         fPhiBubble(i,i+2*cont) = 1;
@@ -1215,7 +1218,7 @@ void TPZSBFemElementGroup::ComputeBubbleParameters()
     }
     for (int j=2; j<fInternalPolynomialOrder; j++) {
         for (int i=0; i<n; i++) {
-            fMatBubble(i + 2*cont, i+n*(j-1) + cont+ nstate) = 1;
+            fMatBubble(i+n*(j-1)+nstate + 2*cont, i+n*(j-1) + cont+ nstate) = 1;
             fMatBubble(i+n*j + 2*cont+ nstate, i+n*(j-1) + cont+ nstate) = -1;
         }
     }
@@ -1233,13 +1236,13 @@ void TPZSBFemElementGroup::ComputeBubbleParameters()
     }
 
 #ifdef LOG4CXX
-    if (logger->isDebugEnabled()) {
+    if (loggerbubble->isDebugEnabled()) {
         std::stringstream sout;
         sout << "eigvalbubbles = {" << fEigenvaluesBubble << "};\n";
         fPhiBubble.Print("fPhiBubble = ", sout, EMathematicaInput);
         fMatBubble.Print("fMatBubble = ", sout, EMathematicaInput);
         fMat.Print("fMat = ", sout, EMathematicaInput);
-        LOGPZ_DEBUG(logger, sout.str())
+        LOGPZ_DEBUG(loggerbubble, sout.str())
     }
 #endif
 
