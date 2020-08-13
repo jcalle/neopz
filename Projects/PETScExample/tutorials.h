@@ -3,10 +3,10 @@
 
 #include <iostream>
 
-int tridiaglinsystem();
+int tridiaglinsystem(int argc,char **args);
 
-int tridiaglinsystemMUMPS();
+int tridiaglinsystemMUMPS(int argc,char **args);
 
-int parallellinsystem();
+int parallellinsystem(int argc,char **args);
 
 #endif

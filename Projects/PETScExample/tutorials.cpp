@@ -1,7 +1,42 @@
 #include "tutorials.h"
 #include <petscksp.h>
+#include <chrono>
+#include "pzerror.h"
 
-int tridiaglinsystem()
+void testingpetsc(int argc,char **args)
+{
+    static char help[] = "Solving linear system with KSP.\n\n";
+    int ierr = PetscInitialize(&argc,&args,(char*)0,help); if (ierr) return;
+
+    std::cout << "\n\n#######################\nIterative solver\n";
+    {
+        std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+        ierr = tridiaglinsystem(argc, args);
+        if (ierr!=0)
+        {
+            DebugStop();
+        }
+        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+        std::cout << "Time difference with PETSc (iterative) = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/10e6 << "[s]" << std::endl;
+    }
+    // ierr = parallellinsystem(ierr);
+    std::cout << "\n\n#######################\nMUMPS solver\n";
+    {
+        std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+        ierr = tridiaglinsystemMUMPS(argc, args);
+        if (ierr!=0)
+        {
+            DebugStop();
+        }
+        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+        std::cout << "Time to solve with MUMPS (direct)= " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/10e6 << "[s]" << std::endl;
+    }
+
+    ierr = PetscFinalize();
+    
+}
+
+int tridiaglinsystem(int argc,char **args)
 {
     Vec x, b, u; // approx solution, RHS, exact solution 
     Mat A; // linear system matrix */
@@ -12,6 +47,7 @@ int tridiaglinsystem()
     PetscMPIInt size;
     PetscScalar value[3];
     int ierr;
+    static char help[] = "Solving linear system with KSP.\n\n";
 
     // MPI function: Determines the size of the group associated with a communicator
     // PETSC_COMM_WORLD: communicator
@@ -138,8 +174,9 @@ int tridiaglinsystem()
     return ierr;
 }
 
-int tridiaglinsystemMUMPS()
+int tridiaglinsystemMUMPS(int argc,char **args)
 {
+    static char help[] = "Solving linear system with MUMPS.\n\n";
     int ierr;
     Vec x, b, u; // approx solution, RHS, exact solution 
     Mat A, F; // linear system matrix */
@@ -279,7 +316,7 @@ int tridiaglinsystemMUMPS()
     return ierr;
 }
 
-int parallellinsystem()
+int parallellinsystem(int argc,char **args)
 {
     int ierr;
     Vec x,b,u; /* approx solution, RHS, exact solution */
