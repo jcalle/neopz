@@ -8,7 +8,7 @@
 
 #include "TPZPetScMatrix.h"
 
-#ifdef USING_PETSC
+// #ifdef USING_PETSC
 
 #include <petscmat.h>
 
@@ -40,7 +40,7 @@ inline int TPZPetScMatrix<TVar>::PutVal(const int64_t row,const int64_t col,cons
 template<class TVar>
 inline TVar &TPZPetScMatrix<TVar>::operator()( const int64_t row, const int64_t col)
 {
-#ifndef NODEBUG
+#ifdef PZDEBUG
     if(row >=  this->Rows() || row<0 || col >=  this->Cols() || col<0) {
         std::cout << "TPZPetScMatrix<TVar>::operator() "," Index out of bounds\n";
         DebugStop();
@@ -49,25 +49,135 @@ inline TVar &TPZPetScMatrix<TVar>::operator()( const int64_t row, const int64_t 
     // return *(&fMat+col*this->fRow+row); // don't know how to do it
 }
 
-// template<class TVar>
-// &TPZPetScMatrix<TVar>::operator= (const TPZPetScMatrix<TVar> &A )
-// {
-//     fMat = A;
-//     MatGetType(A, &fMattype);
-//     MatGetSize(A, &(this->fRow), &(this->fCol));
-// }
+template<class TVar>
+TPZPetScMatrix<TVar> &TPZPetScMatrix<TVar>::operator= (const TPZPetScMatrix<TVar> &A )
+{   
+#ifdef PZDEBUG
+    if ((this->Rows() != A.Rows()) || (this->Cols() != A.Cols()) ) {
+		std::cout << "Add(TPZMatrix<>&, TPZMatrix) <different dimensions>\n";
+	}
+#endif
+    fMat = A.fMat;
+    MatGetType(A.fMat, &fMattype);
+}
+
+template <class TVar>
+TPZPetScMatrix<TVar> TPZPetScMatrix<TVar>::operator+(const TPZPetScMatrix<TVar> &A ) const
+{
+    if ( (A.Rows() != this->Rows())  ||  (A.Cols() != this->Cols()) )
+    {
+        std::cout << "Operator+ <matrices with different dimensions>\n";
+    }
+    TPZPetScMatrix<TVar> B(A);
+    MatAXPY(B.fMat, 1, this->fMat, DIFFERENT_NONZERO_PATTERN); 
+
+    return B;
+}
+
+template <class TVar>
+TPZPetScMatrix<TVar> TPZPetScMatrix<TVar>::operator-(const TPZPetScMatrix<TVar> &A ) const
+{
+    if ( (A.Rows() != this->Rows())  ||  (A.Cols() != this->Cols()) )
+    {
+        std::cout << "Operator- <matrices with different dimensions>\n";
+    }
+    TPZPetScMatrix<TVar> B(A);
+    MatAXPY(B.fMat, -1, this->fMat, DIFFERENT_NONZERO_PATTERN); 
+    
+    return B;
+}
+
+template <class TVar>
+TPZPetScMatrix<TVar> TPZPetScMatrix<TVar>::operator*(TPZPetScMatrix<TVar> A ) const
+{
+    if ( this->Cols() != A.Rows() )
+    {
+        std::cout << "Operator- <matrices with different dimensions>\n";
+    }
+    MatMatMult(A.fMat, this->fMat, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &(A.fMat));
+    // MatGetSize(this->fMat, &(this->fRow), &(this->fCol));
+
+    return A;
+}
+
+template <class TVar>
+TPZPetScMatrix<TVar> &TPZPetScMatrix<TVar>::operator+=(const TPZPetScMatrix<TVar> &A )
+{
+    if ( (A.Rows() != this->Rows())  ||  (A.Cols() != this->Cols()) )
+    {
+        std::cout << "Operator+ <matrices with different dimensions>\n";
+    }
+    MatAXPY(this->fMat, 1, A.fMat, DIFFERENT_NONZERO_PATTERN); 
+
+    return *this;
+}
+
+template <class TVar>
+TPZPetScMatrix<TVar> &TPZPetScMatrix<TVar>::operator-=(const TPZPetScMatrix<TVar> &A )
+{
+    if ( (A.Rows() != this->Rows())  ||  (A.Cols() != this->Cols()) )
+    {
+        std::cout << "Operator- <matrices with different dimensions>\n";
+    }
+    MatAXPY(this->fMat, -1, A.fMat, DIFFERENT_NONZERO_PATTERN); 
+    
+    return *this;
+}
+
+template <class TVar>
+TPZPetScMatrix<TVar> TPZPetScMatrix<TVar>::operator+ (const TVar val) const
+{
+    TPZPetScMatrix<TVar> A(*this);
+    auto vald = double(val);
+    MatSetValues(A.fMat, A.fRow, &(A.fRow), A.fCol, &(A.fCol), &vald, ADD_VALUES);
+
+    return A;
+}
+
+template <class TVar>
+TPZPetScMatrix<TVar> TPZPetScMatrix<TVar>::operator* (const TVar val) const
+{
+    TPZPetScMatrix<TVar> A(*this);
+    MatScale(A.fMat, val);
+
+    return A;
+}
+
+template <class TVar>
+TPZPetScMatrix<TVar> &TPZPetScMatrix<TVar>::operator+= (const TVar val)
+{
+    auto vald = double(val);
+    MatSetValues(this->fMat, this->fRow, &(this->fRow), this->fCol, &(this->fCol), &vald, ADD_VALUES);
+    return *this;
+}
+
+template <class TVar>
+int TPZPetScMatrix<TVar>::Redim(const int64_t newRows,const int64_t newCols )
+{
+    int ierr = MatSetSizes(this->fMat, PETSC_DECIDE, PETSC_DECIDE, newRows, newCols);
+    CHKERRQ(ierr);
+    this->Zero();
+
+    return ierr;
+}
+
+template <class TVar>
+int TPZPetScMatrix<TVar>::Resize(const int64_t newRows,const int64_t newCols )
+{
+    int ierr = MatSetSizes(this->fMat, PETSC_DECIDE, PETSC_DECIDE, newRows, newCols);
+    CHKERRQ(ierr);
+
+    return ierr;
+}
+
+template <class TVar>
+int TPZPetScMatrix<TVar>::Zero()
+{
+    MatZeroEntries(this->fMat);
+}
 
 
-
-// template <class TVar>
-// TPZPetScMatrix<TVar> TPZPetScMatrix<TVar>::operator+(const TPZPetScMatrix<TVar> &A ) const{
-//     int ierr = MatSetValue(Mat m,PetscInt row,PetscInt col,PetscScalar value,InsertMode mode)
-// }
-
-template class TPZPetScMatrix<double>;
-template class TPZPetScMatrix<long double>;
+template class TPZPetScMatrix<STATE>;
 template class TPZPetScMatrix<float>;
 
-
-
-#endif
+// #endif
