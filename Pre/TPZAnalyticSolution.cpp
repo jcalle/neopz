@@ -876,6 +876,13 @@ void TElasticity3DAnalytic::uxy(const TPZVec<TVar> &x, TPZVec<TVar> &disp) const
         disp[2] = ur*cosphi;
         disp[0] = ur*sinphi*costheta;
         disp[1] = ur*sinphi*sintheta;
+    } else if (fProblemType == EShell) {
+        TPZManVector<TVar,3> xc(x);
+        TVar r = xc[0]*xc[0]+xc[1]*xc[1]+xc[2]*xc[2];
+        
+        disp[0] = x[0] * (9510.57*pow(r,3/2) - 10000*r*x[2] - 10000*x[0]*x[0]*x[2] - 10000*x[1]*x[1]*x[2])/(fE*pow(r,3/2)*sqrt(x[0]*x[0]+x[1]*x[1]));
+        disp[1] = x[1] * (9510.57*pow(r,3/2) - 10000*r*x[2] - 10000*x[0]*x[0]*x[2] - 10000*x[1]*x[1]*x[2])/(fE*pow(r,3/2)*sqrt(x[0]*x[0]+x[1]*x[1]));
+        disp[2] = -10000*x[2] * (-.951057*pow(r,3/2) + r*x[2] + x[0]*x[0]*x[2] + x[1]*x[1]*x[2])/(fE*pow(r,3/2)*sqrt(x[0]*x[0]+x[1]*x[1]));
     }
     else{
         DebugStop();
@@ -1463,7 +1470,22 @@ void TLaplaceExample1::uxy(const TPZVec<TVar> &x, TPZVec<TVar> &disp) const
         case EHarmonic:
             disp[0] = exp(M_PI*x[0])*sin(M_PI*x[1]);
             break;
-            
+        
+        case ESingularCircle:
+        {
+            TVar mult[] = {10./45.,9./45.,8./45.,7./45.,6./45.,5./45.};
+            TVar Lambda0 = 2./3.;
+            TVar r = sqrt(x[0]*x[0]+x[1]*x[1]);
+            TVar theta = atan2(x[1],x[0]);
+            if(theta < 0.) theta += 2.*M_PI;
+            disp[0] = 0;
+            for (int i=0; i<6; i++) {
+                TVar Lambda = Lambda0*(i+1);
+                disp[0] += mult[i]*Lambda*pow(r,Lambda-1.)*cos(Lambda*theta);
+            }
+        }
+            break;
+
         default:
             disp[0] = 0.;
             break;
@@ -1715,7 +1737,22 @@ void TLaplaceExample1::uxy(const TPZVec<FADFADREAL > &x, TPZVec<FADFADREAL > &di
         case EHarmonic:
             disp[0] = FADexp(M_PI*x[0])*FADsin(M_PI*x[1]);
             break;
-            
+        
+        case ESingularCircle:
+        {
+            TVar mult[] = {10./45.,9./45.,8./45.,7./45.,6./45.,5./45.};
+            TVar Lambda0 = 2./3.;
+            TVar r = FADsqrt(x[0]*x[0]+x[1]*x[1]);
+            TVar theta = FADatan2(x[1],x[0]);
+            if(theta < TVar(0.)) theta += 2.*M_PI;
+            disp[0] = 0;
+            for (int i=0; i<6; i++) {
+                TVar Lambda = Lambda0*(i+1);
+                // disp[0] += mult[i]*Lambda*FADpow(r,Lambda-1.)*FADcos(Lambda*theta);
+            }
+        }
+            break;
+
         default:
             disp[0] = xloc[0]*0.;
             break;

@@ -17,6 +17,7 @@
 #include "pzbndcond.h"
 #include "pzvec_extras.h"
 #include "pzcmesh.h"
+#include "pzaxestools.h"
 
 #ifdef LOG4CXX
 static LoggerPtr loggercoefmatrices(Logger::getLogger("pz.mesh.sbfemvolume.coefmatrices"));
@@ -33,7 +34,8 @@ TPZSBFemVolume::TPZSBFemVolume(TPZCompMesh &mesh, TPZGeoEl *gel, int64_t &index)
 
 /// Compute the K matrices
 
-void TPZSBFemVolume::ComputeKMatrices(TPZElementMatrix &E0, TPZElementMatrix &E1, TPZElementMatrix &E2, TPZElementMatrix &M0) {
+void TPZSBFemVolume::ComputeKMatrices(TPZElementMatrix &E0, TPZElementMatrix &E1, TPZElementMatrix &E2, TPZElementMatrix &M0)
+{
     // do all the computations here
 
     TPZElementMatrix efmat(Mesh(), TPZElementMatrix::EF);
@@ -68,9 +70,7 @@ void TPZSBFemVolume::ComputeKMatrices(TPZElementMatrix &E0, TPZElementMatrix &E1
 
     TPZGeoElSide thisside(Ref2D, faceside);
 
-
     TPZMaterial *mat2d = cmesh->FindMaterial(matid);
-
     if (!mat2d) DebugStop();
 
     int nstate = mat2d->NStateVariables();
@@ -179,8 +179,8 @@ void TPZSBFemVolume::ComputeKMatrices(TPZElementMatrix &E0, TPZElementMatrix &E1
 }
 
 /// adjust the axes and jacobian of the 3D element
-
-void TPZSBFemVolume::AdjustAxes3D(const TPZFMatrix<REAL> &axes2D, TPZFMatrix<REAL> &axes3D, TPZFMatrix<REAL> &jac3D, TPZFMatrix<REAL> &jacinv3D, REAL detjac) {
+void TPZSBFemVolume::AdjustAxes3D(const TPZFMatrix<REAL> &axes2D, TPZFMatrix<REAL> &axes3D, TPZFMatrix<REAL> &jac3D, TPZFMatrix<REAL> &jacinv3D, REAL detjac)
+{
     TPZManVector<REAL, 3> ax1(3), ax2(3), ax3(3);
     for (int i = 0; i < 3; i++) {
         ax1[i] = axes2D.g(0, i);
@@ -228,11 +228,9 @@ void TPZSBFemVolume::AdjustAxes3D(const TPZFMatrix<REAL> &axes2D, TPZFMatrix<REA
 #endif
 }
 
-
-
 /// extend the border shape functions for SBFem computations
-
-void TPZSBFemVolume::ExtendShapeFunctions(TPZMaterialData &data1d, TPZMaterialData &data2d) {
+void TPZSBFemVolume::ExtendShapeFunctions(TPZMaterialData &data1d, TPZMaterialData &data2d)
+{
     int dim = Reference()->Dimension();
     int64_t nshape = data2d.phi.Rows() / 2;
     for (int ish = 0; ish < nshape; ish++) {
@@ -245,16 +243,16 @@ void TPZSBFemVolume::ExtendShapeFunctions(TPZMaterialData &data1d, TPZMaterialDa
         data2d.dphi(dim - 1, ish + nshape) = 0.;
     }
     TPZInterpolationSpace::Convert2Axes(data2d.dphi, data2d.jacinv, data2d.dphix);
-
 }
 
-TPZCompEl * CreateSBFemCompEl(TPZGeoEl *gel, TPZCompMesh &mesh, int64_t &index) {
+TPZCompEl * CreateSBFemCompEl(TPZGeoEl *gel, TPZCompMesh &mesh, int64_t &index)
+{
     return new TPZSBFemVolume(mesh, gel, index);
 }
 
 /// initialize the data structures of the eigenvectors and eigenvalues associated with this volume element
-
-void TPZSBFemVolume::SetPhiEigVal(TPZFMatrix<std::complex<double> > &phi, TPZManVector<std::complex<double> > &eigval) {
+void TPZSBFemVolume::SetPhiEigVal(TPZFMatrix<std::complex<double> > &phi, TPZManVector<std::complex<double> > &eigval)
+{
     fEigenvalues = eigval;
     int nrow = fLocalIndices.size();
     fPhi.Resize(nrow, phi.Cols());
@@ -285,7 +283,8 @@ void TPZSBFemVolume::SetCoefNonHomogeneous(TPZFNMatrix<100,std::complex<double>>
  * Is used to initialize the solution of connect objects with dependency. \n
  * Is also used to load the solution within SuperElements
  */
-void TPZSBFemVolume::LoadCoef(TPZFMatrix<std::complex<double> > &coef) {
+void TPZSBFemVolume::LoadCoef(TPZFMatrix<std::complex<double> > &coef)
+{
     fCoeficients = coef;
 }
 
@@ -391,8 +390,6 @@ void TPZSBFemVolume::ComputeSolution(TPZVec<REAL> &qsi,
             LOGPZ_DEBUG(logger, sout.str())
         }
 #endif
-        //        std::cout << "uh_xi " << uh_xi << std::endl;
-        //        std::cout << "Duh_xi " << Duh_xi << std::endl;
         sol[s].Resize(nstate);
         sol[s].Fill(0.);
         TPZFNMatrix<9, STATE> dsollow(dim - 1, nstate, 0.), dsolxieta(dim, nstate, 0.);
@@ -422,10 +419,6 @@ void TPZSBFemVolume::ComputeSolution(TPZVec<REAL> &qsi,
             }
         }
     }
-
-    // tototototot
-    //    std::cout << "qsi " << qsi << " Solution " << sol[0] << std::endl;
-    //    dsol[0].Print("DSol",std::cout);
 }
 
 void TPZSBFemVolume::ComputeSolutionWithBubbles(TPZVec<REAL> &qsi,
@@ -433,6 +426,13 @@ void TPZSBFemVolume::ComputeSolutionWithBubbles(TPZVec<REAL> &qsi,
 {
     
     TPZCompMesh *cmesh = Mesh();
+    int nrows = fCoeficients.Rows();
+    if (fCoeficients.Rows() ==0)
+    {
+        TPZSBFemElementGroup * sbgr = dynamic_cast<TPZSBFemElementGroup *> (fElementGroup);
+        sbgr->LoadSolution();
+    }
+    
     sol.Resize(fCoeficients.Cols());
     dsol.Resize(fCoeficients.Cols());
     TPZGeoEl *Ref2D = Reference();
@@ -521,8 +521,6 @@ void TPZSBFemVolume::ComputeSolutionWithBubbles(TPZVec<REAL> &qsi,
                     Dumat0(i,c) += (fEigenvalues[c] + 0.5 * (dim - 2)) * xiexpm1 * fPhi(i, c);
                 }
             }
-            // umat0.Multiply(fPhiInv, umat);
-            // Dumat0.Multiply(fPhiInv, Dumat);
             for (int c = 0; c < fPhiInv.Rows(); c++) {
                 for (int i = 0; i < nphixi; i++) {
                     uh_xi[i] += fCoeficients(c, s) * umat0(i, c);
@@ -553,8 +551,6 @@ void TPZSBFemVolume::ComputeSolutionWithBubbles(TPZVec<REAL> &qsi,
                     Dumat0(i,c) += (fEigenvaluesBubble[c] + 0.5 * (dim - 2)) * xiexpm1 * fPhiBubble(i, c);
                 }
             }
-            // umat0.Multiply(fPhiInvBubbles, umat);
-            // Dumat0.Multiply(fPhiInvBubbles, Dumat);
             for (int c = 0; c < numeigbubbles; c++) {
                 for (int i = 0; i < nphixi; i++) {
                     uh_xi[i] += fCoeficients(c+numeig, s) * umat0(i, c);
@@ -613,9 +609,9 @@ void TPZSBFemVolume::ComputeSolutionWithBubbles(TPZVec<REAL> &qsi,
         sbfemmat.Multiply(fPhiInv, res);
         TPZFNMatrix<200, std::complex<REAL>> umatrix;
         fPhi.Multiply(res, umatrix);
-       std::stringstream sout;
-       umatrix.Print("umatrix = ", sout, EMathematicaInput);
-       LOGPZ_DEBUG(loggerEvaluateError, sout.str());
+        std::stringstream sout;
+        umatrix.Print("umatrix = ", sout, EMathematicaInput);
+        LOGPZ_DEBUG(loggerEvaluateError, sout.str());
    }
 #endif
     
@@ -632,7 +628,8 @@ void TPZSBFemVolume::ComputeSolutionWithBubbles(TPZVec<REAL> &qsi,
  * This method uses the order of interpolation
  * of the element along the sides to compute the number of shapefunctions
  */
-void TPZSBFemVolume::Shape(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi, TPZFMatrix<REAL> &dphidxi) {
+void TPZSBFemVolume::Shape(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi, TPZFMatrix<REAL> &dphidxi)
+{
     TPZCompMesh *cmesh = Mesh();
     TPZCompEl *celgroup = cmesh->Element(fElementGroupIndex);
     TPZSBFemElementGroup *elgr = dynamic_cast<TPZSBFemElementGroup *> (celgroup);
@@ -737,14 +734,11 @@ void TPZSBFemVolume::Shape(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi, TPZFMatrix<
             LOGPZ_DEBUG(logger, sout.str())
         }
 #endif
-        //        std::cout << "uh_xi " << uh_xi << std::endl;
-        //        std::cout << "Duh_xi " << Duh_xi << std::endl;
         TPZFNMatrix<9, STATE> dsollow(dim - 1, nstate, 0.), dsolxieta(dim, nstate, 0.);
         TPZManVector<STATE, 3> dsolxi(nstate, 0.);
         for (int ishape = 0; ishape < nshape; ishape++) {
             for (int istate = 0; istate < nstate; istate++) {
                 phi(s * nstate + istate, 0) += data1d.phi(ishape) * uh_xi[ishape * nstate + istate].real();
-                //                sol[s][istate] += data1d.phi(ishape)*uh_xi[ishape*nstate+istate].real();
                 dsolxi[istate] += data1d.phi(ishape) * Duh_xi[ishape * nstate + istate].real();
                 for (int d = 0; d < dim - 1; d++) {
                     dsollow(d, istate) += data1d.dphi(d, ishape) * uh_xi[ishape * nstate + istate].real();
@@ -760,7 +754,6 @@ void TPZSBFemVolume::Shape(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi, TPZFMatrix<
         for (int istate = 0; istate < nstate; istate++) {
             for (int d1 = 0; d1 < dim; d1++) {
                 for (int d2 = 0; d2 < dim; d2++) {
-                    //                    dsol[s](d1,istate) += data2d.jacinv(d2,d1)*dsolxieta(d2,istate);
                     dphidxi(istate * nstate + d1, s) += data2d.jacinv(d2, d1) * dsolxieta(d2, istate);
                 }
             }
@@ -814,10 +807,9 @@ void TPZSBFemVolume::CreateGraphicalElement(TPZGraphMesh &graphmesh, int dimensi
     }
 }
 
-#include "pzaxestools.h"
-
 void TPZSBFemVolume::EvaluateError(std::function<void(const TPZVec<REAL> &loc,TPZVec<STATE> &val,TPZFMatrix<STATE> &deriv)> fp,
-                                   TPZVec<REAL> &errors,bool store_error) {
+                                   TPZVec<REAL> &errors,bool store_error) 
+{
     int NErrors = this->Material()->NEvalErrors();
     errors.Resize(NErrors);
     errors.Fill(0.);
@@ -843,10 +835,6 @@ void TPZSBFemVolume::EvaluateError(std::function<void(const TPZVec<REAL> &loc,TP
     int dim = Dimension();
     TPZAutoPointer<TPZIntPoints> intrule = ref->CreateSideIntegrationRule(ref->NSides() - 1, 5);
     int maxIntOrder = intrule->GetMaxOrder();
-    // TPZManVector<int, 3> prevorder(dim), maxorder(dim, maxIntOrder);
-    // //end
-    // intrule->GetOrder(prevorder);
-    // intrule->SetOrder(maxorder);
 
     TPZManVector<int, 3> maxorder(dim, int(fabs(fEigenvalues[0].real()))*2+1);
     intrule->SetOrder(maxorder);
@@ -875,8 +863,6 @@ void TPZSBFemVolume::EvaluateError(std::function<void(const TPZVec<REAL> &loc,TP
         } else{
             ComputeSolutionWithBubbles(intpoint, data.sol, data.dsol, data.axes);
         }
-        // this->ComputeSolution(intpoint, data.phi, data.dphix, data.axes, data.sol, data.dsol);
-        //this->ComputeSolution(intpoint, data);
         //contribuicoes dos erros
         ref->X(intpoint, data.x);
 
@@ -900,7 +886,8 @@ void TPZSBFemVolume::EvaluateError(std::function<void(const TPZVec<REAL> &loc,TP
 
 }
 
-void TPZSBFemVolume::SetIntegrationRule(int order) {
+void TPZSBFemVolume::SetIntegrationRule(int order) 
+{
     if (!fIntRule) {
         InitializeIntegrationRule();
     }
@@ -908,12 +895,11 @@ void TPZSBFemVolume::SetIntegrationRule(int order) {
     TPZManVector<int, 3> ordervec(dim, order);
     ordervec[dim - 1] = 10;
     if (10 < order + 6) ordervec[dim - 1] = order + 6;
-    //    std::cout << "Order of the radial direction  " << ordervec[dim-1] << std::endl;
     fIntRule->SetOrder(ordervec);
-    //    std::cout << "Number of integration points " << fIntRule->NPoints() << std::endl;
 }
 
-void TPZSBFemVolume::SetElementGroupIndex(int64_t index) {
+void TPZSBFemVolume::SetElementGroupIndex(int64_t index)
+{
     fElementGroupIndex = index;
     std::map<int64_t, int> globtolocal;
     TPZCompEl *celgr = Mesh()->Element(index);
@@ -953,8 +939,8 @@ void TPZSBFemVolume::SetElementGroupIndex(int64_t index) {
 #endif
 }
 
-void TPZSBFemVolume::InitMaterialData(TPZMaterialData &data) {
-
+void TPZSBFemVolume::InitMaterialData(TPZMaterialData &data)
+{
     data.fShapeType = TPZMaterialData::EVecShape;
     data.gelElId = this->Reference()->Id();
     TPZMaterial *mat = Material();

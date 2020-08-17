@@ -40,18 +40,15 @@ private:
 
     /// Matrix that composes the bubble functions
     TPZFNMatrix<100,std::complex<double> > fMatBubble;
-
-    /// Matrix that composes the bubble functions
-    TPZFNMatrix<100,std::complex<double> > fMat;
-
-    /// Matrix of eigenvectors which compose the stiffness matrix
-    TPZFNMatrix<200,std::complex<double> > fQVectors;
     
     /// Vector of eigenvalues of the SBFem analyis
     TPZManVector<std::complex<double> > fEigenvalues;
     
     /// Vector of eigenvalues of the SBFem analyis
     TPZManVector<std::complex<double> > fEigenvaluesBubble;
+
+    /// Matrix of eigenvectors which compose the stiffness matrix
+    TPZFNMatrix<200,std::complex<double> > fQVectors;
     
     /// Multiplying coefficients of each eigenvector
     TPZFMatrix<std::complex<double> > fCoef;
@@ -75,7 +72,13 @@ private:
     
 public:
     
+    /// constructor
     TPZSBFemElementGroup() : TPZElementGroup()
+    {
+        
+    }
+
+    virtual ~TPZSBFemElementGroup()
     {
         
     }
@@ -164,20 +167,6 @@ public:
             out << std::endl;
         }
 
-/*
-        out << "EigenVectors for displacement\n";
-        fPhi.Print("Phi = ",out,EMathematicaInput);
-        out << "Inverse EigenVectors\n";
-        fPhiInverse.Print("PhiInv = ",out,EMathematicaInput);
-        out << "EigenValues " << fEigenvalues << std::endl;
-        out << "Mass Matrix\n";
-        fMassMatrix.Print("Mass = ",out);
-        out << "Solution Coeficients\n";
-        fCoef.Print("Coef ",out);
-        for (int el=0; el<nel; el++) {
-            fElGroup[el]->Print(out);
-        }
- */
         out << "End of " << __PRETTY_FUNCTION__ << std::endl;
     }
     
@@ -209,8 +198,6 @@ public:
         }
     }
     
-
-
     int64_t NumEigenValues()
     {
         return fEigenvalues.size();

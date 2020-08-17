@@ -32,23 +32,23 @@ class TPZSBFemVolume : public TPZInterpolationSpace
     /// Section of the phi vector associated with this volume element
     TPZFNMatrix<30,std::complex<double> > fPhi;
     
-    /// Eigenvlues associated with the internal shape functions
-    TPZManVector<std::complex<double> > fEigenvalues;
-    
     /// Section of the phi vector associated with this volume element
     TPZFNMatrix<30,std::complex<double> > fPhiBubble;
     
     /// Eigenvlues associated with the internal shape functions
-    TPZManVector<std::complex<double> > fEigenvaluesBubble;
+    TPZManVector<std::complex<double> > fEigenvalues;
     
-    /// Multiplier coeficients associated with the solution
-    TPZFNMatrix<30,std::complex<double> > fCoeficients;
+    /// Eigenvlues associated with the internal shape functions
+    TPZManVector<std::complex<double> > fEigenvaluesBubble;
     
     /// Inverse of fPhi and bubble coefficients
     TPZFNMatrix<100,std::complex<double> > fPhiInv;
     
     /// Inverse of fPhi and bubble coefficients
     TPZFNMatrix<100,std::complex<double> > fPhiInvBubbles;
+    
+    /// Multiplier coeficients associated with the solution
+    TPZFNMatrix<30,std::complex<double> > fCoeficients;
     
     /// vector of local indices of multipliers in the group
     TPZManVector<int64_t> fLocalIndices;

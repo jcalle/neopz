@@ -41,6 +41,11 @@ public:
         fElementPartition.resize(fGMesh->NElements());
         fElementPartition.Fill(-1);
     }
+
+    ~TPZBuildSBFem()
+    {
+        
+    }
     
     /// set the matid translation
     void SetMatIdTranslation(const std::map<int,int> &matidtranslation)

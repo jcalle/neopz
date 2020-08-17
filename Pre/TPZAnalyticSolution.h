@@ -266,7 +266,7 @@ struct TElasticity2DAnalytic : public TPZAnalyticSolution
 
 struct TElasticity3DAnalytic : public TPZAnalyticSolution
 {
-    enum EDefState  {ENone, EDispx, EDispy, ERot, EStretchx, EUniAxialx, EStretchy, EShear, EBend, ELoadedBeam, Etest1,Etest2, ETestShearMoment, ESphere };
+    enum EDefState  {ENone, EDispx, EDispy, ERot, EStretchx, EUniAxialx, EStretchy, EShear, EBend, ELoadedBeam, Etest1,Etest2, ETestShearMoment, ESphere, EShell };
     
     EDefState fProblemType = ENone;
     
@@ -324,7 +324,7 @@ struct TElasticity3DAnalytic : public TPZAnalyticSolution
 struct TLaplaceExample1 : public TPZAnalyticSolution
 {
     
-    enum EExactSol {ENone, EConst, EX, ESinSin, ECosCos, EArcTan, EArcTanSingular,ESinDist, E10SinSin,E2SinSin, ESinSinDirNonHom,ESinMark,ESteklovNonConst,EGalvisNonConst,EBoundaryLayer,EBubble,ESinCosCircle, EHarmonic};
+    enum EExactSol {ENone, EConst, EX, ESinSin, ECosCos, EArcTan, EArcTanSingular,ESinDist, E10SinSin,E2SinSin, ESinSinDirNonHom,ESinMark,ESteklovNonConst,EGalvisNonConst,EBoundaryLayer,EBubble,ESinCosCircle, EHarmonic, ESingularCircle};
     
     int fDimension = 2;
     
