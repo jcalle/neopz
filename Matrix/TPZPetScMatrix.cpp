@@ -8,7 +8,7 @@
 
 #include "TPZPetScMatrix.h"
 
-// #ifdef USING_PETSC
+#ifdef USING_PETSC
 
 #include <petscmat.h>
 
@@ -18,7 +18,7 @@
 #include "pzmatrix.h"
 
 template<class TVar>
-inline const TVar &TPZPetScMatrix<TVar>::GetVal( const int64_t row, const int64_t col ) const
+const TVar &TPZPetScMatrix<TVar>::GetVal( const int64_t row, const int64_t col ) const
 {
 #ifdef PZDEBUG
     if(row >=  this->Rows() || row<0 || col >=  this->Cols() || col<0) {
@@ -26,9 +26,17 @@ inline const TVar &TPZPetScMatrix<TVar>::GetVal( const int64_t row, const int64_
         DebugStop();
     }
 #endif
-    PetscScalar value;
-    MatGetValues(fMat, 1, &row, 1, &col, &value);
-    return value;
+    // PetscScalar val;
+    // (fMat, 1, &row, 1, &col, &val);
+    // this->fElem[col*this->fRow + row] = TVar(val);
+    
+    // return( this->fElem[ col*this->fRow + row ] );
+
+    const PetscScalar *vals;
+    const PetscInt *cols;
+    PetscInt ncols = this->Cols();
+    MatGetRow(fMat, row, &ncols, &cols, &vals);
+    return *(&vals[col]);
 }
 
 template<class TVar>
@@ -38,7 +46,7 @@ inline int TPZPetScMatrix<TVar>::PutVal(const int64_t row,const int64_t col,cons
 }
 
 template<class TVar>
-inline TVar &TPZPetScMatrix<TVar>::operator()( const int64_t row, const int64_t col)
+PetscScalar &TPZPetScMatrix<TVar>::operator()( const int64_t row, const int64_t col)
 {
 #ifdef PZDEBUG
     if(row >=  this->Rows() || row<0 || col >=  this->Cols() || col<0) {
@@ -46,7 +54,12 @@ inline TVar &TPZPetScMatrix<TVar>::operator()( const int64_t row, const int64_t 
         DebugStop();
     }
 #endif
-    // return *(&fMat+col*this->fRow+row); // don't know how to do it
+    const PetscScalar *vals;
+    const PetscInt *cols;
+    PetscInt ncols = this->Cols();
+    MatGetRow(fMat, row, &ncols, &cols, &vals);
+    auto val = const_cast< PetscScalar * > (vals);
+    return *(&val[col]);
 }
 
 template<class TVar>
@@ -180,4 +193,4 @@ int TPZPetScMatrix<TVar>::Zero()
 template class TPZPetScMatrix<STATE>;
 template class TPZPetScMatrix<float>;
 
-// #endif
+#endif

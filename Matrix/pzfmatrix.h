@@ -440,12 +440,12 @@ int ClassId() const override;
     
     static void PrintStatic(const TVar *ptr, int64_t rows, int64_t cols, const char *name, std::ostream& out,const MatrixOutputFormat form);
     
+    TVar *fElem;
 private:
     
     static int Error(const char *msg1,const char *msg2=0 );
     int Clear() override;
     
-    TVar *fElem;
     TVar *fGiven;
     int64_t fSize;
     

@@ -11,7 +11,7 @@
 
 #include "pz_config.h"
 
-// #ifdef USING_PETSC
+#ifdef USING_PETSC
 
 #define PETSC_USE_64BIT_INDICES
 
@@ -34,35 +34,48 @@ public:
 
     enum MMode {EParallel, ESerial};
 
+    Mat fMat;
+
     inline TPZPetScMatrix(){
         fSystemType = ESparse;
         this->fRow = 0;
         this->fCol = 0;
         MatCreateSeqAIJ(PETSC_COMM_SELF, 0, 0, 0, NULL, &fMat);
+        MatAssemblyBegin(this->fMat,MAT_FINAL_ASSEMBLY);
+        MatAssemblyEnd(this->fMat,MAT_FINAL_ASSEMBLY);
     }
 
     inline  TPZPetScMatrix (Mat m){
         fMat = m;
         MatGetSize(m, &(this->fRow), &(this->fCol));
+        if((this->fRow)*(this->fCol)) fElem = new TVar[(this->fRow)*(this->fCol)];
         fSystemType = ESparse;
     }
 
-    inline  TPZPetScMatrix (int m, int n){
-        this->fRow = m;
-        this->fCol = n;
-        MatCreateSeqAIJ(PETSC_COMM_SELF, m, n, 0, NULL, &fMat);
+    inline  TPZPetScMatrix (int rows, int columns){
+        this->fRow = rows;
+        this->fCol = columns;
+        MatCreateSeqAIJ(PETSC_COMM_SELF, rows, columns, 0, NULL, &fMat);
+        if(rows*columns) fElem = new TVar[rows*columns];
+        MatAssemblyBegin(this->fMat,MAT_FINAL_ASSEMBLY);
+        MatAssemblyEnd(this->fMat,MAT_FINAL_ASSEMBLY);
     }
 
-    inline  TPZPetScMatrix (int m, int n, MSystemType sys){
+    inline  TPZPetScMatrix (int rows, int columns, MSystemType sys){
         fSystemType = sys;
+        if(rows*columns) fElem = new TVar[rows*columns];
         switch (sys)
         {
         case ESparse:
-            MatCreateSeqAIJ(PETSC_COMM_SELF, m, n, 0, NULL, &fMat);
+            MatCreateSeqAIJ(PETSC_COMM_SELF, rows, columns, 0, NULL, &fMat);
+            MatAssemblyBegin(this->fMat,MAT_FINAL_ASSEMBLY);
+            MatAssemblyEnd(this->fMat,MAT_FINAL_ASSEMBLY);
             break;
 
         case EDense:
-            MatCreateSeqDense(PETSC_COMM_SELF, m, n, NULL, &fMat);
+            MatCreateSeqDense(PETSC_COMM_SELF, rows, columns, NULL, &fMat);
+            MatAssemblyBegin(this->fMat,MAT_FINAL_ASSEMBLY);
+            MatAssemblyEnd(this->fMat,MAT_FINAL_ASSEMBLY);
             break;
         
         case EBlock:
@@ -76,49 +89,68 @@ public:
             break;
 
         }
-        this->fRow = m;
-        this->fCol = n;
+        this->fRow = rows;
+        this->fCol = columns;
     }
 
-    inline  TPZPetScMatrix (int64_t m, int64_t n, REAL val)
+    inline  TPZPetScMatrix (int64_t rows, int64_t columns, REAL val)
     {
-        MatCreateSeqAIJ(PETSC_COMM_SELF, m, n, 0, NULL, &fMat);
-        this->fRow = m;
-        this->fCol = n;
-        const PetscInt idm = int(m)-1;
-        const PetscInt idn = int(n)-1;
+        MatCreateSeqAIJ(PETSC_COMM_SELF, rows, columns, 0, NULL, &fMat);
+        this->fRow = rows;
+        this->fCol = columns;
+        if(rows*columns) fElem = new TVar[rows*columns];
+        const PetscInt idm = 0;
+        const PetscInt idn = 0;
         MatSetOption(this->fMat, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
-        MatSetValues(this->fMat, m, &idm, n, &idn, &val, INSERT_VALUES);
+        for (PetscInt i = 0; i < rows; i++)
+        {
+            for (PetscInt j = 0; j < columns; j++)
+            {
+                MatSetValues(this->fMat, 1, &i, 1, &j, &val, INSERT_VALUES);
+            }
+            
+        }
         MatAssemblyBegin(this->fMat,MAT_FINAL_ASSEMBLY);
         MatAssemblyEnd(this->fMat,MAT_FINAL_ASSEMBLY);
     }
 
-    // inline TPZPetScMatrix (int m, int n, MSystemType sys, MMode mode) : TPZPetScMatrix (m, n, sys)
-    // {
-    //     fSystemType = sys;
-    //     this->fRow = m;
-    //     this->fCol = n;
-    //     switch (sys)
-    //     {
-    //     case ESparse:
-    //         MatCreateSeqAIJ(PETSC_COMM_WORLD, m, n, 0, NULL, &fMat);
-    //         break;
-
-    //     case EDense:
-    //         MatCreateDense(PETSC_COMM_WORLD, m, n, PETSC_DECIDE, PETSC_DECIDE, NULL, &fMat);
-    //         break;
+    inline TPZPetScMatrix (int m, int n, MSystemType sys, MMode mode) : TPZPetScMatrix (m, n, sys)
+    {
+        if (mode == ESerial)
+        {
+            return;
+        }
         
-    //     case EBlock:
-    //         std::cout <<"TPZPetScMatrix:: Not implemented yet.\n";
-    //         DebugStop();
-    //         break;
+        fSystemType = sys;
+        this->fRow = m;
+        this->fCol = n;
+        PetscMPIInt size;
+        MPI_Comm_size(PETSC_COMM_WORLD,&size);
 
-    //     default:
-    //         std::cout << "TPZPetScMatrix:: System type not defined.\n";
-    //         DebugStop();
-    //         break;
-    //     }
-    // }
+        // I'm not configuring this values, but according to the manual setting then can inprove the performance by more than 50x:
+        PetscInt d_nz = m; //number of nonzeros per row in DIAGONAL portion of local submatrix (same value is used for all local rows)
+        PetscInt o_nz = m; //number of nonzeros per row in the OFF-DIAGONAL portion of local submatrix (same value is used for all local rows).
+        switch (sys)
+        {
+        case ESparse:
+            MatCreateAIJ(PETSC_COMM_WORLD, m, n, PETSC_DETERMINE, PETSC_DETERMINE, d_nz, NULL, o_nz, NULL, &fMat);
+            break;
+
+        case EDense:
+            MatCreateDense(PETSC_COMM_WORLD, m, n, PETSC_DECIDE, PETSC_DECIDE, NULL, &fMat);
+            break;
+        
+        case EBlock:
+            std::cout <<"TPZPetScMatrix:: Not implemented yet.\n";
+            DebugStop();
+            break;
+
+        default:
+            std::cout << "TPZPetScMatrix:: System type not defined.\n";
+            DebugStop();
+            break;
+        }
+    }
 
     TPZPetScMatrix(const TPZPetScMatrix& cp)
        : fSystemType(cp.fSystemType), fMat(cp.fMat), fStructure(cp.fStructure), fProperty(cp.fProperty)
@@ -147,7 +179,7 @@ public:
     int PutVal(const int64_t row,const int64_t col,const TVar & value ) override;
 
     // Generic operators
-    TVar &operator()(const int64_t row,const int64_t col);
+    PetscScalar &operator()(const int64_t row,const int64_t col);
 
     virtual TPZPetScMatrix<TVar>& operator= (const TPZPetScMatrix<TVar> &A );
     TPZPetScMatrix<TVar> operator+  (const TPZPetScMatrix<TVar> &A ) const;
@@ -182,8 +214,6 @@ protected:
     
     MSystemType fSystemType;
 
-    Mat fMat;
-
     MStructure fStructure;
 
     MProperty fProperty;
@@ -191,8 +221,10 @@ protected:
     MMode fMode;
 
     MatType fMattype;
+
+    TVar *fElem;
     
 };
 
-// #endif
+#endif
 #endif /* TPZPetScMatrix_hpp */
