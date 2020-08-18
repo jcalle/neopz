@@ -210,6 +210,12 @@ public:
     /** @brief Makes Zero all the elements */
     int Zero() override;
 
+    // Direct solvers
+    int Decompose_Cholesky(std::list<int64_t> &singular);
+
+    int Decompose_LU(std::list<int64_t> &singular);
+
+
 protected:
     
     MSystemType fSystemType;
