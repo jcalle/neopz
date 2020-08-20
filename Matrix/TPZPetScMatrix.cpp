@@ -8,7 +8,7 @@
 
 #include "TPZPetScMatrix.h"
 
-#ifdef USING_PETSC
+// #ifdef USING_PETSC
 
 #include <petscmat.h>
 
@@ -185,7 +185,7 @@ int TPZPetScMatrix<TVar>::Zero()
 
 // MUMPS methods - Direct solver
 template <class TVar>
-int TPZPetScMatrix<TVar>::Decompose_Cholesky(std::list<int64_t> &singular) {
+int TPZPetScMatrix<TVar>::Decompose_Cholesky() {
 	if (  this->fDecomposed && this->fDecomposed != ECholesky) 
     {
         std::cout << "Decompose_Cholesky <Matrix already Decomposed>\n";
@@ -202,13 +202,12 @@ int TPZPetScMatrix<TVar>::Decompose_Cholesky(std::list<int64_t> &singular) {
     PetscMPIInt size;
     int ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);
 
-    KSP ksp; // linear solver context
     PC pc; // preconditioner context
 
-    ierr = KSPCreate(PETSC_COMM_WORLD,&ksp);CHKERRQ(ierr); //Creating the solver context
-    ierr = KSPSetOperators(ksp,fMat,fMat);CHKERRQ(ierr); // Setting the matrices associated with the linear system
+    ierr = KSPCreate(PETSC_COMM_WORLD,&fKsp);CHKERRQ(ierr); //Creating the solver context
+    ierr = KSPSetOperators(fKsp,fMat,fMat);CHKERRQ(ierr); // Setting the matrices associated with the linear system
 
-    ierr = KSPGetPC(ksp,&pc);CHKERRQ(ierr); // Getting the pc variable to modify the default options
+    ierr = KSPGetPC(fKsp,&pc);CHKERRQ(ierr); // Getting the pc variable to modify the default options
     ierr = PCSetType(pc,PCCHOLESKY);CHKERRQ(ierr); // Setting that the decomposition method is LU
     PCFactorSetMatSolverType(pc,MATSOLVERMUMPS); // Setting the direct solver 
     PCFactorSetUpMatSolverType(pc);
@@ -220,7 +219,7 @@ int TPZPetScMatrix<TVar>::Decompose_Cholesky(std::list<int64_t> &singular) {
     int ival = 2; // 2 : Approximate Minimum Fill (AMF) is used
     MatMumpsSetIcntl(fMat,icntl,ival);
 
-    MatCholeskyFactor(fMat, NULL, NULL); // Decomposing matrix
+    // MatCholeskyFactor(fMat, NULL, NULL); // Decomposing matrix
     // However, the documentation says it's better to use the solver directly
     // ierr = KSPSolve(ksp,b,x);CHKERRQ(ierr);
 
@@ -228,7 +227,7 @@ int TPZPetScMatrix<TVar>::Decompose_Cholesky(std::list<int64_t> &singular) {
 }
 
 template <class TVar>
-int TPZPetScMatrix<TVar>::Decompose_LU(std::list<int64_t> &singular)
+int TPZPetScMatrix<TVar>::Decompose_LU()
 {
 	if (  this->fDecomposed && this->fDecomposed != ELU)
     {
@@ -246,13 +245,12 @@ int TPZPetScMatrix<TVar>::Decompose_LU(std::list<int64_t> &singular)
     PetscMPIInt size;
     int ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);
 
-    KSP ksp; // linear solver context
     PC pc; // preconditioner context
 
-    ierr = KSPCreate(PETSC_COMM_WORLD,&ksp);CHKERRQ(ierr); //Creating the solver context
-    ierr = KSPSetOperators(ksp,fMat,fMat);CHKERRQ(ierr); // Setting the matrices associated with the linear system
+    ierr = KSPCreate(PETSC_COMM_WORLD,&fKsp);CHKERRQ(ierr); //Creating the solver context
+    ierr = KSPSetOperators(fKsp,fMat,fMat);CHKERRQ(ierr); // Setting the matrices associated with the linear system
 
-    ierr = KSPGetPC(ksp,&pc);CHKERRQ(ierr); // Getting the pc variable to modify the default options
+    ierr = KSPGetPC(fKsp,&pc);CHKERRQ(ierr); // Getting the pc variable to modify the default options
     ierr = PCSetType(pc,PCLU);CHKERRQ(ierr); // Setting that the decomposition method is LU
     PCFactorSetMatSolverType(pc,MATSOLVERMUMPS); // Setting the direct solver 
     PCFactorSetUpMatSolverType(pc);
@@ -264,17 +262,41 @@ int TPZPetScMatrix<TVar>::Decompose_LU(std::list<int64_t> &singular)
     int ival = 2; // 2 : Approximate Minimum Fill (AMF) is used
     MatMumpsSetIcntl(fMat,icntl,ival);
 
-    MatLUFactor(fMat, NULL, NULL, NULL); // Decomposing matrix
+    // MatLUFactor(fMat, NULL, NULL, NULL); // Decomposing matrix
     // However, the documentation says it's better to use the solver directly
     // ierr = KSPSolve(ksp,b,x);CHKERRQ(ierr);
 
 	return ELU;
 }
 
+template <class TVar>
+int TPZPetScMatrix<TVar>::Subst_Forward( TPZFMatrix<TVar> *B ) const
+{
+    // Don't need to do anything here
+
+	return 1;
+}
+
+template <class TVar>
+int TPZPetScMatrix<TVar>::Subst_Backward( TPZFMatrix<TVar> *B ) const
+{
+    Vec b;
+    Vec x;
+    VecCreateSeq(PETSC_COMM_SELF, this->Rows(), &b);
+    VecCreateSeq(PETSC_COMM_SELF, this->Rows(), &x);
+    PetscScalar * array = reinterpret_cast<PetscScalar *>(B->fElem);
+    VecRestoreArray(b, &array);
+    int ierr = KSPSolve(fKsp,b,x);CHKERRQ(ierr);
+    VecGetArray(x, &array);
+    B->fElem = reinterpret_cast<TVar *>(array);
+
+	return 1;
+}
+
 template class TPZPetScMatrix<STATE>;
 template class TPZPetScMatrix<float>;
 
-#endif
+// #endif
 
 /*
     MUMPS ICNTL PARAMETERS:

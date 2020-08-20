@@ -6,12 +6,11 @@
 //
 //
 
-#ifndef TPZPetScMatrix_hpp
-#define TPZPetScMatrix_hpp
+#pragma once
 
 #include "pz_config.h"
 
-#ifdef USING_PETSC
+// #ifdef USING_PETSC
 
 #define PETSC_USE_64BIT_INDICES
 
@@ -21,9 +20,15 @@
 #include "pzmanvector.h"
 #include "tpzautopointer.h"
 #include "pzmatrix.h"
+#include "TPZStructMatrixBase.h"
+#include "pzskylmat.h"
+
+class TPZStructMatrixOR;
+
+class TPZStructMatrixBase;
 
 template<class TVar>
-class TPZPetScMatrix: public TPZMatrix<TVar>
+class TPZPetScMatrix: public TPZMatrix<TVar>, public TPZStructMatrix
 {
 public:
     enum MSystemType {ESparse, EDense, EBlock};
@@ -36,10 +41,8 @@ public:
 
     Mat fMat;
 
-    inline TPZPetScMatrix(){
+    inline TPZPetScMatrix() : TPZMatrix<TVar>(){
         fSystemType = ESparse;
-        this->fRow = 0;
-        this->fCol = 0;
         MatCreateSeqAIJ(PETSC_COMM_SELF, 0, 0, 0, NULL, &fMat);
         MatAssemblyBegin(this->fMat,MAT_FINAL_ASSEMBLY);
         MatAssemblyEnd(this->fMat,MAT_FINAL_ASSEMBLY);
@@ -52,7 +55,15 @@ public:
         fSystemType = ESparse;
     }
 
-    inline  TPZPetScMatrix (int rows, int columns){
+    TPZPetScMatrix(TPZCompMesh * mesh) : TPZStructMatrix(mesh)
+    {
+    }
+    
+    TPZPetScMatrix(TPZAutoPointer<TPZCompMesh> cmesh) : TPZStructMatrix(cmesh)
+    {
+    }
+	
+    inline  TPZPetScMatrix (int rows, int columns) : TPZMatrix<TVar>(rows,columns){
         this->fRow = rows;
         this->fCol = columns;
         MatCreateSeqAIJ(PETSC_COMM_SELF, rows, columns, 0, NULL, &fMat);
@@ -61,7 +72,7 @@ public:
         MatAssemblyEnd(this->fMat,MAT_FINAL_ASSEMBLY);
     }
 
-    inline  TPZPetScMatrix (int rows, int columns, MSystemType sys){
+    inline  TPZPetScMatrix (int rows, int columns, MSystemType sys) :  TPZMatrix<TVar>(rows, columns){
         fSystemType = sys;
         if(rows*columns) fElem = new TVar[rows*columns];
         switch (sys)
@@ -83,17 +94,12 @@ public:
             DebugStop();
             break;
 
-        default:
-            std::cout << "TPZPetScMatrix:: System type not defined.\n";
-            DebugStop();
-            break;
-
         }
         this->fRow = rows;
         this->fCol = columns;
     }
 
-    inline  TPZPetScMatrix (int64_t rows, int64_t columns, REAL val)
+    inline  TPZPetScMatrix (int64_t rows, int64_t columns, REAL val) : TPZMatrix<TVar>(rows,columns)
     {
         MatCreateSeqAIJ(PETSC_COMM_SELF, rows, columns, 0, NULL, &fMat);
         this->fRow = rows;
@@ -144,12 +150,14 @@ public:
             std::cout <<"TPZPetScMatrix:: Not implemented yet.\n";
             DebugStop();
             break;
-
-        default:
-            std::cout << "TPZPetScMatrix:: System type not defined.\n";
-            DebugStop();
-            break;
         }
+    }
+
+    TPZPetScMatrix(const int64_t dim, const TPZVec<int64_t> &skyline ) :
+    TPZRegisterClassId(&TPZPetScMatrix::ClassId),TPZMatrix<TVar>( dim, dim ), fElem(dim+1), fStorage(0)
+    {
+        fElem.Fill(0);
+        InitializeElem(skyline,fStorage,fElem);
     }
 
     TPZPetScMatrix(const TPZPetScMatrix& cp)
@@ -157,6 +165,7 @@ public:
     {
         this->fRow = cp.Rows();
         this->fCol = cp.Cols();
+        this->fMesh = cp.Mesh();
     }
 
     TPZPetScMatrix(TPZPetScMatrix&& mv)
@@ -171,7 +180,6 @@ public:
 
     virtual  ~TPZPetScMatrix()
     {
-        // MatDestroy(&(this->fMat));
     }
 
     const TVar &GetVal(const int64_t row,const int64_t col ) const override;
@@ -211,9 +219,62 @@ public:
     int Zero() override;
 
     // Direct solvers
-    int Decompose_Cholesky(std::list<int64_t> &singular);
+    int Decompose_Cholesky();
 
-    int Decompose_LU(std::list<int64_t> &singular);
+    int Decompose_LU();
+
+    int Subst_Forward( TPZFMatrix<TVar> *B ) const;
+
+    int Subst_Backward( TPZFMatrix<TVar> *B ) const;
+	
+    virtual TPZMatrix<STATE> * Create()
+    {
+        TPZVec<int64_t> skyline;
+        fMesh->Skyline(skyline);
+        fEquationFilter.FilterSkyline(skyline);
+        int64_t neq = fEquationFilter.NActiveEquations();
+        return this->ReallyCreate(neq,skyline);//new TPZSkylMatrix<STATE>(neq,skyline);
+    }
+
+    TPZMatrix<STATE> * ReallyCreate(int64_t neq, const TPZVec<int64_t> &skyline){
+        return new TPZSkylMatrix<STATE>(neq,skyline);
+    }
+
+    TPZStructMatrix * Clone(){
+        return new TPZPetScMatrix<TVar>(*this);
+    }
+
+    void InitializeElem(const TPZVec<int64_t> &skyline, TPZVec<TVar> &storage, TPZVec<TVar *> &point)
+    {
+        int64_t dim = skyline.NElements();
+        int64_t nel = NumElements(skyline);
+        storage.Resize(nel);
+        storage.Fill(0.);
+        point.Resize(dim+1);
+        if(dim) {
+            point[0] = &storage[0];
+            point[dim] = &storage[0]+nel;
+        } 
+        else {
+            point[0] = 0;
+        }
+        
+        for(int64_t i=1; i<dim+1; i++) { 
+            point[i] = point[i-1] + (i-1)-skyline[i-1]+1;
+        }
+    }
+
+    int64_t NumElements(const TPZVec<int64_t> &skyline)
+{
+    int64_t dim = skyline.NElements();
+    
+    int64_t nelem=0;
+    for(int64_t i=0; i<dim; i++) {
+        nelem += i-skyline[i]+1;
+    }
+    
+    return nelem;
+}
 
 
 protected:
@@ -228,9 +289,12 @@ protected:
 
     MatType fMattype;
 
-    TVar *fElem;
+    TPZVec<TVar *> fElem;
+
+    KSP fKsp; // linear solver context
+
+	TPZVec<TVar> fStorage;
     
 };
 
-#endif
-#endif /* TPZPetScMatrix_hpp */
+// #endif
