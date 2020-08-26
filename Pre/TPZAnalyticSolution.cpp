@@ -25,7 +25,7 @@
 
 #ifdef _AUTODIFF
 #include "fadType.h"
-
+#include <cmath>
 
 
 static Fad<REAL> atan2(Fad<REAL> y, Fad<REAL> x)
@@ -130,6 +130,20 @@ static FADFADREAL FADsinh(FADFADREAL x)
     }
     return resa;
 }
+
+// x^p
+static FADFADREAL FADpow(FADFADREAL p, FADFADREAL x)
+{
+    FADREAL_ powval = pow(x.val(),p.val());
+    FADREAL_ powvald = pow(x.val(),(p-1).val());
+    int sz = x.size();
+    FADFADREAL resa(sz,powval);
+    for (int i=0; i<sz; i++) {
+        resa.fastAccessDx(i) = p.val()*powvald;
+    }
+    return resa;
+}
+
 
 static const REAL FI = 1.;
 static const REAL a = 0.5;
@@ -1748,7 +1762,7 @@ void TLaplaceExample1::uxy(const TPZVec<FADFADREAL > &x, TPZVec<FADFADREAL > &di
             disp[0] = 0;
             for (int i=0; i<6; i++) {
                 TVar Lambda = Lambda0*(i+1);
-                // disp[0] += mult[i]*Lambda*FADpow(r,Lambda-1.)*FADcos(Lambda*theta);
+                disp[0] += mult[i]*Lambda*FADpow(r,Lambda-1.)*FADcos(Lambda*theta);
             }
         }
             break;
