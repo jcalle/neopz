@@ -8,8 +8,6 @@
 
 #include "TPZPetScMatrix.h"
 
-// #ifdef USING_PETSC
-
 #include <petscmat.h>
 
 #include "pzsysmp.h"
@@ -27,17 +25,22 @@ const TVar &TPZPetScMatrix<TVar>::GetVal( const int64_t row, const int64_t col )
     }
 #endif
 
-    const PetscScalar *vals;
+    PetscScalar vals = 0;
     const PetscInt *cols;
     PetscInt ncols = this->Cols();
-    MatGetRow(fMat, row, &ncols, &cols, &vals);
-    return *(&vals[col]);
+    MatGetValues(fMat, 1, &row, 1, &col, &vals);
+    auto val = reinterpret_cast< TVar * > (&vals);
+    fElemPetsc[col*this->Rows()+row] = val;
+    return *fElemPetsc[col*this->Rows()+row];
 }
 
 template<class TVar>
 inline int TPZPetScMatrix<TVar>::PutVal(const int64_t row,const int64_t col,const TVar & value )
 {
-    return MatSetValue(fMat, row, col, value, INSERT_VALUES);
+    MatSetOption(fMat, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
+    MatSetValue(fMat, row, col, value, INSERT_VALUES);
+    MatAssemblyBegin(this->fMat,MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(this->fMat,MAT_FINAL_ASSEMBLY);
 }
 
 template<class TVar>
@@ -66,6 +69,7 @@ TPZPetScMatrix<TVar> &TPZPetScMatrix<TVar>::operator= (const TPZPetScMatrix<TVar
 	}
 #endif
     fMat = A.fMat;
+    fDiag = A.fDiag;
     MatGetType(A.fMat, &fMattype);
 }
 
@@ -181,6 +185,7 @@ template <class TVar>
 int TPZPetScMatrix<TVar>::Zero()
 {
     MatZeroEntries(this->fMat);
+    fDiag.Fill(0.);
 }
 
 // MUMPS methods - Direct solver
@@ -202,26 +207,22 @@ int TPZPetScMatrix<TVar>::Decompose_Cholesky() {
     PetscMPIInt size;
     int ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);
 
-    PC pc; // preconditioner context
+    PC pc = 0; // preconditioner context
 
     ierr = KSPCreate(PETSC_COMM_WORLD,&fKsp);CHKERRQ(ierr); //Creating the solver context
     ierr = KSPSetOperators(fKsp,fMat,fMat);CHKERRQ(ierr); // Setting the matrices associated with the linear system
 
-    ierr = KSPGetPC(fKsp,&pc);CHKERRQ(ierr); // Getting the pc variable to modify the default options
-    ierr = PCSetType(pc,PCCHOLESKY);CHKERRQ(ierr); // Setting that the decomposition method is LU
-    PCFactorSetMatSolverType(pc,MATSOLVERMUMPS); // Setting the direct solver 
-    PCFactorSetUpMatSolverType(pc);
+    // ierr = KSPGetPC(fKsp,&pc);CHKERRQ(ierr); // Getting the pc variable to modify the default options
+    // ierr = PCSetType(pc,PCCHOLESKY);CHKERRQ(ierr); // Setting that the decomposition method is CHOLESKY
+    // PCFactorSetMatSolverType(pc,MATSOLVERMUMPS); // Setting the direct solver 
+    // PCFactorSetUpMatSolverType(pc);
 
-    // Setting icntl MUMPS parameters - More details at the end of this file
-    // Just an example:
-    PCFactorGetMatrix(pc,&fMat);
-    int icntl = 7; // ICNTL(7) computes a symmetric permutation in case of sequential analysis
-    int ival = 2; // 2 : Approximate Minimum Fill (AMF) is used
-    MatMumpsSetIcntl(fMat,icntl,ival);
-
-    // MatCholeskyFactor(fMat, NULL, NULL); // Decomposing matrix
-    // However, the documentation says it's better to use the solver directly
-    // ierr = KSPSolve(ksp,b,x);CHKERRQ(ierr);
+    // // Setting icntl MUMPS parameters - More details at the end of this file
+    // // Just an example:
+    // PCFactorGetMatrix(pc,&fMat);
+    // int icntl = 7; // ICNTL(7) computes a symmetric permutation in case of sequential analysis
+    // int ival = 2; // 2 : Approximate Minimum Fill (AMF) is used
+    // MatMumpsSetIcntl(fMat,icntl,ival);
 
 	return ECholesky;
 }
@@ -293,10 +294,23 @@ int TPZPetScMatrix<TVar>::Subst_Backward( TPZFMatrix<TVar> *B ) const
 	return 1;
 }
 
+template<class TVar>
+void TPZPetScMatrix<TVar>::ComputeDiagonal() {
+	if(!fDiag.size()) fDiag.resize(this->Rows());
+	for(int ir=0; ir<this->Rows(); ir++) {
+		fDiag[ir] = GetVal(ir,ir);
+	}
+}
+
+template<class TVar>
+void TPZPetScMatrix<TVar>::SetData(const TPZVec<int64_t> &IA,const TPZVec<int64_t> &JA, const TPZVec<TVar> &A )
+{
+	// Pass the data to the class.
+	ComputeDiagonal();
+}
+
 template class TPZPetScMatrix<STATE>;
 template class TPZPetScMatrix<float>;
-
-// #endif
 
 /*
     MUMPS ICNTL PARAMETERS:

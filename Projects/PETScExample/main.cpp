@@ -6,6 +6,8 @@ Examples based on PETSc tutorials
 #include <petscksp.h>
 #include <pzerror.h>
 #include "TPZPetScMatrix.h"
+#include "TPZPetscSSpStructMatrix.h"
+#include "TPZSSpStructMatrix.h"
 
 #include "TPZGenGrid2D.h"
 #include "pzcmesh.h"
@@ -39,8 +41,8 @@ int main(int argc,char **args)
 #endif
 
     // // Just testing the class:
-    // static char help[] = "Testing TPZPetscMatrix";
-    // int ierr = PetscInitialize(&argc,&args,(char*)0,help); if (ierr) return 0;
+    static char help[] = "Testing TPZPetscMatrix";
+    int ierr = PetscInitialize(&argc,&args,(char*)0,help); if (ierr) return 0;
 
     int nelx = 2, porder = 3, numthreads = 4;
     TPZGeoMesh * gmesh = SetupGeom(nelx);
@@ -72,7 +74,7 @@ int main(int argc,char **args)
     delete FEM;
     delete an;
 
-    // PetscFinalize();
+    PetscFinalize();
 
     // Testing the systems:
     // int ierr = tridiaglinsystem(argc, args);CHKERRQ(ierr);
@@ -130,7 +132,10 @@ TPZGeoMesh * SetupGeom(int &nelx)
 
 void SolveSist(TPZAnalysis * an, TPZCompMesh *Cmesh, int &numthreads)
 {
-    TPZPetScMatrix<REAL> strmat(Cmesh);
+    // TPZSymetricSpStructMatrix strmat(Cmesh);
+#ifdef USING_PETSC
+    TPZPetscSSpStructMatrix strmat(Cmesh);
+#endif
     // TPZSkylineStructMatrix strmat(Cmesh);
     // strmat.SetNumThreads(numthreads);
     an->SetStructuralMatrix(strmat);
