@@ -23,6 +23,8 @@ class TPZSBFemElementGroup : public TPZElementGroup
 public:
     enum EComputationMode {EStiff, EOnlyMass, EMass};
 
+    /// Default polynomial order for internal bubble functions
+    // if its value is zero, there are no internal functions
     static int gDefaultPolynomialOrder;
     
     static int gPolynomialShapeFunctions;
@@ -102,6 +104,7 @@ public:
      */
     virtual void CalcStiff(TPZElementMatrix &ek,TPZElementMatrix &ef);
 
+    /// @TODO why put a comment is the purpose of this function is so obvious!!!
     void ComputeEigenvalues();
 
     void ComputeEigenvaluesBlaze();

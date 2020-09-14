@@ -267,6 +267,11 @@ void TPZBuildSBFem::CreateVolumetricElements(TPZCompMesh &cmesh)
             matidstarget.insert(it->second);
         }
     }
+    if(matids.size() == 0)
+    {
+        std::cout << __PRETTY_FUNCTION__ << " THE COMPUTATIONAL MESH DOES NOT CONTAIN PROPER MATERIAL OBJECTS\n";
+        DebugStop();
+    }
     int64_t nel = gmesh->NElements();
     for (int64_t el=0; el<nel; el++) {
         TPZGeoEl *gel = gmesh->Element(el);
@@ -726,9 +731,13 @@ void TPZBuildSBFem::CreateElementGroups(TPZCompMesh &cmesh)
         index = elementgroupindices[el];
         TPZCompEl *cel = cmesh.Element(index);
         TPZSBFemElementGroup *sbfemgroup = dynamic_cast<TPZSBFemElementGroup *>(cel);
-        if (!sbfemgroup) {
+        if (!sbfemgroup || sbfemgroup->NConnects() == 0) {
             DebugStop();
         }
+        /// PHIL doing all compute intensive during construction hides the execution time of the
+        // computation of the global stiffness matrix
+        // this implies that the time intensive computations are done serial
+        // you will spend 95%cpu "constructing" the mesh and 5% "solving" the fem problem?
         sbfemgroup->ComputeEigenvalues();
     }
     

@@ -311,7 +311,12 @@ void TPZSBFemElementGroup::ComputeEigenvaluesBlaze()
     }
     
 #ifdef PZDEBUG
-   std::cout << "eigval = {" << eigvalsel << "};\n";
+    if(loggercoefmatrices->isDebugEnabled())
+    {
+        std::stringstream sout;
+        sout << "eigval = {" << eigvalsel << "};\n";
+        LOGPZ_DEBUG(loggercoefmatrices, sout.str())
+    }
 #endif
 
     if (dim == 2)
@@ -615,7 +620,12 @@ void TPZSBFemElementGroup::ComputeEigenvaluesMKL()
     }
     
 #ifdef PZDEBUG
-    std::cout << "eigval = {" << eigvalsel << "};\n";
+    if(loggercoefmatrices->isDebugEnabled())
+    {
+        std::stringstream sout;
+        sout << "eigval = {" << eigvalsel << "};\n";
+        LOGPZ_DEBUG(loggercoefmatrices, sout.str())
+    }
 #endif
 
     if (dim == 2)
@@ -816,6 +826,8 @@ void TPZSBFemElementGroup::CalcStiff(TPZElementMatrix &ek,TPZElementMatrix &ef)
         }
     }
 
+    // @TODO PHIL why do you compute the matrix/SBFem functions in
+    // the constructor and the bubble functions in calcstiff?
     if (fInternalPolynomialOrder > 0)
     {
         // Computing the stiffness matrix related to the bubbles
