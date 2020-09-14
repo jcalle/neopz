@@ -106,8 +106,8 @@ void TPZMixedPoisson::Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, 
 		force = res[0];
 	}
     
-    TPZFNMatrix<9,REAL> PermTensor;
-    TPZFNMatrix<9,REAL> InvPermTensor;
+    TPZFNMatrix<9,STATE> PermTensor;
+    TPZFNMatrix<9,STATE> InvPermTensor;
     
     GetPermeabilities(datavec[1].x, PermTensor, InvPermTensor);
     
@@ -294,8 +294,10 @@ void TPZMixedPoisson::Contribute(TPZVec<TPZMaterialData> &datavec, REAL weight, 
     if(fIsStabilized==true)
     {
         //produto KgradPu x KgradPv
-        TPZFNMatrix<3,REAL> dphiPuZ(dphiP.Rows(),dphiP.Cols(),0.);
-        PermTensor.Multiply(dphiPXY, dphiPuZ);
+        
+        TPZFNMatrix<3,STATE> dphiPuZ(dphiP.Rows(),dphiP.Cols(),0.), dphiPXYState(3,1);
+        for(int i=0; i<3; i++) dphiPXYState(i,0) = dphiPXY(i,0);
+        PermTensor.Multiply(dphiPXYState, dphiPuZ);
         
         REAL umSobreVisc = 1./fvisc;
         for(int ip=0; ip<phrp; ip++)
@@ -543,7 +545,7 @@ void TPZMixedPoisson::ContributeBC(TPZVec<TPZMaterialData> &datavec, REAL weight
 		TPZManVector<STATE> res(3);
         TPZFNMatrix<9,STATE> gradu(dim,1);
         bc.ForcingFunction()->Execute(datavec[0].x,res,gradu);
-        TPZFNMatrix<9,REAL> PermTensor, InvPermTensor;
+        TPZFNMatrix<9,STATE> PermTensor, InvPermTensor;
         GetPermeabilities(datavec[0].x, PermTensor, InvPermTensor);
         
         
@@ -683,6 +685,8 @@ int TPZMixedPoisson::VariableIndex(const std::string &name){
     }
     if(!strcmp("g_average",name.c_str()))        return  44;
     if(!strcmp("u_average",name.c_str()))        return  45;
+
+    if(!strcmp("ExactFluxShiftedOrigin",name.c_str()))  return  46;
     return TPZMatPoisson3d::VariableIndex(name);
     
 }
@@ -702,6 +706,7 @@ int TPZMixedPoisson::NSolutionVariables(int var){
     if(var == 43) return 1;
     if(var == 44) return 1;
     if(var == 45) return 1;
+    if(var == 46) return fDim;
     return TPZMatPoisson3d::NSolutionVariables(var);
 }
 
@@ -711,8 +716,8 @@ void TPZMixedPoisson::Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec
 	
 	TPZVec<STATE> SolP, SolQ;
     
-    TPZFNMatrix<9,REAL> PermTensor; this->GetPermeability(PermTensor);
-    TPZFNMatrix<9,REAL> InvPermTensor; this ->GetInvPermeability(InvPermTensor);
+    TPZFNMatrix<9,STATE> PermTensor; this->GetPermeability(PermTensor);
+    TPZFNMatrix<9,STATE> InvPermTensor; this ->GetInvPermeability(InvPermTensor);
 
     //int rtens = 2*fDim;
     if(fPermeabilityFunction){
@@ -731,8 +736,10 @@ void TPZMixedPoisson::Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec
         }
     }
 
+    // Solution EArcTan returns NAN for (x,y) == (0,0). Replacing data.x by inf solves this problem.
+    STATE infinitesimal = 0.0000000001;
+    TPZManVector<REAL,3> inf ={infinitesimal,infinitesimal,infinitesimal};
 
-    
    // SolQ = datavec[0].sol[0];
     SolP = datavec[1].sol[0];
     
@@ -793,8 +800,8 @@ void TPZMixedPoisson::Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec
 
         }
         
-		TPZFNMatrix<3, REAL> fluxtmp(fDim + 1, 1);
-		TPZFNMatrix<3, REAL> gradutmp(fDim + 1, 1);
+		TPZFNMatrix<3, STATE> fluxtmp(fDim + 1, 1);
+		TPZFNMatrix<3, STATE> gradutmp(fDim + 1, 1);
 		for (int idi = 0; idi < gradu.Rows(); idi++)
 			for (int jdi = 0; jdi < gradu.Cols(); jdi++)
 				gradutmp(idi, jdi) = gradu(idi, jdi);
@@ -803,7 +810,7 @@ void TPZMixedPoisson::Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec
         
         for (int i=0; i<fDim; i++)
         {
-            Solout[i] = fluxtmp(i,0);
+            Solout[i] = -fluxtmp(i,0);
         }
 
 		return;
@@ -881,6 +888,34 @@ void TPZMixedPoisson::Solution(TPZVec<TPZMaterialData> &datavec, int var, TPZVec
         }
         
     }
+
+    if(var == 46){ //ExactFluxShiftedOrigin
+
+
+        if(fForcingFunctionExact)
+        {
+            if(datavec[0].x[0] == 0. && datavec[0].x[1] == 0.){
+                fForcingFunctionExact->Execute(inf, solExata, gradu);
+            } else {
+                fForcingFunctionExact->Execute(datavec[0].x, solExata, gradu);
+            }
+        }
+
+        TPZFNMatrix<3, STATE> fluxtmp(fDim + 1, 1);
+        TPZFNMatrix<3, STATE> gradutmp(fDim + 1, 1);
+        for (int idi = 0; idi < gradu.Rows(); idi++)
+            for (int jdi = 0; jdi < gradu.Cols(); jdi++)
+                gradutmp(idi, jdi) = gradu(idi, jdi);
+
+        PermTensor.Multiply(gradutmp, fluxtmp);
+
+        for (int i=0; i<fDim; i++)
+        {
+            Solout[i] = -fluxtmp(i,0);
+        }
+
+        return;
+    }
     
 	TPZMatPoisson3d::Solution(datavec,var,Solout);
 }
@@ -939,8 +974,8 @@ REAL residual = 0.;
 residual = (divsigma[0] - divsigmafem)*(divsigma[0] - divsigmafem);
 pressurefem[0] = data[1].sol[0][0];
 
-TPZFNMatrix<9,REAL> PermTensor; this->GetPermeability(PermTensor);
-TPZFNMatrix<9,REAL> InvPermTensor; this->GetInvPermeability(InvPermTensor);
+TPZFNMatrix<9,STATE> PermTensor; this->GetPermeability(PermTensor);
+TPZFNMatrix<9,STATE> InvPermTensor; this->GetInvPermeability(InvPermTensor);
     
 if(fPermeabilityFunction){
    PermTensor.Redim(3,3);
@@ -959,11 +994,11 @@ if(fPermeabilityFunction){
     TPZManVector<STATE,3> gradpressurefem(fDim,0.);
     this->Solution(data,VariableIndex("GradPressure"), gradpressurefem);
 
-TPZFNMatrix<3,REAL> fluxexactneg;
+TPZFNMatrix<3,STATE> fluxexactneg;
 
 //sigma=-K grad(u)
 
-   TPZFNMatrix<9,REAL> gradpressure(3,1);
+   TPZFNMatrix<9,STATE> gradpressure(3,1);
    for (int i=0; i<3; i++) {
        gradpressure(i,0) = du_exact[i];
    }

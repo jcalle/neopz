@@ -427,6 +427,22 @@ void TPZSBFemElementGroup::ComputeEigenvaluesBlaze()
  */
 void TPZSBFemElementGroup::ComputeEigenvaluesMKL()
 {
+
+    if (fElGroup.size() == 0) return;
+
+#ifdef USING_BLAZE
+    CalcStiffBlaze(ek,ef);
+    return;
+#endif
+    InitializeElementMatrix(ek, ef);
+
+    if (fComputationMode == EOnlyMass) {
+        ek.fMat = fMassMatrix;
+        ek.fMat *= fMassDensity;
+        ef.fMat.Zero();
+        return;
+    }
+
     TPZElementMatrix E0,E1,E2, M0;
     ComputeMatrices(E0, E1, E2, M0);
 

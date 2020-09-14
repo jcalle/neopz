@@ -106,6 +106,15 @@ public:
 	/** @brief Sets the analysis type. */
 	void SetAnalysisFrontal(int numThreads, TPZAutoPointer<TPZGuiInterface> guiInterface);
     
+    /** @brief Sets the analysis type. */
+    void SetAnalysisSparse(int numThreads);
+
+    /** @brief Sets the analysis type. Nonsymmetric type*/
+    void SetAnalysisNonSymSparse(int numThreads);
+   
+    /** @brief Sets the analysis type. */
+    void SetAnalysisFStruct(int numThreads);
+
     /**
      * @brief Condense the internal equations using a skyline symetric matrix 
      * the preconditioned argument indicates whether the equations are condensed with a direct method (0) or 
@@ -291,6 +300,11 @@ public:
      */
     virtual void CalcResidual(TPZElementMatrix &ef) override;
     
+    /**
+     * Compute the residual norm of the internal equation
+     * This method gives accurate results after CalcStiff or CalcResidual has been called
+     */
+    REAL InternalResidualNorm();
 
 	/**
 	 * @brief Creates corresponding graphical element(s) if the dimension matches

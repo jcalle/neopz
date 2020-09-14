@@ -193,7 +193,8 @@ struct TElasticity2DAnalytic : public TPZAnalyticSolution
 
     virtual void Force(const TPZVec<REAL> &x, TPZVec<STATE> &force) const
     {
-        TPZManVector<REAL,3> locforce(2);
+        TPZManVector<STATE,3> xstate(3),locforce(2);
+        for(int i=0; i<3; i++) xstate[i]=x[i];
         DivSigma(x, locforce);
         force[0] = -locforce[0];
         force[1] = -locforce[1];
@@ -226,7 +227,7 @@ struct TElasticity2DAnalytic : public TPZAnalyticSolution
 
     void Sigma(const TPZVec<REAL> &x, TPZFMatrix<STATE> &sigma) const;
     
-    void Sigma(const TPZVec<Fad<REAL> > &x, TPZFMatrix<Fad<REAL> > &sigma) const;
+    void Sigma(const TPZVec<Fad<STATE> > &x, TPZFMatrix<Fad<STATE> > &sigma) const;
     
     template<class TVar>
     void DivSigma(const TPZVec<REAL> &x, TPZVec<TVar> &divsigma) const;
@@ -276,7 +277,7 @@ struct TElasticity3DAnalytic : public TPZAnalyticSolution
     
     virtual void Force(const TPZVec<REAL> &x, TPZVec<STATE> &force) const
     {
-        TPZManVector<REAL,3> locforce(3);
+        TPZManVector<STATE,3> locforce(3);
         DivSigma(x, locforce);
         force[0] = -locforce[0];
         force[1] = -locforce[1];
@@ -324,7 +325,7 @@ struct TElasticity3DAnalytic : public TPZAnalyticSolution
 struct TLaplaceExample1 : public TPZAnalyticSolution
 {
     
-    enum EExactSol {ENone, EConst, EX, ESinSin, ECosCos, EArcTan, EArcTanSingular,ESinDist, E10SinSin,E2SinSin, ESinSinDirNonHom,ESinMark,ESteklovNonConst,EGalvisNonConst,EBoundaryLayer,EBubble,ESinCosCircle, EHarmonic, ESingularCircle};
+    enum EExactSol {ENone, EConst, EX, ESinSin, ECosCos, EArcTan, EArcTanSingular,ESinDist, E10SinSin,E2SinSin, ESinSinDirNonHom,ESinMark,ESteklovNonConst,EGalvisNonConst,EBoundaryLayer,EBubble,ESinCosCircle, EHarmonic, ESingularCircle, EHarmonic2};
     
     int fDimension = 2;
     
@@ -377,12 +378,12 @@ struct TLaplaceExample1 : public TPZAnalyticSolution
     void SigmaLoc(const TPZVec<TVar> &x, TPZFMatrix<TVar> &sigma) const;
     
     template<class TVar>
-    void DivSigma(const TPZVec<TVar> &x, TVar &divsigma) const;
+    void DivSigma(const TPZVec<REAL> &x, TVar &divsigma) const;
     
     
     virtual void Force(const TPZVec<REAL> &x, TPZVec<STATE> &force) const
     {
-        REAL locforce;
+        STATE locforce;
         DivSigma(x, locforce);
         force[0] = locforce;
     }
@@ -437,7 +438,7 @@ public:
     virtual void Sigma(const TPZVec<REAL> &x, TPZFMatrix<STATE> &sigma) const;
     
     template<class TVar>
-    void DivSigma(const TPZVec<TVar> &x, TVar &divsigma) const;
+    void DivSigma(const TPZVec<REAL> &x, TVar &divsigma) const;
     
     virtual void Force(const TPZVec<REAL> &x, TPZVec<STATE> &force) const
     {
@@ -453,7 +454,7 @@ struct TStokesAnalytic : public TPZAnalyticSolution
     
     enum MProblemType {EStokes, ENavierStokes, EOseen, ENavierStokesCDG, EOseenCDG, EBrinkman};
     
-    enum EExactSol {ENone, ECavity,  EKovasznay, EKovasznayCDG, ESinCos, EPconst, EObstacles, EOneCurve ,EStokesLimit, EDarcyLimit};
+    enum EExactSol {ENone, ECavity,  EKovasznay, EKovasznayCDG, ESinCos, ESinCos3D, EPconst, EObstacles, EOneCurve ,EStokesLimit, EDarcyLimit};
     
     int fDimension = 2;
     
@@ -461,14 +462,10 @@ struct TStokesAnalytic : public TPZAnalyticSolution
 
     EExactSol fExactSol = ESinCos;
     
-    REAL fvisco = 0.01; //Viscosity
-    
-    REAL Pi = M_PI;
-    
-    REAL Re = 1./fvisco; //Reynolds number
+    REAL fvisco = 1.; //Viscosity
 
-    REAL lambda = Re/2.- sqrt(Re*Re/4.+4.*Pi*Pi); // Parameter for Navier-Stokes solution
-    
+    REAL Pi = M_PI;
+        
     REAL falphaBrinkman = 1.;
         
     TPZManVector<REAL,3> fCenter;
@@ -506,10 +503,10 @@ struct TStokesAnalytic : public TPZAnalyticSolution
     void SigmaLoc(const TPZVec<TVar> &x, TPZFMatrix<TVar> &sigma) const;
     
     template<class TVar>
-    void DivSigma(const TPZVec<TVar> &x, TPZVec<TVar> &divsigma) const;
+    void DivSigma(const TPZVec<REAL> &x, TPZVec<TVar> &divsigma) const;
     
     virtual void Force(const TPZVec<REAL> &x, TPZVec<STATE> &force) const;
-    
+
     
 };
 

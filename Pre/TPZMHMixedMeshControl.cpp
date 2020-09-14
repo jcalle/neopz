@@ -18,6 +18,7 @@
 #include <sstream>
 #include <iterator>
 #include <numeric>
+#include <algorithm>
 
 #include "pzsubcmesh.h"
 
@@ -537,6 +538,7 @@ void TPZMHMixedMeshControl::CreateHDivPressureMHMMesh()
     cmeshes[0] = fFluxMesh.operator->();
     cmeshes[1] = fPressureFineMesh.operator->();
     
+    if(0)
     {
         std::ofstream out("PressureMesh_MultiPhis.txt");
         cmeshes[1] ->Print(out);
@@ -939,48 +941,62 @@ void TPZMHMixedMeshControl::HybridizeSkeleton(int skeletonmatid, int pressuremat
 
 }
 
-
 // create the elements domain per domain with approximation spaces disconnected from each other
-void TPZMHMixedMeshControl::CreateInternalFluxElements()
-{
+void TPZMHMixedMeshControl::CreateInternalFluxElements() {
     TPZGeoMesh *gmesh = fGMesh.operator->();
     int meshdim = gmesh->Dimension();
-    TPZCompMesh * cmeshHDiv = fFluxMesh.operator->();
+    TPZCompMesh *cmeshHDiv = fFluxMesh.operator->();
     gmesh->ResetReference();
     cmeshHDiv->LoadReferences();
     cmeshHDiv->SetDimModel(meshdim);
     cmeshHDiv->ApproxSpace().SetAllCreateFunctionsHDiv(meshdim);
     cmeshHDiv->SetDefaultOrder(fpOrderInternal);
 
-    
-    //Criar elementos computacionais malha MHM
-    
-    TPZGeoEl *gel = NULL;
-    TPZGeoEl *gsubel = NULL;
+    // Create MHM computational elements
     fConnectToSubDomainIdentifier[cmeshHDiv].Expand(10000);
     int64_t nel = fGMesh->NElements();
-    
-    for (auto it = fMHMtoSubCMesh.begin(); it != fMHMtoSubCMesh.end(); it++)
-    {
-        // create a flux mesh one subdomain at a time
-        fGMesh->ResetReference();
-        for (int64_t el = 0; el<nel; el++) {
-            TPZGeoEl *gel = fGMesh->Element(el);
-            if (!gel || gel->HasSubElement() || fGeoToMHMDomain[el] != it->first) {
-                continue;
-            }
-            int64_t index;
-            // create the flux element
-            cmeshHDiv->CreateCompEl(gel, index);
-            TPZCompEl *cel = cmeshHDiv->Element(index);
-            /// associate the connects with the subdomain for the flux mesh
-            SetSubdomain(cel, it->first);
-        }
-        
-        
+
+    if (fGeoToMHMDomain.size() != nel) DebugStop();
+
+    TPZManVector<std::pair<int64_t, int64_t>> MHMOfEachGeoEl(nel);
+    for (int i = 0; i < nel; i++) {
+        MHMOfEachGeoEl[i] = std::make_pair(fGeoToMHMDomain[i], i);
     }
 
-    fGMesh->ResetReference();
+    std::sort(&MHMOfEachGeoEl[0], &MHMOfEachGeoEl[nel - 1] + 1);
+
+    int64_t previousMHMDomain = -1;
+    int64_t firstElemInMHMDomain = -1;
+    for (int i = 0; i < MHMOfEachGeoEl.size(); i++) {
+        int64_t MHMDomain = MHMOfEachGeoEl[i].first;
+        int64_t elIndex = MHMOfEachGeoEl[i].second;
+
+        if (MHMDomain == -1) continue;
+
+        if (MHMDomain != previousMHMDomain) {
+            if (previousMHMDomain != -1) {
+                for (int j = firstElemInMHMDomain; j < i; j++) {
+                    fGMesh->Element(MHMOfEachGeoEl[j].second)->ResetReference();
+                }
+            }
+            firstElemInMHMDomain = i;
+            previousMHMDomain = MHMDomain;
+        }
+
+        // Create the flux element
+        TPZGeoEl *gel = fGMesh->Element(elIndex);
+        if (!gel || gel->HasSubElement()) continue;
+        int64_t index;
+        cmeshHDiv->CreateCompEl(gel, index);
+        TPZCompEl *cel = cmeshHDiv->Element(index);
+        // Associate the connects with the subdomain for the flux mesh
+        SetSubdomain(cel, MHMDomain);
+    }
+    // Resets references of last MHM domain
+    for (int j = firstElemInMHMDomain; j < MHMOfEachGeoEl.size(); j++) {
+        fGMesh->Element(MHMOfEachGeoEl[j].second)->ResetReference();
+    }
+
     fFluxMesh->ExpandSolution();
 }
 

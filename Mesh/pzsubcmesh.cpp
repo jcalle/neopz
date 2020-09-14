@@ -19,6 +19,8 @@
 #include "pzfstrmatrix.h"
 #include "TPZFrontStructMatrix.h"
 #include "TPZParFrontStructMatrix.h"
+#include "TPZSSpStructMatrix.h"
+#include "TPZSpStructMatrix.h"
 #include "pzsmfrontalanal.h"
 #include "pzsmanal.h"
 #include "pzbndcond.h"
@@ -1330,6 +1332,117 @@ void TPZSubCompMesh::CalcResidual(TPZElementMatrix &ef)
 //    }
 }
 
+/** @brief Sets the analysis type. */
+void TPZSubCompMesh::SetAnalysisSparse(int numThreads)
+{
+    fAnalysis = new TPZSubMeshAnalysis(this);
+    TPZAutoPointer<TPZStructMatrix> str = NULL;
+    
+    if(numThreads > 0){
+        str = new TPZSymetricSpStructMatrix(this);
+        str->SetNumThreads(numThreads);
+    }
+    else{
+        str = new TPZSymetricSpStructMatrix(this);
+    }
+    
+    SaddlePermute();
+#ifdef LOG4CXX
+    if (logger->isDebugEnabled())
+    {
+        std::stringstream sout;
+        Print(sout);
+        LOGPZ_DEBUG(logger, sout.str())
+    }
+#endif
+    PermuteExternalConnects();
+    str->SetNumThreads(numThreads);
+    int64_t numinternal = NumInternalEquations();
+    str->EquationFilter().SetMinMaxEq(0, numinternal);
+    TPZAutoPointer<TPZMatrix<STATE> > mat = str->Create();
+    str->EquationFilter().Reset();
+    fAnalysis->SetStructuralMatrix(str);
+    TPZStepSolver<STATE> *step = new TPZStepSolver<STATE>(mat);
+    step->SetDirect(ELDLt);
+    TPZAutoPointer<TPZMatrixSolver<STATE> > autostep = step;
+    fAnalysis->SetSolver(autostep);
+
+}
+
+/** @brief Sets the analysis type. */
+void TPZSubCompMesh::SetAnalysisNonSymSparse(int numThreads)
+{
+    fAnalysis = new TPZSubMeshAnalysis(this);
+    TPZAutoPointer<TPZStructMatrix> str = NULL;
+
+    if(numThreads > 0){
+        str = new TPZSpStructMatrix(this);
+        str->SetNumThreads(numThreads);
+    }
+    else{
+        str = new TPZSpStructMatrix(this);
+    }
+
+    SaddlePermute();
+#ifdef LOG4CXX
+    if (logger->isDebugEnabled())
+    {
+        std::stringstream sout;
+        Print(sout);
+        LOGPZ_DEBUG(logger, sout.str())
+    }
+#endif
+    PermuteExternalConnects();
+    str->SetNumThreads(numThreads);
+    int64_t numinternal = NumInternalEquations();
+    str->EquationFilter().SetMinMaxEq(0, numinternal);
+    TPZAutoPointer<TPZMatrix<STATE> > mat = str->Create();
+    str->EquationFilter().Reset();
+    fAnalysis->SetStructuralMatrix(str);
+    TPZStepSolver<STATE> *step = new TPZStepSolver<STATE>(mat);
+    step->SetDirect(ELDLt);
+    TPZAutoPointer<TPZMatrixSolver<STATE> > autostep = step;
+    fAnalysis->SetSolver(autostep);
+
+}
+
+
+/** @brief Sets the analysis type. */
+void TPZSubCompMesh::SetAnalysisFStruct(int numThreads)
+{
+    fAnalysis = new TPZSubMeshAnalysis(this);
+    TPZAutoPointer<TPZStructMatrix> str = NULL;
+
+    if(numThreads > 0){
+        str = new TPZFStructMatrix(this);
+        str->SetNumThreads(numThreads);
+    }
+    else{
+        str = new TPZFStructMatrix(this);
+    }
+
+    SaddlePermute();
+#ifdef LOG4CXX
+    if (logger->isDebugEnabled())
+    {
+        std::stringstream sout;
+        Print(sout);
+        LOGPZ_DEBUG(logger, sout.str())
+    }
+#endif
+    PermuteExternalConnects();
+    str->SetNumThreads(numThreads);
+    int64_t numinternal = NumInternalEquations();
+    str->EquationFilter().SetMinMaxEq(0, numinternal);
+    TPZAutoPointer<TPZMatrix<STATE> > mat = str->Create();
+    str->EquationFilter().Reset();
+    fAnalysis->SetStructuralMatrix(str);
+    TPZStepSolver<STATE> *step = new TPZStepSolver<STATE>(mat);
+    step->SetDirect(ELU);
+    TPZAutoPointer<TPZMatrixSolver<STATE> > autostep = step;
+    fAnalysis->SetSolver(autostep);
+
+}
 
 
 void TPZSubCompMesh::SetAnalysisSkyline(int numThreads, int preconditioned, TPZAutoPointer<TPZGuiInterface> guiInterface){
@@ -2171,4 +2284,33 @@ void TPZSubCompMesh::EvaluateError(std::function<void(const TPZVec<REAL> &loc,TP
         }
     }
 
+}
+
+/**
+ * Compute the residual norm of the internal equation
+ * This method gives accurate results after CalcStiff or CalcResidual has been called
+ */
+REAL TPZSubCompMesh::InternalResidualNorm()
+{
+    REAL norm = 0.;
+    if(!fAnalysis) DebugStop();
+    TPZFMatrix<STATE> &rhs = fAnalysis->Rhs();
+    // identify the internal equations
+    int64_t ncon = ConnectVec().NElements();
+    for (int64_t ic = 0; ic<ncon; ic++) {
+        if(fExternalLocIndex[ic] != -1) continue;
+        TPZConnect &c = ConnectVec()[ic];
+        int nvar = c.NState()*c.NShape();
+        if(c.HasDependency() || c.IsCondensed() || nvar == 0) continue;
+        int64_t seqnum = c.SequenceNumber();
+        int64_t pos = Block().Position(seqnum);
+        for(int iv=0; iv<nvar; iv++)
+        {
+            REAL rhsabs = abs(rhs(pos+iv,0));
+            norm += rhsabs*rhsabs;
+        }
+    }
+    return sqrt(norm);
+    // sum the square of the residuals of the internal equations
+    
 }

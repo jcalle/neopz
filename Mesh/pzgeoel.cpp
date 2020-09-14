@@ -47,7 +47,7 @@ TPZFMatrix<REAL> TPZGeoEl::gGlobalAxes;
 
 // Destructor and Constructors
 TPZGeoEl::~TPZGeoEl(){
-    int64_t index = Index();
+    int64_t index = fIndex;
     if (this->fFatherIndex != -1) {
         if(!this->Father()){
             //Why did this element lose its father?
@@ -61,12 +61,11 @@ TPZGeoEl::~TPZGeoEl(){
         }
     }
     if (index != -1){
+#ifdef PZDEBUG
+        if(!fMesh) DebugStop();
+#endif
         fMesh->ElementVec()[index] = NULL;
         fMesh->ElementVec().SetFree(index);  //the same line in TPZGeoMesh::DeleteElement was commented. Just call this once.
-    }
-    else
-    {
-        std::cout << __PRETTY_FUNCTION__ << " a derived class did reset the index of the element?\n";
     }
     fIndex = -1;
     fId = -1;
@@ -1050,10 +1049,11 @@ REAL TPZGeoEl::QuadArea(TPZVec<TPZGeoNode *> &nodes){
 }
 
 REAL TPZGeoEl::Volume(){
-	
-	TPZManVector<REAL,3> param(3,0.);
+
+    int dim = Dimension();
+	TPZManVector<REAL,3> param(dim,0.);
 	REAL detjac;
-	TPZFNMatrix<9> jacinv(3,3),jacobian(3,3),axes(3,3), gradx(3,3);
+	TPZFNMatrix<9> jacinv(dim,dim),jacobian(dim,dim),axes(dim,3), gradx(3,dim);
 	//supondo jacobiano constante: X linear
 	CenterPoint(NSides()-1,param);
     GradX(param, gradx);

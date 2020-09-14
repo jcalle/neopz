@@ -312,8 +312,12 @@ int64_t TPZMultiphysicsInterfaceElement::ConnectIndex(int i) const
 #include "pzmultiphysicscompel.h"
 void TPZMultiphysicsInterfaceElement::CalcStiff(TPZElementMatrix &ek, TPZElementMatrix &ef)
 {
-    
-	TPZDiscontinuousGalerkin  * material = dynamic_cast<TPZDiscontinuousGalerkin *> (this->Material());
+    TPZMaterial *locmat = this->Material();
+    if(!locmat)
+    {
+        DebugStop();
+    }
+	TPZDiscontinuousGalerkin  * material = dynamic_cast<TPZDiscontinuousGalerkin *> (locmat);
 	if(!material){
 		PZError << "Error at " << __PRETTY_FUNCTION__ << " this->Material() == NULL\n";
 		ek.Reset();
@@ -334,9 +338,15 @@ void TPZMultiphysicsInterfaceElement::CalcStiff(TPZElementMatrix &ek, TPZElement
         DebugStop();
     }
 #endif
-       
-    TPZManVector<TPZMaterialData,6> datavecleft,datavecright;
-    TPZMaterialData data;
+    struct materialdata_block
+    {
+        TPZManVector<TPZMaterialData,6> datavecleft,datavecright;
+        TPZMaterialData datavec;
+    };
+    TPZAutoPointer<materialdata_block> datablock = new materialdata_block;
+    TPZManVector<TPZMaterialData,6> &datavecleft = datablock->datavecleft;
+    TPZManVector<TPZMaterialData,6> &datavecright = datablock->datavecright;
+    TPZMaterialData &data = datablock->datavec;
     InitMaterialData(data, datavecleft, datavecright);
     
     TPZManVector<TPZTransform<REAL>,6> leftcomptr, rightcomptr;
