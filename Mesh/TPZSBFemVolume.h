@@ -30,25 +30,25 @@ class TPZSBFemVolume : public TPZInterpolationSpace
     TPZIntPoints *fIntRule = 0;
     
     /// Section of the phi vector associated with this volume element
-    TPZFNMatrix<30,std::complex<double> > fPhi;
+    TPZFNMatrix<30,REAL > fPhi;
     
     /// Section of the phi vector associated with this volume element
-    TPZFNMatrix<30,std::complex<double> > fPhiBubble;
+    TPZFNMatrix<30,REAL > fPhiBubble;
     
     /// Eigenvlues associated with the internal shape functions
-    TPZManVector<std::complex<double> > fEigenvalues;
+    TPZManVector<REAL > fEigenvalues;
     
     /// Eigenvlues associated with the internal shape functions
-    TPZManVector<std::complex<double> > fEigenvaluesBubble;
+    TPZManVector<REAL > fEigenvaluesBubble;
     
     /// Inverse of fPhi and bubble coefficients
-    TPZFNMatrix<100,std::complex<double> > fPhiInv;
+    TPZFNMatrix<100,REAL > fPhiInv;
     
     /// Inverse of fPhi and bubble coefficients
-    TPZFNMatrix<100,std::complex<double> > fPhiInvBubbles;
+    TPZFNMatrix<100,REAL > fPhiInvBubbles;
     
     /// Multiplier coeficients associated with the solution
-    TPZFNMatrix<30,std::complex<double> > fCoeficients;
+    TPZFNMatrix<30,REAL > fCoeficients;
     
     /// vector of local indices of multipliers in the group
     TPZManVector<int64_t> fLocalIndices;
@@ -73,7 +73,7 @@ public:
     /// Compute the E0, E1 and E2 matrices
     void ComputeKMatrices(TPZElementMatrix &E0, TPZElementMatrix &E1, TPZElementMatrix &E2, TPZElementMatrix &M0);
 
-    void LocalBodyForces(TPZFNMatrix<200,std::complex<double>> &f, TPZFNMatrix<200,std::complex<double>> &fbubble, TPZManVector<std::complex<double>> &eigval, TPZManVector<std::complex<double>> &eigvalbubble, int icon);
+    void LocalBodyForces(TPZFNMatrix<200,REAL> &f, TPZFNMatrix<200,REAL> &fbubble, TPZManVector<REAL> &eigval, TPZManVector<REAL> &eigvalbubble, int icon);
     
     /// Data structure initialization
     void SetSkeleton(int64_t skeleton);
@@ -251,71 +251,71 @@ public:
     /**  @brief Defines the desired order for entire element. */
     virtual void SetPreferredOrder ( int order );
     
-    void SetCoefNonHomogeneous(TPZFNMatrix<100,std::complex<double>> &phi, TPZManVector<std::complex<double> > &eigval, TPZFNMatrix<100,std::complex<double> > &phiinv, TPZFNMatrix<100,std::complex<double> > &rot);
+    void SetCoefNonHomogeneous(TPZFNMatrix<100,REAL> &phi, TPZManVector<REAL > &eigval, TPZFNMatrix<100,REAL > &phiinv, TPZFNMatrix<100,REAL > &rot);
 
     /// initialize the data structures of the eigenvectors and eigenvalues associated with this volume element
-    void SetPhiEigVal(TPZFMatrix<std::complex<double> > &phi, TPZManVector<std::complex<double> > &eigval);
+    void SetPhiEigVal(TPZFMatrix<REAL > &phi, TPZManVector<REAL > &eigval);
     
-    TPZFMatrix<std::complex<double> > Phi()
+    TPZFMatrix<REAL > Phi()
     {
         return fPhi;
     }
     
-    TPZManVector<std::complex<double> > Eigenvalues()
+    TPZManVector<REAL > Eigenvalues()
     {
         return fEigenvalues;
     }
     
-    TPZFMatrix<std::complex<double> > Coeficients()
+    TPZFMatrix<REAL > Coeficients()
     {
         return fCoeficients;
     }
     
-    TPZFMatrix<double> PhiReal()
-    {
-        int64_t rows = fPhi.Rows(),cols = fPhi.Cols();
-        TPZFMatrix<double> phireal(rows,cols);
-        for(int64_t i=0; i<rows; i++)
-        {
-            for(int64_t j=0; j<cols; j++)
-            {
-                phireal(i,j) = fPhi(i,j).real();
-            }
-        }
-        return phireal;
-    }
+    // TPZFMatrix<double> PhiReal()
+    // {
+    //     int64_t rows = fPhi.Rows(),cols = fPhi.Cols();
+    //     TPZFMatrix<double> phireal(rows,cols);
+    //     for(int64_t i=0; i<rows; i++)
+    //     {
+    //         for(int64_t j=0; j<cols; j++)
+    //         {
+    //             phireal(i,j) = fPhi(i,j).real();
+    //         }
+    //     }
+    //     return phireal;
+    // }
     
-    TPZManVector<double> EigenvaluesReal()
-    {
-        int64_t nel = fEigenvalues.NElements();
-        TPZManVector<double> eig(nel);
-        for(int64_t el=0; el<nel; el++)
-        {
-            eig[el] = fEigenvalues[el].real();
-        }
-        return eig;
-    }
+    // TPZManVector<double> EigenvaluesReal()
+    // {
+    //     int64_t nel = fEigenvalues.NElements();
+    //     TPZManVector<double> eig(nel);
+    //     for(int64_t el=0; el<nel; el++)
+    //     {
+    //         eig[el] = fEigenvalues[el].real();
+    //     }
+    //     return eig;
+    // }
     
-    TPZFMatrix<double> CoeficientsReal()
-    {
-        int64_t rows = fCoeficients.Rows(),cols = fCoeficients.Cols();
-        TPZFMatrix<double> coefreal(rows,cols);
-        for(int64_t i=0; i<rows; i++)
-        {
-            for(int64_t j=0; j<cols; j++)
-            {
-                coefreal(i,j) = fCoeficients(i,j).real();
-            }
-        }
-        return coefreal;
-    }
+    // TPZFMatrix<double> CoeficientsReal()
+    // {
+    //     int64_t rows = fCoeficients.Rows(),cols = fCoeficients.Cols();
+    //     TPZFMatrix<double> coefreal(rows,cols);
+    //     for(int64_t i=0; i<rows; i++)
+    //     {
+    //         for(int64_t j=0; j<cols; j++)
+    //         {
+    //             coefreal(i,j) = fCoeficients(i,j).real();
+    //         }
+    //     }
+    //     return coefreal;
+    // }
     
     /** @brief Loads the solution within the internal data structure of the element */
     /**
      * Is used to initialize the solution of connect objects with dependency. \n
      * Is also used to load the solution within SuperElements
      */
-    virtual void LoadCoef(TPZFMatrix<std::complex<double> > &coef);
+    virtual void LoadCoef(TPZFMatrix<REAL > &coef);
     
     /**
      * @brief Computes solution and its derivatives in the local coordinate qsi.
@@ -382,7 +382,7 @@ public:
         fPhi.Print("Phi = ",out,EMathematicaInput);
         if (fCoeficients.Rows())
         {
-            TPZManVector<std::complex<double>,5> prod(fPhi.Rows(),0.);
+            TPZManVector<REAL,5> prod(fPhi.Rows(),0.);
             for (int i=0; i<fPhi.Rows(); i++) {
                 for (int j=0; j<fPhi.Cols(); j++) {
                     prod[i] += fPhi.GetVal(i,j)*fCoeficients.GetVal(j,0);
