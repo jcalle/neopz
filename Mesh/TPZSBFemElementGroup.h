@@ -32,28 +32,28 @@ public:
 private:
     
     /// Matrix of eigenvectors which compose the stiffness matrix
-    TPZFMatrix<REAL > fPhi;
+    TPZFNMatrix<100,std::complex<double> > fPhi;
 
     /// Matrix of eigenvectors which compose the stiffness matrix
-    TPZFNMatrix<100,REAL > fPhiBubble;
+    TPZFNMatrix<100,std::complex<double> > fPhiBubble;
     
     /// Inverse of the eigenvector matrix (transfers eigenvector coeficients to side shape coeficients)
-    TPZFNMatrix<100,REAL > fPhiInverse;
+    TPZFNMatrix<100,std::complex<double> > fPhiInverse;
 
     /// Matrix that composes the bubble functions
-    TPZFNMatrix<100,REAL > fMatBubble;
+    TPZFNMatrix<100,std::complex<double> > fMatBubble;
     
     /// Vector of eigenvalues of the SBFem analyis
-    TPZManVector<REAL > fEigenvalues;
+    TPZManVector<std::complex<double> > fEigenvalues;
     
     /// Vector of eigenvalues of the SBFem analyis
-    TPZManVector<REAL > fEigenvaluesBubble;
+    TPZManVector<std::complex<double> > fEigenvaluesBubble;
 
     /// Matrix of eigenvectors which compose the stiffness matrix
-    TPZFNMatrix<200,REAL > fQVectors;
+    TPZFNMatrix<100,std::complex<double> > fQVectors;
     
     /// Multiplying coefficients of each eigenvector
-    TPZFMatrix<REAL > fCoef;
+    TPZFNMatrix<100,std::complex<double> > fCoef;
     
     TPZFMatrix<STATE> fMassMatrix;
     
@@ -211,27 +211,17 @@ public:
     /// method to compute the stiffness
     /// method to compute the solution
     
-    TPZVec<STATE> MultiplyingCoeficients()
-    {
-        int nel = fCoef.Rows();
-        TPZVec<STATE> result(nel,0.);
-        for (int ir=0; ir<nel; ir++) {
-            result[ir] = fCoef(ir,0);
-        }
-        return result;
-    }
-    
-    TPZVec<REAL > &EigenValues()
+    TPZManVector<std::complex<REAL> > &EigenValues()
     {
         return fEigenvalues;
     }
     
-    TPZFMatrix<REAL > &Phi()
+    TPZFMatrix<std::complex<REAL> > &Phi()
     {
         return fPhi;
     }
     
-    TPZFMatrix<REAL > &PhiInverse()
+    TPZFMatrix<std::complex<REAL> > &PhiInverse()
     {
         return fPhiInverse;
     }
@@ -241,49 +231,49 @@ public:
         return fMassMatrix;
     }
     
-    TPZFMatrix<REAL > Coeficients()
+    TPZFMatrix<std::complex<REAL> > Coeficients()
     {
         return fCoef;
     }
     
-    // TPZFMatrix<double> PhiReal()
-    // {
-    //     int64_t rows = fPhi.Rows(),cols = fPhi.Cols();
-    //     TPZFMatrix<double> phireal(rows,cols);
-    //     for(int64_t i=0; i<rows; i++)
-    //     {
-    //         for(int64_t j=0; j<cols; j++)
-    //         {
-    //             phireal(i,j) = fPhi(i,j).real();
-    //         }
-    //     }
-    //     return phireal;
-    // }
+    TPZFMatrix<double> PhiReal()
+    {
+        int64_t rows = fPhi.Rows(),cols = fPhi.Cols();
+        TPZFMatrix<double> phireal(rows,cols);
+        for(int64_t i=0; i<rows; i++)
+        {
+            for(int64_t j=0; j<cols; j++)
+            {
+                phireal(i,j) = fPhi(i,j).real();
+            }
+        }
+        return phireal;
+    }
     
-    // TPZManVector<double> EigenvaluesReal()
-    // {
-    //     int64_t nel = fEigenvalues.NElements();
-    //     TPZManVector<double> eig(nel);
-    //     for(int64_t el=0; el<nel; el++)
-    //     {
-    //         eig[el] = fEigenvalues[el].real();
-    //     }
-    //     return eig;
-    // }
+    TPZManVector<REAL> EigenvaluesReal()
+    {
+        int64_t nel = fEigenvalues.NElements();
+        TPZManVector<double> eig(nel);
+        for(int64_t el=0; el<nel; el++)
+        {
+            eig[el] = fEigenvalues[el].real();
+        }
+        return eig;
+    }
     
-    // TPZFMatrix<double> CoeficientsReal()
-    // {
-    //     int64_t rows = fCoef.Rows(),cols = fCoef.Cols();
-    //     TPZFMatrix<double> coefreal(rows,cols);
-    //     for(int64_t i=0; i<rows; i++)
-    //     {
-    //         for(int64_t j=0; j<cols; j++)
-    //         {
-    //             coefreal(i,j) = fCoef(i,j).real();
-    //         }
-    //     }
-    //     return coefreal;
-    // }
+    TPZFMatrix<REAL> CoeficientsReal()
+    {
+        int64_t rows = fCoef.Rows(),cols = fCoef.Cols();
+        TPZFMatrix<double> coefreal(rows,cols);
+        for(int64_t i=0; i<rows; i++)
+        {
+            for(int64_t j=0; j<cols; j++)
+            {
+                coefreal(i,j) = fCoef(i,j).real();
+            }
+        }
+        return coefreal;
+    }
 
     // Initialize the connects related to the bubble functions
     void InitializeInternalConnect();
