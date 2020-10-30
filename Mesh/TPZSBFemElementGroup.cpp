@@ -19,7 +19,7 @@
 
 int TPZSBFemElementGroup::gDefaultPolynomialOrder = 0;
 
-int TPZSBFemElementGroup::gPolynomialShapeFunctions = 0;
+bool TPZSBFemElementGroup::gPolynomialShapeFunctions = false;
 
 #ifdef USING_MKL
 #include <mkl.h>
@@ -59,6 +59,7 @@ static LoggerPtr loggerbubble(Logger::getLogger("pz.mesh.sbfembubbleparam"));
 TPZSBFemElementGroup::TPZSBFemElementGroup(TPZCompMesh &mesh, int64_t &index) : TPZElementGroup(mesh,index)
 {
     fInternalPolynomialOrder = TPZSBFemElementGroup::gDefaultPolynomialOrder;
+    fPolynomialShapeFunctions = TPZSBFemElementGroup::gPolynomialShapeFunctions;
     if (fInternalPolynomialOrder != 0) {
         int nshape = fInternalPolynomialOrder*(Phi().Rows());
         int nvar = 1;
@@ -781,6 +782,14 @@ void TPZSBFemElementGroup::CalcStiff(TPZElementMatrix &ek,TPZElementMatrix &ef)
     TPZElementMatrix E0,E1,E2, M0;
     ComputeMatrices(E0, E1, E2, M0);
 
+
+    if (fPolynomialShapeFunctions)
+    {
+        OverwritePhis(E0,E1,E2,ek,ef);
+        return;
+    }
+    
+
     if (fComputationMode == EOnlyMass) {
         ek.fMat = fMassMatrix;
         ek.fMat *= fMassDensity;
@@ -1128,12 +1137,14 @@ void TPZSBFemElementGroup::ComputeBubbleParameters()
 
     // Finding the rational eigenvalues
     TPZManVector<int64_t> ind(0);
-    for (int i=0; i<n; i++) {
-        REAL resto = fEigenvalues[i].real() - nearbyint(fEigenvalues[i].real());
-        if( !IsZero(resto)){
-            ind.resize(ind.size()+1);
-            ind[cont] = i;
-            cont++;
+    if(fPolynomialShapeFunctions == false){
+        for (int i=0; i<n; i++) {
+            REAL resto = fEigenvalues[i].real() - nearbyint(fEigenvalues[i].real());
+            if( !IsZero(resto)){
+                ind.resize(ind.size()+1);
+                ind[cont] = i;
+                cont++;
+            }
         }
     }
     fEigenvaluesBubble.resize(cont*2 + n*fInternalPolynomialOrder + nstate);
@@ -1235,24 +1246,143 @@ void TPZSBFemElementGroup::ComputeBubbleParameters()
 
 }
 
-void TPZSBFemElementGroup::OverwritePhis(TPZFMatrix<REAL> &Phiu, TPZFNMatrix<200,REAL> &matphiinv, TPZManVector<REAL > &eigval)
+void TPZSBFemElementGroup::OverwritePhis(TPZElementMatrix &E0, TPZElementMatrix &E1, TPZElementMatrix &E2, TPZElementMatrix &ek, TPZElementMatrix &ef)
 {
-    int64_t n = Phiu.Rows();
-    
-    for (int i=0; i<n; i++) {
-        matphiinv(i+n,n) = -Phiu(i,n-1);
+    auto n = fEigenvalues.size();
+    fPhi.Zero();
+    fPhiInverse.Zero();
+    for (auto i = 0; i < n; i++)
+    {
+        fPhi(i,i) = 1;
+        fPhiInverse(i,i) = 1;
+        fEigenvalues[i] = -1;
     }
-    matphiinv(2*n,n) = 1;
-    
-    for (int64_t i=0; i<n; i++) {
-        for (int64_t j=0; j<n; j++) {
-            Phiu(i,j) = 0.;
-            matphiinv(i,j) = 0.;
+
+    int64_t nbubbles = fEigenvaluesBubble.size();
+    int64_t ndofs = fMatBubble.Cols();
+    TPZFNMatrix<100, std::complex<double>> phiu(n, n+nbubbles, 0), phiuinv(n+nbubbles, n+ndofs, 0);
+    TPZManVector<std::complex<double>,10> eigval(n+nbubbles);
+    for (auto i = 0; i < nbubbles; i++)
+    {
+        for (auto j=0; j < n; j++)
+        {
+            phiu(j,i+n) = fPhiBubble(j,i);
         }
-        Phiu(i,i) = 1.;
-        matphiinv(i,i) = 1.;
+        for (auto j = 0; j < ndofs; j++)
+        {
+            phiuinv(i+n,j+n) = fMatBubble(i,j);
+        }
+        eigval[i+n] = fEigenvaluesBubble[i];
+    }
+    for (auto i = 0; i < n; i++)
+    {
+        phiu(i,i) = 1;
+        phiuinv(i,i) = 1;
+
+        phiu(i,n+nbubbles-1) = 1;
+        phiuinv(i,n) = 0;
+
         eigval[i] = -1;
     }
+    TPZFNMatrix<100, std::complex<double>> k01(n,n,0),  k02(n,n,0), k03(n,n,0);
+    for (int64_t i = 0; i < n; i++)
+    {
+        for (int64_t j = 0; j < n; j++)
+        {
+            k01(i,j) = E0.fMat(i,j);
+            k02(i,j) = E1.fMat(i,j);
+            k03(i,j) = E2.fMat(i,j);
+        }
+    }
+
+    TPZFNMatrix<100, std::complex<double>> temp1(n,n+nbubbles,0), temp2(n,n+nbubbles,0), temp3(n,n+nbubbles,0);
+
+    k01.Multiply(phiu, temp1); 
+    k02.Multiply(phiu, temp2);
+    k03.Multiply(phiu, temp3);
+
+    bool transpose = 1;
+    phiu.Multiply(temp1, k01, transpose); // k01 = fPhi^T * E0 * fPhi
+    phiu.Multiply(temp2, k02, transpose); // k02 = fPhi^T * E1 * fPhi
+    phiu.Multiply(temp3, k03, transpose); // k02 = fPhi^T * E2 * fPhi
+        
+    TPZFNMatrix<200,std::complex<double>> K0(n+nbubbles,n+nbubbles,0);
+    // K0 = ( k01* (-eigval[i])*(-eigval[j]) + k02^T * (-eigval[i]) + k02 * (-eigval[j]) + k03 / (-eigval[i]-eigval[j])
+    for (int i=0; i<n+nbubbles; i++) {
+        for (int j=0; j<n+nbubbles; j++) {
+            if(IsZero((-eigval[i]-eigval[j]).real())) {
+                K0(i,j) += 0;
+            } else {
+                K0(i,j) = (k01(i,j) * (-eigval[i]*-eigval[j]) + k02(j,i) * -eigval[i] +
+                    k02(i,j) * -eigval[j] + k03(i,j))/(-eigval[i]-eigval[j]);
+            }
+        }
+    }
+    
+    K0.Multiply(phiuinv, temp1);
+        
+    TPZFNMatrix<100, std::complex<double>> K(n+ndofs,n+ndofs,0);
+    phiuinv.Multiply(temp1, K, transpose);  // K = fMatBubble^T K fMatBubble;
+        
+    ek.fMat.Resize(n+ndofs,n+ndofs);
+    for (int i=0; i<n+ndofs; i++) {
+        for (int j=0; j<n+ndofs; j++) {
+            ek.fMat(i,j) = K(i,j).real();
+        }
+    }
+    int64_t nel = fElGroup.size();
+    for (int64_t el = 0; el<nel; el++) {
+        TPZCompEl *cel = fElGroup[el];
+        TPZSBFemVolume *sbfem = dynamic_cast<TPZSBFemVolume *>(cel);
+#ifdef PZDEBUG
+        if (!sbfem) {
+            DebugStop();
+        }
+#endif
+        sbfem->SetPhiEigVal(fPhi, fEigenvalues);
+        if (fInternalPolynomialOrder > 0)
+        {
+            sbfem->SetCoefNonHomogeneous(fPhiBubble, fEigenvaluesBubble, fPhiInverse, fMatBubble);
+        }
+    }
+
+    // Computing the force vector
+    int icon = this->ConnectIndex(NConnects()-1);
+
+    TPZFNMatrix<100,std::complex<double>> f(n,1,0);
+    TPZFNMatrix<100,std::complex<double>> fbubble(nbubbles,1,0);
+
+    for (int64_t j = 0; j<nel; j++) {
+        TPZCompEl *cel = fElGroup[j];
+        TPZSBFemVolume *sbfem = dynamic_cast<TPZSBFemVolume *>(cel);
+#ifdef PZDEBUG
+        if (!sbfem) {
+            DebugStop();
+        }
+#endif
+        sbfem->LocalBodyForces(f, fbubble, fEigenvalues, fEigenvaluesBubble, icon);
+    }
+    ef.fMat.Zero();
+
+    TPZFNMatrix<200, std::complex<REAL>> ef0;
+    TPZFNMatrix<200, std::complex<REAL>> efbubbles;
+
+    fPhiInverse.Multiply(f, ef0, transpose);
+    fMatBubble.Multiply(fbubble, efbubbles, transpose);
+    
+    ef.fMat.Resize(n+ndofs,1);
+    ef.fMat.Zero();
+    // for (int i=0; i<n; i++) {
+    //     ef.fMat(i,0) = ef0(i,0).real();
+    // }
+    // for (int i=0; i<ndofs; i++) {
+    //     ef.fMat(i+n,0) = efbubbles(i,0).real();
+    // }
+
+    // phiu.Print("phi = ", std::cout, EMathematicaInput);
+    // phiuinv.Print("phiinv = ", std::cout, EMathematicaInput);
+    // std::cout << eigval << std::endl;
+    
 }
 
 //http://www.netlib.org/lapack/lug/node50.html

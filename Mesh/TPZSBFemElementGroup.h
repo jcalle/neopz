@@ -27,7 +27,7 @@ public:
     // if its value is zero, there are no internal functions
     static int gDefaultPolynomialOrder;
     
-    static int gPolynomialShapeFunctions;
+    static bool gPolynomialShapeFunctions;
     
 private:
     
@@ -66,7 +66,9 @@ private:
     REAL fDelt = 1.;
 
     int fInternalPolynomialOrder = 0;
-    
+        
+    bool fPolynomialShapeFunctions = false;
+
     int64_t fInternalConnectIndex = 0;
     
     /// Compute the mass matrix based on the value of M0 and the eigenvectors
@@ -282,7 +284,7 @@ public:
     void ComputeBubbleParameters();
 
     // Overwrite eigenvalues and eigenvectors to use a polynomial approx (i.e, uses a collapsed FE approx instead of the SBFEM approximation)
-    void OverwritePhis(TPZFMatrix<REAL> &Phiu, TPZFNMatrix<200,REAL> &matphiinv, TPZManVector<REAL > &eigval);
+    void OverwritePhis(TPZElementMatrix &E0, TPZElementMatrix &E1, TPZElementMatrix &E2, TPZElementMatrix &ek,TPZElementMatrix &ef);
 
 };
 
