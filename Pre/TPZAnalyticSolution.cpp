@@ -373,11 +373,28 @@ void TElasticity2DAnalytic::uxy(const TPZVec<FADFADSTATE > &x, TPZVec<FADFADSTAT
     }
     else if(fProblemType == ESquareRootUpper)
     {
-        TVar theta = FADatan2(x[1],x[0]);
-        TVar r = FADsqrt(x[0]*x[0]+x[1]*x[1]);
-        TVar costh = FADcos(theta/2.);
-        TVar sinth = FADsin(theta/2.);
-        disp[0] = 1./(2.*G)*FADsqrt(r/(2.*M_PI))*costh;
+        TVar Est, nust, G, kappa;
+        TVar theta = FADatan2(x[1], x[0]);
+        if (shapeFAD::val(theta) < 0.) {
+            theta += (2. * M_PI);
+        }
+        TVar r = FADsqrt(x[0] * x[0] + x[1] * x[1]);
+        G = gE / (2. * (1. + gPoisson));
+        if (fPlaneStress == 0) {
+            //            Est = (1.+2.*gPoisson)/((1+gPoisson)*(1.+gPoisson))*gE;
+            //            nust = gPoisson/(1.+gPoisson);
+            Est = gE / ((1. - gPoisson * gPoisson));
+            nust = gPoisson / (1 - gPoisson);
+            kappa = 3. - 4. * gPoisson;
+        } else {
+            Est = gE;
+            nust = gPoisson;
+            kappa = (3. - gPoisson) / (1 + gPoisson);
+        }
+        TVar costh = FADcos(theta / 2.);
+        TVar sinth = FADsin(theta / 2.);
+        disp[0] = 1 / (2. * G) * FADsqrt(r / (2. * M_PI)) * costh * (kappa - 1. + 2. * sinth * sinth);
+        disp[1] = 1 / (2. * G) * FADsqrt(r / (2. * M_PI)) * sinth * (kappa + 1. - 2. * costh * costh);
     }
     else
     {

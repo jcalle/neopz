@@ -298,8 +298,7 @@ void TPZSBFemVolume::LoadCoef(TPZFMatrix<std::complex<double> > &coef)
  * @param axes axes associated with the derivative of the solution
  */
 void TPZSBFemVolume::ComputeSolution(TPZVec<REAL> &qsi,
-        TPZSolVec &sol, TPZGradSolVec &dsol, TPZFMatrix<REAL> &axes)
-{
+        TPZSolVec &sol, TPZGradSolVec &dsol, TPZFMatrix<REAL> &axes) {
     TPZCompMesh *cmesh = Mesh();
     sol.Resize(fCoeficients.Cols());
     dsol.Resize(fCoeficients.Cols());
@@ -362,7 +361,7 @@ void TPZSBFemVolume::ComputeSolution(TPZVec<REAL> &qsi,
 #endif
 
     for (int s = 0; s < sol.size(); s++) {
-        TPZManVector<REAL, 10> uh_xi(fPhi.Rows(), 0.), Duh_xi(fPhi.Rows(), 0.);
+        TPZManVector<std::complex<double>, 10> uh_xi(fPhi.Rows(), 0.), Duh_xi(fPhi.Rows(), 0.);
         int nphixi = fPhi.Rows();
         int numeig = fPhi.Cols();
         for (int c = 0; c < numeig; c++) {
@@ -379,8 +378,8 @@ void TPZSBFemVolume::ComputeSolution(TPZVec<REAL> &qsi,
                 xiexpm1 = pow(sbfemparam, -fEigenvalues[c] - 1. - 0.5 * (dim - 2));
             }
             for (int i = 0; i < nphixi; i++) {
-                uh_xi[i] += (fCoeficients(c, s) * xiexp * fPhi(i, c)).real();
-                Duh_xi[i] += (-fCoeficients(c, s)*(fEigenvalues[c] + 0.5 * (dim - 2)) * xiexpm1 * fPhi(i, c)).real();
+                uh_xi[i] += fCoeficients(c, s) * xiexp * fPhi(i, c);
+                Duh_xi[i] += -fCoeficients(c, s)*(fEigenvalues[c] + 0.5 * (dim - 2)) * xiexpm1 * fPhi(i, c);
             }
         }
 #ifdef LOG4CXX2
@@ -392,19 +391,26 @@ void TPZSBFemVolume::ComputeSolution(TPZVec<REAL> &qsi,
             LOGPZ_DEBUG(logger, sout.str())
         }
 #endif
+        //        std::cout << "uh_xi " << uh_xi << std::endl;
+        //        std::cout << "Duh_xi " << Duh_xi << std::endl;
         sol[s].Resize(nstate);
         sol[s].Fill(0.);
-        TPZFNMatrix<9, STATE> dsolxieta(dim, nstate, 0.);
+        TPZFNMatrix<9, STATE> dsollow(dim - 1, nstate, 0.), dsolxieta(dim, nstate, 0.);
         TPZManVector<STATE, 3> dsolxi(nstate, 0.);
         for (int ishape = 0; ishape < nshape; ishape++) {
             for (int istate = 0; istate < nstate; istate++) {
-                sol[s][istate] += data1d.phi(ishape) * uh_xi[ishape * nstate + istate];
-                dsolxi[istate] += data1d.phi(ishape) * Duh_xi[ishape * nstate + istate];
+                sol[s][istate] += data1d.phi(ishape) * uh_xi[ishape * nstate + istate].real();
+                dsolxi[istate] += data1d.phi(ishape) * Duh_xi[ishape * nstate + istate].real();
                 for (int d = 0; d < dim - 1; d++) {
-                    dsolxieta(d, istate) += data1d.dphi(d, ishape) * uh_xi[ishape * nstate + istate];
+                    dsollow(d, istate) += data1d.dphi(d, ishape) * uh_xi[ishape * nstate + istate].real();
                 }
-                dsolxieta(dim - 1, istate) = -dsolxi[istate] / 2.;
             }
+        }
+        for (int istate = 0; istate < nstate; istate++) {
+            for (int d = 0; d < dim - 1; d++) {
+                dsolxieta(d, istate) = dsollow(d, istate);
+            }
+            dsolxieta(dim - 1, istate) = -dsolxi[istate] / 2.;
         }
         dsol[s].Resize(dim, nstate);
         dsol[s].Zero();
@@ -416,6 +422,10 @@ void TPZSBFemVolume::ComputeSolution(TPZVec<REAL> &qsi,
             }
         }
     }
+
+    // tototototot
+    //    std::cout << "qsi " << qsi << " Solution " << sol[0] << std::endl;
+    //    dsol[0].Print("DSol",std::cout);
 }
 
 void TPZSBFemVolume::ComputeSolutionWithBubbles(TPZVec<REAL> &qsi,
@@ -791,8 +801,7 @@ void TPZSBFemVolume::CreateGraphicalElement(TPZGraphMesh &graphmesh, int dimensi
 }
 
 void TPZSBFemVolume::EvaluateError(std::function<void(const TPZVec<REAL> &loc,TPZVec<STATE> &val,TPZFMatrix<STATE> &deriv)> fp,
-                                   TPZVec<REAL> &errors,bool store_error) 
-{
+                                   TPZVec<REAL> &errors,bool store_error) {
     int NErrors = this->Material()->NEvalErrors();
     errors.Resize(NErrors);
     errors.Fill(0.);
@@ -818,13 +827,12 @@ void TPZSBFemVolume::EvaluateError(std::function<void(const TPZVec<REAL> &loc,TP
     int dim = Dimension();
     TPZAutoPointer<TPZIntPoints> intrule = ref->CreateSideIntegrationRule(ref->NSides() - 1, 5);
     int maxIntOrder = intrule->GetMaxOrder();
+    TPZManVector<int, 3> prevorder(dim), maxorder(dim, maxIntOrder);
+    //end
+    intrule->GetOrder(prevorder);
 
-    auto absLess = [](auto a, auto b) { return abs(a) < abs(b); };
-    auto min = std::min_element(fEigenvalues.begin(),fEigenvalues.end(),absLess);
-    auto pos = std::distance(fEigenvalues.begin(),min);
-    TPZManVector<int, 3> maxorder(dim, int(fabs(fEigenvalues[pos].real()))+1);
     intrule->SetOrder(maxorder);
-    
+
     int ndof = material->NStateVariables();
     TPZManVector<STATE, 10> u_exact(ndof);
     TPZFNMatrix<90, STATE> du_exact(dim, ndof);
@@ -844,11 +852,9 @@ void TPZSBFemVolume::EvaluateError(std::function<void(const TPZVec<REAL> &loc,TP
         ref->Jacobian(intpoint, data.jacobian, data.axes, data.detjac, data.jacinv);
 
         weight *= fabs(data.detjac);
-        if(TPZSBFemElementGroup::gDefaultPolynomialOrder == 0){
-            ComputeSolution(intpoint, data.sol, data.dsol, data.axes);
-        } else{
-            ComputeSolutionWithBubbles(intpoint, data.sol, data.dsol, data.axes);
-        }
+        ComputeSolution(intpoint, data.sol, data.dsol, data.axes);
+        // this->ComputeSolution(intpoint, data.phi, data.dphix, data.axes, data.sol, data.dsol);
+        //this->ComputeSolution(intpoint, data);
         //contribuicoes dos erros
         ref->X(intpoint, data.x);
 
@@ -867,8 +873,7 @@ void TPZSBFemVolume::EvaluateError(std::function<void(const TPZVec<REAL> &loc,TP
         errors[ier] = sqrt(errors[ier]);
     }//for ier
 
-    // intrule->SetOrder(prevorder);
-    intrule->SetOrder(maxorder);
+    intrule->SetOrder(prevorder);
 
 }
 
