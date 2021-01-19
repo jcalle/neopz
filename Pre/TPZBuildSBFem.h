@@ -18,6 +18,8 @@
 
 class TPZBuildSBFem
 {
+protected:
+
     /// geometric mesh
     TPZAutoPointer<TPZGeoMesh> fGMesh;
     
