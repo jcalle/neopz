@@ -13,36 +13,30 @@
 class TPZBuildSBFemHdiv : public TPZBuildSBFem
 {
     //Order of MatIds: fLeftpressure, fRightpressure, fLeftflux, fRightflux;
-    TPZManVector<int, 4> fMatIdsHdiv;
+    // TPZManVector<int, 4> fMatIdsHdiv;
+    int fLeftfluxMatId, fRightfluxMatId;
+
+    int fLeftpressureMatId, fRightpressureMatId;
     
 public:
     
     /// simple constructor
-    TPZBuildSBFemHdiv(TPZAutoPointer<TPZGeoMesh> gmesh, int skeletonmatid, std::map<int,int> &matidtranslation) : TPZBuildSBFem(gmesh,skeletonmatid, matidtranslation)
+    TPZBuildSBFemHdiv(TPZAutoPointer<TPZGeoMesh> &gmesh, int skeletonmatid, std::map<int,int> &matidtranslation) : TPZBuildSBFem(gmesh,skeletonmatid, matidtranslation)
     {
-        fMatIdsHdiv.Resize(4);
-        fMatIdsHdiv[0] = fSkeletonMatId+1;
-        if (fMatIdTranslation[0] == fMatIdsHdiv[0])
-        {
-            fMatIdsHdiv[0]++;
-            std::cout << "TPZBuildSBFemHdiv:: Already using MatId " << fMatIdTranslation[0] << "using MatId" << fMatIdsHdiv[0] << "instead\n";
-        }
-
-        for (auto i = 1; i < 4; i++)
-        {
-            fMatIdsHdiv[i] = fMatIdsHdiv[i-1]+1;
-            if (fMatIdTranslation[0] == fMatIdsHdiv[i])
-            {
-                fMatIdsHdiv[i]++;
-                std::cout << "TPZBuildSBFemHdiv:: Already using MatId " << fMatIdTranslation[0] << "using MatId" << fMatIdsHdiv[i] << "instead\n";
-            }
-        }
+        fLeftpressureMatId = skeletonmatid+1;
+        fRightpressureMatId = fLeftpressureMatId+1;
+        fLeftfluxMatId = fRightpressureMatId+1;
+        fRightfluxMatId = fLeftfluxMatId+1;
     }
 
-    void CreateExternalElements();
+    void CreateExternalElements(TPZGeoMesh * gmesh);
 
-    void BuildComputationMeshHdiv(TPZCompMesh &cmesh);
+    void BuildMultiphysicsCompMesh(TPZCompMesh &cmesh);
 
-    // void StandardConfigurationHdiv();
+    void BuildMultiphysicsCompMeshfromSkeleton(TPZCompMesh &cmesh);
+
+    void CreateSBFemHdivElements(TPZCompMesh &cmeshf);
+
+    void CreateMultiphysicsElementGroups(TPZCompMesh &cmesh);
     
 };

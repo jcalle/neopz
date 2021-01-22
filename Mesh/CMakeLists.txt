@@ -9,7 +9,7 @@ file(GLOB headers *.h)
 
 file(GLOB sources *.cpp)
 
-if(BUILD_COMPLEX_PROJECTS)
+if(BUILD_COMPLEX_PROJECTS) 
   file (GLOB to_remove_from_headers pzhdivpressure.h pzflowcmesh.h tpzagglomeratemesh.h TPZAgglomerateEl.h TPZSBFemElementGroup.h TPZSBFemVolume.h)
   list (REMOVE_ITEM headers ${to_remove_from_headers})
   file (GLOB to_remove_from_sources pzflowcmesh.cpp TPZAgglomerateEl.cpp pzhdivpressure.cpp TPZSBFemElementGroup.cpp TPZSBFemVolume.cpp )
@@ -25,5 +25,5 @@ endif(NOT USING_MKL)
 file (GLOB to_remove_from_headers TPZSBFemElementGroup.h TPZSBFemVolume.h )
 install(FILES ${headers} DESTINATION ${NEOPZ_INCLUDE}/Mesh)
 
-set(pzmesh_STAT_SRCS ${headers} ${sources} ${pzmesh_REAL_SRCS} PARENT_SCOPE)
+set(pzmesh_STAT_SRCS ${headers} ${sources} ${pzmesh_REAL_SRCS} PARENT_SCOPE) 
 

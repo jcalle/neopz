@@ -300,7 +300,7 @@ void TPZBuildSBFem::CreateVolumetricElements(TPZCompMesh &cmesh)
             }
             TPZStack<TPZCompElSide> celstack;
             TPZGeoElSide gelside(gel,is);
-            int onlyinterpolated = true;
+            int onlyinterpolated = false; //TEST HERE!!!!!
             int removeduplicates = true;
             // we identify all computational elements connected to this element side
             gelside.EqualorHigherCompElementList2(celstack, onlyinterpolated, removeduplicates);
@@ -369,6 +369,7 @@ void TPZBuildSBFem::CreateVolumetricElements(TPZCompMesh &cmesh)
         }
     }
     gmesh->BuildConnectivity();
+    cmesh.SetReference(gmesh);
     cmesh.ApproxSpace().SetAllCreateFunctionsSBFem(dim);
     cmesh.AutoBuild(matidstarget);
 }
@@ -617,7 +618,7 @@ void TPZBuildSBFem::CreateElementGroups(TPZCompMesh &cmesh)
     int64_t numgroups = fPartitionCenterNode.size();
     int64_t groupelementindices(numgroups);
     
-    TPZVec<int64_t> elementgroupindices(numgroups);
+    TPZManVector<int64_t> elementgroupindices(numgroups);
     
     for (int64_t el=0; el<numgroups; el++) {
         int64_t index;
