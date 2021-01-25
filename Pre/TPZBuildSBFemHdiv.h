@@ -9,6 +9,7 @@
 #pragma once
 
 #include "TPZBuildSBFem.h"
+#include "TPZMultiphysicsCompMesh.h"
 
 class TPZBuildSBFemHdiv : public TPZBuildSBFem
 {
@@ -17,6 +18,8 @@ class TPZBuildSBFemHdiv : public TPZBuildSBFem
     int fLeftfluxMatId, fRightfluxMatId;
 
     int fLeftpressureMatId, fRightpressureMatId;
+
+    int fInterfaceMatId;
     
 public:
     
@@ -27,16 +30,27 @@ public:
         fRightpressureMatId = fLeftpressureMatId+1;
         fLeftfluxMatId = fRightpressureMatId+1;
         fRightfluxMatId = fLeftfluxMatId+1;
+        fInterfaceMatId = fRightfluxMatId+1;
     }
 
-    void CreateExternalElements(TPZGeoMesh * gmesh);
+    void CreateExternalElements(TPZGeoMesh * gmesh, std::set<int> & matids);
 
     void BuildMultiphysicsCompMesh(TPZCompMesh &cmesh);
 
     void BuildMultiphysicsCompMeshfromSkeleton(TPZCompMesh &cmesh);
 
+    void CreateSBFemDiscontinuousElements(TPZCompMesh &cmeshpressure);
+
     void CreateSBFemHdivElements(TPZCompMesh &cmeshf);
 
-    void CreateMultiphysicsElementGroups(TPZCompMesh &cmesh);
+    void CreateSBFemMultiphysicsElements(TPZManVector<TPZCompMesh *,2> &cmeshvec, TPZMultiphysicsCompMesh & cmeshm);
+
+    void CreateSBFemInterfaceElementGroups(TPZCompMesh & cmeshm);
+
+    void CreateMultiphysicsElementGroups(TPZMultiphysicsCompMesh * cmesh);
+
+    void AdjustExternalPressureConnectivity();
+
+    void GroupandCondense();
     
 };

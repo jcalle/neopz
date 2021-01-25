@@ -618,7 +618,7 @@ void TPZBuildSBFem::CreateElementGroups(TPZCompMesh &cmesh)
     int64_t numgroups = fPartitionCenterNode.size();
     int64_t groupelementindices(numgroups);
     
-    TPZManVector<int64_t> elementgroupindices(numgroups);
+    TPZManVector<int64_t> elementgroupindices(numgroups); 
     
     for (int64_t el=0; el<numgroups; el++) {
         int64_t index;
