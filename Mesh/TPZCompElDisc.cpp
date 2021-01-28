@@ -1008,8 +1008,7 @@ void TPZCompElDisc::ComputeSolution(TPZVec<REAL> &qsi, TPZSolVec &sol, TPZGradSo
 	//this->ComputeSolution(qsi, phix, dphix, axes, sol, dsol);
     
     this->ComputeShape(qsi, data);
-    this->ComputeSolution(qsi, data.phi, data.dphix, data.axes, data.sol, data.dsol);
-    
+    this->ComputeSolution(qsi, data.phi, data.dphix, axes, sol, dsol);    
 }//method
 
 void TPZCompElDisc::ComputeSolution(TPZVec<REAL> &qsi, TPZFMatrix<REAL> &phi, TPZFMatrix<REAL> &dphix,
