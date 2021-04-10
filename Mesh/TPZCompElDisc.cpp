@@ -1023,7 +1023,10 @@ void TPZCompElDisc::ComputeSolution(TPZVec<REAL> &qsi, TPZSolVec &sol, TPZGradSo
 	//this->ComputeSolution(qsi, phix, dphix, axes, sol, dsol);
     
     this->ComputeShape(qsi, data);
-    this->ComputeSolution(qsi, data.phi, data.dphix, data.axes, data.sol, data.dsol);
+//    this->ComputeSolution(qsi, data.phi, data.dphix, data.axes, data.sol, data.dsol);
+	axes = data.axes;
+	this->ComputeSolution(qsi, data.phi, data.dphix, axes, sol, dsol);   // ERRO GRAVE - Esse já tinha sido corrigido
+	// Jorge 9/4/2021 Observar que os argumentos que devem levar a solucao nao foram utilizados
     
 }//method
 
